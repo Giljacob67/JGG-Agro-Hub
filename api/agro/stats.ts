@@ -12,6 +12,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       res,
       computeCrmStats({
         leads: dataset.leads,
+        accounts: dataset.accounts,
         opportunities: dataset.opportunities,
         matters: dataset.matters,
         tasks: dataset.tasks,
