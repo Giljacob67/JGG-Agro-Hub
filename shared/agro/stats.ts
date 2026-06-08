@@ -1,12 +1,12 @@
-import { isOverdue, isWithinDays } from "./date-utils";
-import { OPPORTUNITY_STAGES } from "./seed";
+import { isOverdue, isWithinDays } from "./date-utils.js";
+import { OPPORTUNITY_STAGES } from "./seed.js";
 import {
   listLeads,
   listMatters,
   listOpportunities,
   listTasks,
-} from "./store";
-import type { CrmStats, Lead, Matter, Opportunity, Task } from "./types";
+} from "./store.js";
+import type { CrmStats, Lead, Matter, Opportunity, Task } from "./types.js";
 
 const OPEN_STAGES = new Set(["qualificacao", "proposta", "negociacao"]);
 

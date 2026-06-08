@@ -1,4 +1,4 @@
-import * as memory from "../../shared/agro/store";
+import * as memory from "../../shared/agro/store.js";
 import type {
   Account,
   Lead,
@@ -11,7 +11,7 @@ import type {
   RiskLevel,
   Task,
   TaskStatus,
-} from "../../shared/agro/types";
+} from "../../shared/agro/types.js";
 import { isDbEnabled } from "./db/client";
 import * as db from "./db/repository";
 

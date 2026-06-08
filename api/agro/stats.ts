@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { computeCrmStats } from "../../shared/agro/stats";
+import { computeCrmStats } from "../../shared/agro/stats.js";
 import { loadCrmDataset } from "../_lib/data-service";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http";
 

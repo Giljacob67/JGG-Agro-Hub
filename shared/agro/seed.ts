@@ -4,7 +4,7 @@ import type {
   Matter,
   Opportunity,
   Task,
-} from "./types";
+} from "./types.js";
 
 /** Dados 100% fictícios — cenários Agro JGG Group. Nunca usar clientes reais. */
 

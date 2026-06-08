@@ -5,7 +5,7 @@ import type {
   Opportunity,
   Task,
   TaskStatus,
-} from "../../../shared/agro/types";
+} from "../../../shared/agro/types.js";
 import { getSql } from "./client";
 import {
   mapAccount,

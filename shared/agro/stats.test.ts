@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { computeCrmStats } from "./stats";
-import { resetStore } from "./store";
+import { computeCrmStats } from "./stats.js";
+import { resetStore } from "./store.js";
 
 describe("computeCrmStats", () => {
   it("retorna KPIs coerentes com o seed", () => {

@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import type { TaskStatus } from "../../shared/agro/types";
+import type { TaskStatus } from "../../shared/agro/types.js";
 import {
   getRelatedTasks,
   getTask,

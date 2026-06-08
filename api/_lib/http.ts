@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { resolveSession, roleCanAccess } from "../../shared/agro/auth";
-import type { AgroUser } from "../../shared/agro/types";
+import { resolveSession, roleCanAccess } from "../../shared/agro/auth.js";
+import type { AgroUser } from "../../shared/agro/types.js";
 
 export function getToken(req: VercelRequest): string | undefined {
   const header = req.headers.authorization;

@@ -1,4 +1,4 @@
-import type { AgroRole, AgroUser } from "./types";
+import type { AgroRole, AgroUser } from "./types.js";
 
 interface AuthUserRecord extends AgroUser {
   password: string;

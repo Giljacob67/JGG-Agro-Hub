@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { authenticate } from "../../shared/agro/auth";
+import { authenticate } from "../../shared/agro/auth.js";
 import { json, methodNotAllowed } from "../_lib/http";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {

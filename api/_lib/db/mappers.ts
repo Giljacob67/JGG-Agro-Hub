@@ -4,7 +4,7 @@ import type {
   Matter,
   Opportunity,
   Task,
-} from "../../../shared/agro/types";
+} from "../../../shared/agro/types.js";
 
 function toDateStr(value: unknown): string {
   if (!value) return "";

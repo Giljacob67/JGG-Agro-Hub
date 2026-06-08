@@ -40,5 +40,10 @@
       "permanent": true
     }
   ],
+  "functions": {
+    "api/**/*.ts": {
+      "includeFiles": "shared/**"
+    }
+  },
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

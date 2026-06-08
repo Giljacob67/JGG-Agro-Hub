@@ -4,8 +4,8 @@ import {
   SEED_MATTERS,
   SEED_OPPORTUNITIES,
   SEED_TASKS,
-} from "./seed";
-import type { Account, Lead, Matter, Opportunity, Task } from "./types";
+} from "./seed.js";
+import type { Account, Lead, Matter, Opportunity, Task } from "./types.js";
 
 /** Store em memória — substituível por PostgreSQL via repositório. */
 const store = {
