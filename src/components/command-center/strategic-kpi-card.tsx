@@ -17,7 +17,8 @@ interface StrategicKpiCardProps {
 const severityStyles: Record<InsightSeverity, string> = {
   neutral: "border-card-border",
   attention: "border-accent/35 bg-accent/[0.04]",
-  critical: "border-red-200/80 bg-red-50/40 dark:bg-red-950/10",
+  critical:
+    "border-red-200/80 bg-red-50/40 dark:border-red-900/50 dark:bg-red-950/20",
 };
 
 const severityDot: Record<InsightSeverity, string> = {

@@ -12,6 +12,17 @@
       content="Estratégia jurídica para o agronegócio, do campo ao mercado. Contratos, regularização, patrimônio, crédito rural, ambiental e contencioso estratégico."
     />
     <meta name="theme-color" content="#205A42" />
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      (function () {
+        var key = "jgg-agro-theme";
+        var stored = localStorage.getItem(key);
+        var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        var dark = stored === "dark" || (stored !== "light" && prefersDark);
+        if (dark) document.documentElement.classList.add("dark");
+        document.documentElement.style.colorScheme = dark ? "dark" : "light";
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta property="og:title" content="JGG Agro — Hub Jurídico" />
     <meta

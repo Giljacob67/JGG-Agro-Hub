@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/auth-context";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { ROUTES } from "@/lib/routes";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { JGG_AGRO_HUB_NAME, JGG_GROUP_NAME } from "@/lib/brand";
 
 export default function AgroLoginPage() {
@@ -43,7 +44,10 @@ export default function AgroLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6 bg-muted/20">
+    <div className="min-h-screen flex items-center justify-center p-6 bg-muted/20 relative">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle variant="compact" />
+      </div>
       <Card className="w-full max-w-md p-6 md:p-8">
         <header className="mb-6">
           <p className="text-xs font-semibold uppercase tracking-widest text-primary/80">
@@ -85,7 +89,7 @@ export default function AgroLoginPage() {
             />
           </div>
           {error && (
-            <p className="text-sm text-red-700" role="alert">
+            <p className="text-sm text-red-700 dark:text-red-400" role="alert">
               {error}
             </p>
           )}

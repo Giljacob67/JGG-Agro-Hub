@@ -11,6 +11,7 @@ import {
   JGG_AGRO_COMMAND_CENTER,
   JGG_GROUP_NAME,
 } from "@/lib/brand";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
@@ -100,6 +101,8 @@ export function AppSidebar() {
       </div>
 
       <div className="px-4 py-4 border-t border-sidebar-border space-y-3">
+        <ThemeToggle variant="sidebar" />
+
         <OperationCriticalPanel
           criticalCount={criticalCount}
           overdueTasks={overdueTasks}
@@ -129,6 +132,8 @@ export function AppSidebar() {
     <>
       <div className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 h-14 border-b border-border/50 bg-background/95 backdrop-blur">
         <span className="text-sm font-semibold">{JGG_AGRO_COMMAND_CENTER}</span>
+        <div className="flex items-center gap-1">
+          <ThemeToggle variant="compact" />
         <button
           type="button"
           onClick={() => setMobileOpen((o) => !o)}
@@ -137,6 +142,7 @@ export function AppSidebar() {
         >
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
+        </div>
       </div>
 
       {mobileOpen && (

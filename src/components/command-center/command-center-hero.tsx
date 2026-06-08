@@ -30,8 +30,8 @@ const statusConfig: Record<
 
 const insightBorder: Record<ExecutiveInsight["severity"], string> = {
   neutral: "border-border/80",
-  attention: "border-accent/30",
-  critical: "border-red-200/70",
+  attention: "border-accent/30 dark:border-accent/35",
+  critical: "border-red-200/70 dark:border-red-900/50",
 };
 
 export function CommandCenterHero({

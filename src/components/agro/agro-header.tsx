@@ -8,6 +8,7 @@ import {
   JGG_TRIBUTARIO_LABEL,
   JGG_TRIBUTARIO_URL,
 } from "@/lib/brand";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { ROUTES } from "@/lib/routes";
 
 export function AgroHeader() {
@@ -54,6 +55,7 @@ export function AgroHeader() {
         </nav>
 
         <div className="flex items-center gap-2 shrink-0">
+          <ThemeToggle variant="compact" />
           <a
             href={ROUTES.commandCenter}
             className="hidden md:inline text-xs font-medium text-primary hover:text-primary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-2 py-1"
@@ -125,6 +127,9 @@ export function AgroHeader() {
               >
                 {JGG_TRIBUTARIO_LABEL}
               </a>
+            </li>
+            <li className="py-3">
+              <ThemeToggle />
             </li>
             <li className="pt-2">
               <Button asChild className="w-full">
