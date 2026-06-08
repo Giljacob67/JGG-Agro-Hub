@@ -21,12 +21,12 @@ export function PracticeBreakdownTable({ items, limit = 8 }: PracticeBreakdownPr
   }
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden shadow-none">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/30">
-              <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">
+            <tr className="border-b border-border/80 bg-muted/30">
+              <th className="text-left px-4 py-2.5 text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em]">
                 Área de atuação
               </th>
               <th className="text-right px-4 py-2.5 text-xs font-semibold text-muted-foreground">

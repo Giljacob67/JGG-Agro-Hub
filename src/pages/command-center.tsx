@@ -3,7 +3,6 @@ import {
   AlertTriangle,
   Building2,
   CalendarClock,
-  CheckSquare,
   DollarSign,
   Scale,
   Target,
@@ -11,11 +10,15 @@ import {
   UserPlus,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { AgroIntelligenceCard } from "@/components/command-center/agro-intelligence-card";
+import { CommandCenterHero } from "@/components/command-center/command-center-hero";
+import { ExecutiveSummaryPanel } from "@/components/command-center/executive-summary-panel";
+import { PipelineHealthBoard } from "@/components/command-center/pipeline-health-board";
+import { RiskCommandPanel } from "@/components/command-center/risk-command-panel";
+import { StrategicKpiCard } from "@/components/command-center/strategic-kpi-card";
 import { DashboardSection } from "@/components/crm/dashboard-section";
-import { KpiCard } from "@/components/crm/kpi-card";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { PracticeBreakdownTable } from "@/components/crm/practice-breakdown";
-import { QuickActions } from "@/components/crm/quick-actions";
 import { RegionPortfolioGrid } from "@/components/crm/region-portfolio";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,14 +26,20 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmStats } from "@/hooks/use-crm-queries";
 import { AGRO_PRACTICE_AREAS } from "@/lib/agro-practices";
 import {
+  buildExecutiveInsights,
+  buildIntelligenceCards,
+  buildStrategicKpis,
+  buildWeekSummary,
+  getCriticalOperationCount,
+  getOperationalStatus,
+} from "@/lib/command-intelligence";
+import {
   formatBrl,
   formatDate,
   isOverdue,
   OPPORTUNITY_PRIORITY,
-  RISK_LEVEL,
 } from "@/lib/crm-labels";
 import { ROUTES } from "@/lib/routes";
-import { JGG_AGRO_HUB_NAME, JGG_GROUP_NAME } from "@/lib/brand";
 
 function contactHref(entityType: "lead" | "oportunidade", id: string) {
   return entityType === "lead"
@@ -39,154 +48,134 @@ function contactHref(entityType: "lead" | "oportunidade", id: string) {
 }
 
 export default function CommandCenterPage() {
-  usePageTitle("Dashboard Executivo");
-  const { data: stats, isLoading } = useCrmStats();
+  usePageTitle("JGG Agro Command Center");
+  const { data: stats, isLoading, dataUpdatedAt } = useCrmStats();
 
   if (isLoading || !stats) {
     return (
       <AppShell>
-        <CrmLoadingState label="Carregando dashboard executivo…" />
+        <CrmLoadingState label="Carregando Command Center…" />
       </AppShell>
     );
   }
 
-  const alertCount = stats.riskAlerts.length + stats.overdueTasks;
-  const conversionPct =
-    stats.activeLeads > 0
-      ? Math.round((stats.qualifiedLeads / stats.activeLeads) * 100)
-      : 0;
+  const status = getOperationalStatus(stats);
+  const insights = buildExecutiveInsights(stats);
+  const strategicKpis = buildStrategicKpis(stats);
+  const intelligenceCards = buildIntelligenceCards(stats);
+  const criticalCount = getCriticalOperationCount(stats);
+  const updatedAt = new Date(dataUpdatedAt).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+
+  const kpiIcons = {
+    pipeline: DollarSign,
+    deadlines: AlertTriangle,
+    "priority-opps": Target,
+    matters: Scale,
+  } as const;
+
+  const kpiHrefs = {
+    pipeline: ROUTES.crm.opportunities,
+    deadlines: ROUTES.crm.tasks,
+    "priority-opps": ROUTES.crm.opportunities,
+    matters: ROUTES.crm.matters,
+  } as const;
 
   return (
     <AppShell>
-      <div className="max-w-7xl mx-auto space-y-8">
-        <header className="space-y-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-primary/80">
-              {JGG_GROUP_NAME}
-            </p>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight mt-1">
-              Dashboard Executivo
-            </h1>
-            <p className="text-sm text-muted-foreground mt-2 max-w-3xl">
-              Gestão jurídica e comercial do {JGG_AGRO_HUB_NAME} — carteira,
-              pipeline, demandas e prazos do agronegócio.
+      <div className="max-w-[88rem] mx-auto space-y-8">
+        <CommandCenterHero
+          status={status}
+          updatedAt={updatedAt}
+          weekSummary={buildWeekSummary(stats)}
+          insights={insights}
+          criticalCount={criticalCount}
+        />
+
+        <ExecutiveSummaryPanel stats={stats} />
+
+        <section>
+          <div className="mb-4">
+            <p className="text-label-caps">Indicadores estratégicos</p>
+            <h2 className="text-lg font-semibold tracking-tight mt-1">
+              KPIs da operação Agro
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
+            {strategicKpis.map((kpi) => (
+              <StrategicKpiCard
+                key={kpi.id}
+                label={kpi.label}
+                value={kpi.value}
+                context={kpi.context}
+                observation={kpi.observation}
+                icon={kpiIcons[kpi.id as keyof typeof kpiIcons]}
+                href={kpiHrefs[kpi.id as keyof typeof kpiHrefs]}
+                highlight={kpi.highlight}
+                severity={kpi.severity}
+              />
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-4">
+            <p className="text-label-caps">Camada analítica</p>
+            <h2 className="text-lg font-semibold tracking-tight mt-1">
+              Inteligência da operação
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
+              Leituras derivadas da carteira — gargalos, riscos, relacionamento e
+              impacto comercial.
             </p>
           </div>
-          <QuickActions />
-        </header>
-
-        {alertCount > 0 && (
-          <div className="rounded-xl border border-accent/30 bg-accent/8 p-4 md:p-5">
-            <div className="flex items-start gap-3">
-              <AlertTriangle className="w-5 h-5 text-accent shrink-0 mt-0.5" />
-              <div className="flex-1 space-y-2">
-                <p className="text-sm font-semibold">
-                  Alertas de prazo, risco e urgência ({alertCount})
-                </p>
-                <ul className="text-sm text-muted-foreground space-y-1.5">
-                  {stats.riskAlerts.map((m) => (
-                    <li key={m.id}>
-                      <Link
-                        href={ROUTES.crm.matterDetail(m.id)}
-                        className="font-medium text-foreground hover:text-primary hover:underline"
-                      >
-                        {m.title}
-                      </Link>{" "}
-                      — prazo {formatDate(m.deadline)} · risco{" "}
-                      {RISK_LEVEL[m.risk].toLowerCase()}
-                    </li>
-                  ))}
-                  {stats.overdueTasksList.map((t) => (
-                    <li key={t.id}>
-                      Tarefa vencida:{" "}
-                      <Link
-                        href={ROUTES.crm.tasks}
-                        className="font-medium text-foreground hover:text-primary hover:underline"
-                      >
-                        {t.title}
-                      </Link>{" "}
-                      — {formatDate(t.dueDate)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+          <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+            {intelligenceCards.map((card) => (
+              <AgroIntelligenceCard key={card.id} data={card} />
+            ))}
           </div>
-        )}
+        </section>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-          <KpiCard
+        <PipelineHealthBoard stages={stats.pipelineByStage} />
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <StrategicKpiCard
             label="Contas ativas"
             value={stats.activeAccounts}
+            context="Carteira de relacionamento"
+            observation={`${stats.portfolioByRegion.length} regiões ativas`}
             icon={Building2}
             href={ROUTES.crm.accounts}
           />
-          <KpiCard
+          <StrategicKpiCard
             label="Leads ativos"
             value={stats.activeLeads}
-            sublabel={`${conversionPct}% qualificados`}
+            context={`${stats.qualifiedLeads} qualificados`}
+            observation="Base comercial em prospecção"
             icon={UserPlus}
             href={ROUTES.crm.leads}
           />
-          <KpiCard
-            label="Oportunidades"
-            value={stats.openOpportunities}
-            icon={Target}
-            href={ROUTES.crm.opportunities}
-          />
-          <KpiCard
-            label="Pipeline aberto"
-            value={formatBrl(stats.pipelineValue)}
-            icon={DollarSign}
-            href={ROUTES.crm.opportunities}
-            highlight
-          />
-          <KpiCard
+          <StrategicKpiCard
             label="Fechado (contrato)"
             value={formatBrl(stats.closedValue)}
+            context="Receita contratada no período"
             icon={TrendingUp}
             href={ROUTES.crm.opportunities}
           />
-          <KpiCard
-            label="Demandas ativas"
-            value={stats.activeMatters}
-            icon={Scale}
-            href={ROUTES.crm.matters}
-          />
-          <KpiCard
-            label="Tarefas vencidas"
-            value={stats.overdueTasks}
-            icon={CheckSquare}
-            href={ROUTES.crm.tasks}
-            highlight={stats.overdueTasks > 0}
-          />
-          <KpiCard
+          <StrategicKpiCard
             label="Tarefas — 7 dias"
             value={stats.upcomingTasks}
+            context="Ações previstas na semana"
+            observation={`${stats.overdueTasks} vencida${stats.overdueTasks !== 1 ? "s" : ""}`}
             icon={CalendarClock}
             href={ROUTES.crm.tasks}
+            severity={stats.overdueTasks > 0 ? "attention" : "neutral"}
           />
         </div>
-
-        <DashboardSection
-          title="Pipeline por fase"
-          href={ROUTES.crm.opportunities}
-          linkLabel="Ver pipeline"
-        >
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {stats.pipelineByStage.map((stage) => (
-              <Card key={stage.id} className="p-4">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                  {stage.label}
-                </p>
-                <p className="text-xl font-bold mt-1 tabular-nums">{stage.count}</p>
-                <p className="text-xs text-muted-foreground mt-1 tabular-nums">
-                  {formatBrl(stage.value)}
-                </p>
-              </Card>
-            ))}
-          </div>
-        </DashboardSection>
 
         <div className="grid lg:grid-cols-2 gap-6">
           <DashboardSection
@@ -214,7 +203,10 @@ export default function CommandCenterPage() {
           >
             <div className="space-y-3">
               {stats.priorityOpportunities.map((o) => (
-                <Card key={o.id} className="p-4 hover:border-primary/25 transition-colors">
+                <Card
+                  key={o.id}
+                  className="p-4 hover:border-primary/20 transition-colors shadow-none"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <Link
@@ -255,14 +247,14 @@ export default function CommandCenterPage() {
           >
             <div className="space-y-3">
               {stats.upcomingContacts.length === 0 ? (
-                <Card className="p-4 border-dashed">
+                <Card className="p-4 border-dashed shadow-none">
                   <p className="text-sm text-muted-foreground text-center">
                     Nenhum contato agendado nos próximos 14 dias.
                   </p>
                 </Card>
               ) : (
                 stats.upcomingContacts.slice(0, 6).map((c) => (
-                  <Card key={`${c.entityType}-${c.id}`} className="p-4">
+                  <Card key={`${c.entityType}-${c.id}`} className="p-4 shadow-none">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <Link
@@ -288,7 +280,7 @@ export default function CommandCenterPage() {
           <DashboardSection title="Demandas com prazo próximo" href={ROUTES.crm.matters}>
             <div className="space-y-3">
               {stats.upcomingMatters.slice(0, 5).map((m) => (
-                <Card key={m.id} className="p-4">
+                <Card key={m.id} className="p-4 shadow-none">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <Link
@@ -318,50 +310,50 @@ export default function CommandCenterPage() {
             </div>
           </DashboardSection>
 
-          <DashboardSection title="Tarefas críticas" href={ROUTES.crm.tasks}>
-            <div className="space-y-3">
-              {[...stats.overdueTasksList, ...stats.upcomingTasksList]
-                .slice(0, 6)
-                .map((t) => (
-                  <Card key={t.id} className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate">{t.title}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {t.owner} · {t.relatedTo}
-                        </p>
-                      </div>
-                      <Badge
-                        variant={
-                          t.status === "atrasada" || isOverdue(t.dueDate)
-                            ? "danger"
-                            : "outline"
-                        }
-                      >
-                        {formatDate(t.dueDate)}
-                      </Badge>
-                    </div>
-                  </Card>
-                ))}
-            </div>
-          </DashboardSection>
+          <RiskCommandPanel stats={stats} />
         </div>
 
         <section>
-          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-widest mb-3">
-            Áreas de atuação Agro
-          </h2>
+          <h2 className="text-label-caps mb-3">Áreas de atuação Agro</h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
             {AGRO_PRACTICE_AREAS.map((area) => (
               <div
                 key={area.id}
-                className="rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-xs text-muted-foreground"
+                className="surface-inset px-3 py-2.5 text-xs text-muted-foreground"
               >
                 {area.label}
               </div>
             ))}
           </div>
         </section>
+
+        <DashboardSection title="Tarefas críticas" href={ROUTES.crm.tasks}>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {[...stats.overdueTasksList, ...stats.upcomingTasksList]
+              .slice(0, 6)
+              .map((t) => (
+                <Card key={t.id} className="p-4 shadow-none">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{t.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {t.owner} · {t.relatedTo}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={
+                        t.status === "atrasada" || isOverdue(t.dueDate)
+                          ? "danger"
+                          : "outline"
+                      }
+                    >
+                      {formatDate(t.dueDate)}
+                    </Badge>
+                  </div>
+                </Card>
+              ))}
+          </div>
+        </DashboardSection>
       </div>
     </AppShell>
   );

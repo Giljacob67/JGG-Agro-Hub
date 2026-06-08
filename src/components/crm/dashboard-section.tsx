@@ -21,13 +21,17 @@ export function DashboardSection({
 }: DashboardSectionProps) {
   return (
     <section>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-bold tracking-tight">{title}</h2>
-          {count !== undefined && <Badge variant="muted">{count}</Badge>}
+      <div className="flex items-center justify-between gap-4 mb-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+          {count !== undefined && (
+            <Badge variant="muted" className="tabular-nums">
+              {count}
+            </Badge>
+          )}
         </div>
         {href && (
-          <Button variant="outline" size="sm" asChild>
+          <Button variant="outline" size="sm" asChild className="shadow-none shrink-0">
             <Link href={href}>
               {linkLabel} <ArrowRight className="w-3.5 h-3.5" />
             </Link>

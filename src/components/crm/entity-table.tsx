@@ -26,23 +26,23 @@ export function EntityTable<T extends { id: string }>({
 }: EntityTableProps<T>) {
   if (data.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground py-12 text-center border border-dashed border-border rounded-xl">
+      <p className="text-sm text-muted-foreground py-12 text-center border border-dashed border-border/80 rounded-xl bg-muted/15">
         {isFiltered ? filteredEmptyMessage : emptyMessage}
       </p>
     );
   }
 
   return (
-    <div className="border border-border rounded-xl overflow-hidden bg-card">
+    <div className="border border-card-border rounded-xl overflow-hidden bg-card shadow-none">
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border bg-muted/40">
+            <tr className="border-b border-border/80 bg-muted/30">
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={cn(
-                    "text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap",
+                    "text-left px-4 py-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em] whitespace-nowrap",
                     col.className,
                   )}
                 >
@@ -56,7 +56,7 @@ export function EntityTable<T extends { id: string }>({
               <tr
                 key={row.id}
                 className={cn(
-                  "border-b border-border/60 last:border-0 hover:bg-muted/20 transition-colors",
+                  "border-b border-border/50 last:border-0 hover:bg-muted/25 transition-colors",
                   getRowClassName?.(row),
                 )}
               >

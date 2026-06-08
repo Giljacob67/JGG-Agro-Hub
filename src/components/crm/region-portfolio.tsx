@@ -13,8 +13,8 @@ export function RegionPortfolioGrid({ items, limit = 6 }: RegionPortfolioProps) 
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
       {rows.map((row) => (
-        <Card key={row.region} className="p-4">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide">
+        <Card key={row.region} className="p-4 hover:border-primary/15 transition-colors">
+          <p className="text-[10px] text-muted-foreground uppercase tracking-[0.12em]">
             {row.region}
           </p>
           <p className="text-lg font-bold mt-1 tabular-nums">

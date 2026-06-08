@@ -14,21 +14,49 @@ export interface NavItem {
   path: string;
   label: string;
   icon: LucideIcon;
+  resource?: string;
 }
 
-export const MAIN_NAV: NavItem[] = [
+export interface NavGroup {
+  id: string;
+  label: string;
+  items: NavItem[];
+}
+
+export const INTELLIGENCE_NAV: NavItem[] = [
   {
     path: ROUTES.commandCenter,
-    label: "Dashboard Executivo",
+    label: "Command Center",
     icon: LayoutDashboard,
+    resource: "stats",
   },
-  { path: ROUTES.crm.root, label: "CRM Agro", icon: Users },
 ];
 
 export const CRM_NAV: NavItem[] = [
-  { path: ROUTES.crm.leads, label: "Leads", icon: UserPlus },
-  { path: ROUTES.crm.accounts, label: "Contas", icon: Building2 },
-  { path: ROUTES.crm.opportunities, label: "Oportunidades", icon: Target },
-  { path: ROUTES.crm.matters, label: "Demandas jurídicas", icon: Scale },
-  { path: ROUTES.crm.tasks, label: "Tarefas", icon: CheckSquare },
+  { path: ROUTES.crm.root, label: "Visão CRM", icon: Users, resource: "crm" },
+  { path: ROUTES.crm.leads, label: "Leads", icon: UserPlus, resource: "leads" },
+  { path: ROUTES.crm.accounts, label: "Contas", icon: Building2, resource: "accounts" },
+  {
+    path: ROUTES.crm.opportunities,
+    label: "Oportunidades",
+    icon: Target,
+    resource: "opportunities",
+  },
+];
+
+export const OPERATION_NAV: NavItem[] = [
+  { path: ROUTES.crm.matters, label: "Demandas jurídicas", icon: Scale, resource: "matters" },
+  { path: ROUTES.crm.tasks, label: "Tarefas", icon: CheckSquare, resource: "tasks" },
+];
+
+export const NAV_GROUPS: NavGroup[] = [
+  { id: "intelligence", label: "Inteligência", items: INTELLIGENCE_NAV },
+  { id: "crm", label: "CRM Agro", items: CRM_NAV },
+  { id: "operation", label: "Operação", items: OPERATION_NAV },
+];
+
+/** @deprecated Use NAV_GROUPS */
+export const MAIN_NAV: NavItem[] = [
+  ...INTELLIGENCE_NAV,
+  { path: ROUTES.crm.root, label: "CRM Agro", icon: Users },
 ];

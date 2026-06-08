@@ -1,12 +1,17 @@
-import { useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
-/** Mantém página atual e reseta para 1 quando filtros/busca mudam. */
+/** Mantém página por combinação de filtros e reseta para 1 quando filtros mudam. */
 export function useCrmListPage(...resetDeps: unknown[]) {
-  const [page, setPage] = useState(1);
+  const filterKey = JSON.stringify(resetDeps);
+  const [pageByFilter, setPageByFilter] = useState<Record<string, number>>({});
 
-  useEffect(() => {
-    setPage(1);
-  }, resetDeps);
+  const page = pageByFilter[filterKey] ?? 1;
+  const setPage = useCallback(
+    (next: number) => {
+      setPageByFilter((prev) => ({ ...prev, [filterKey]: next }));
+    },
+    [filterKey],
+  );
 
   return { page, setPage };
 }
