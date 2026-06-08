@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getMatter, listMatters, updateMatter } from "../_lib/data-service.js";
+import { parseMatterListQuery } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -12,7 +13,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!matter) return json(res, { error: "Demanda não encontrada" }, 404);
       return json(res, matter);
     }
-    return json(res, await listMatters());
+    return json(res, await listMatters(parseMatterListQuery(req)));
   }
 
   if (req.method === "PATCH") {

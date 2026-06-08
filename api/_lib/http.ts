@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { resolveSession, roleCanAccess } from "../../shared/agro/auth.js";
+import { resolveSession, roleCanAccess } from "./auth-server.js";
 import type { AgroUser } from "../../shared/agro/types.js";
 
 export function getToken(req: VercelRequest): string | undefined {

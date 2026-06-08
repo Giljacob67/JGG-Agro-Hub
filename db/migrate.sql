@@ -6,7 +6,7 @@ CREATE SCHEMA IF NOT EXISTS agro;
 DO $$ BEGIN CREATE TYPE agro.lead_status AS ENUM ('novo','qualificando','qualificado','descartado');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-DO $$ BEGIN CREATE TYPE agro.opportunity_stage AS ENUM ('qualificacao','proposta','negociacao','contrato','perdido');
+DO $$ BEGIN CREATE TYPE agro.opportunity_stage AS ENUM ('novo_contato','diagnostico_agendado','diagnostico_realizado','proposta_elaboracao','proposta_enviada','negociacao','contrato','perdido','arquivado');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN CREATE TYPE agro.matter_status AS ENUM ('aberta','em_andamento','aguardando','concluida');
@@ -23,6 +23,23 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 DO $$ BEGIN CREATE TYPE agro.account_type AS ENUM ('produtor','familia','cooperativa','agroindustria','trading','investidor');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN CREATE TYPE agro.lead_priority AS ENUM ('baixa','media','alta');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN CREATE TYPE agro.matter_urgency AS ENUM ('normal','alta','critica');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN CREATE TYPE agro.relationship_status AS ENUM ('ativo','em_expansao','em_risco','inativo');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- Novos valores do pipeline (instalações legadas)
+DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'novo_contato'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'diagnostico_agendado'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'diagnostico_realizado'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'proposta_elaboracao'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'proposta_enviada'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'arquivado'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 CREATE TABLE IF NOT EXISTS agro.accounts (
   id TEXT PRIMARY KEY,
@@ -103,3 +120,26 @@ CREATE INDEX IF NOT EXISTS idx_matters_account ON agro.matters(account_id);
 CREATE INDEX IF NOT EXISTS idx_tasks_related ON agro.tasks(related_to);
 CREATE INDEX IF NOT EXISTS idx_matters_deadline ON agro.matters(deadline);
 CREATE INDEX IF NOT EXISTS idx_tasks_due ON agro.tasks(due_date);
+
+-- Campos enriquecidos (idempotente em bases existentes)
+ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS properties JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS contracted_areas JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS mapped_risks JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS relationship_status agro.relationship_status;
+
+ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS lead_type TEXT;
+ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS legal_pain TEXT;
+ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS interest_area TEXT;
+ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS priority agro.lead_priority;
+
+ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS probability SMALLINT;
+ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS next_step TEXT;
+
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS urgency agro.matter_urgency;
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS pending_documents JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS next_steps TEXT;
+
+-- Normaliza stages legados
+UPDATE agro.opportunities SET stage = 'proposta_elaboracao' WHERE stage::text = 'proposta';
+UPDATE agro.opportunities SET stage = 'diagnostico_agendado' WHERE stage::text = 'qualificacao';

@@ -1,11 +1,17 @@
 export type LeadStatus = "novo" | "qualificando" | "qualificado" | "descartado";
+export type LeadPriority = "baixa" | "media" | "alta";
 export type OpportunityStage =
-  | "qualificacao"
-  | "proposta"
+  | "novo_contato"
+  | "diagnostico_agendado"
+  | "diagnostico_realizado"
+  | "proposta_elaboracao"
+  | "proposta_enviada"
   | "negociacao"
   | "contrato"
-  | "perdido";
+  | "perdido"
+  | "arquivado";
 export type MatterStatus = "aberta" | "em_andamento" | "aguardando" | "concluida";
+export type MatterUrgency = "normal" | "alta" | "critica";
 export type RiskLevel = "baixo" | "medio" | "alto" | "critico";
 export type TaskPriority = "baixa" | "media" | "alta" | "urgente";
 export type TaskStatus = "pendente" | "em_andamento" | "concluida" | "atrasada";
@@ -16,6 +22,11 @@ export type AccountType =
   | "agroindustria"
   | "trading"
   | "investidor";
+export type RelationshipStatus =
+  | "ativo"
+  | "em_expansao"
+  | "em_risco"
+  | "inativo";
 export type OpportunityPriority = "normal" | "alta";
 export type AgroRole = "gestao" | "comercial" | "juridico";
 
@@ -32,6 +43,10 @@ export interface Lead {
   nextContact: string | null;
   notes: string;
   accountId?: string | null;
+  leadType?: string;
+  legalPain?: string;
+  interestArea?: string;
+  priority?: LeadPriority;
 }
 
 export interface Account {
@@ -45,6 +60,11 @@ export interface Account {
   activeMatters: number;
   activeOpportunities: number;
   since: string;
+  properties?: string[];
+  contacts?: string[];
+  contractedAreas?: string[];
+  mappedRisks?: string[];
+  relationshipStatus?: RelationshipStatus;
 }
 
 export interface Opportunity {
@@ -59,6 +79,8 @@ export interface Opportunity {
   nextContact: string | null;
   priority: OpportunityPriority;
   practice: string;
+  probability?: number;
+  nextStep?: string;
 }
 
 export interface Matter {
@@ -72,6 +94,9 @@ export interface Matter {
   deadline: string;
   owner: string;
   description: string;
+  urgency?: MatterUrgency;
+  pendingDocuments?: string[];
+  nextSteps?: string;
 }
 
 export interface Task {
@@ -104,6 +129,8 @@ export interface RegionPortfolio {
   accounts: number;
   pipelineValue: number;
 }
+
+export type { PaginatedResult } from "./list-types.js";
 
 export interface CrmStats {
   activeLeads: number;

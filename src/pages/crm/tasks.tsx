@@ -1,37 +1,67 @@
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
+import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useTasks, useUpdateTaskStatus } from "@/hooks/use-crm-queries";
 import {
   TASK_STATUS,
   TASK_PRIORITY,
   formatDate,
+  isTaskOverdue,
+  isWithinDays,
   priorityBadgeVariant,
 } from "@/lib/crm-labels";
-import type { TaskStatus } from "@shared/agro/types";
+import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
+import type { TaskPriority, TaskStatus } from "@shared/agro/types";
 
 export default function CrmTasksPage() {
   usePageTitle("Tarefas");
-  const { data: tasks = [], isLoading } = useTasks();
   const updateStatus = useUpdateTaskStatus();
   const [search, setSearch] = useState("");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState(FILTER_ALL);
+  const [priorityFilter, setPriorityFilter] = useState(FILTER_ALL);
+  const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
+  const [typeFilter, setTypeFilter] = useState(FILTER_ALL);
+  const [dueFilter, setDueFilter] = useState(FILTER_ALL);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return tasks.filter((t) => {
-      const matchSearch =
-        !q ||
-        t.title.toLowerCase().includes(q) ||
-        t.owner.toLowerCase().includes(q);
-      const matchType = typeFilter === "all" || t.type === typeFilter;
-      return matchSearch && matchType;
-    });
-  }, [tasks, search, typeFilter]);
+  const debouncedSearch = useDebouncedValue(search);
+
+  const listParams = useMemo(
+    () => ({
+      facets: true,
+      page: 1,
+      pageSize: 100,
+      search: debouncedSearch.trim() || undefined,
+      status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
+      priority: priorityFilter !== FILTER_ALL ? priorityFilter : undefined,
+      owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
+      type: typeFilter !== FILTER_ALL ? typeFilter : undefined,
+      due: dueFilter !== FILTER_ALL ? dueFilter : undefined,
+    }),
+    [
+      debouncedSearch,
+      statusFilter,
+      priorityFilter,
+      ownerFilter,
+      typeFilter,
+      dueFilter,
+    ],
+  );
+
+  const { data, isLoading } = useTasks(listParams);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const facets = data?.facets;
+
+  const isFiltered = hasActiveFilters(
+    { statusFilter, priorityFilter, ownerFilter, typeFilter, dueFilter },
+    search,
+  );
 
   return (
     <AppShell>
@@ -42,29 +72,102 @@ export default function CrmTasksPage() {
             Ações do time — comercial, jurídica e operacional.
           </p>
         </header>
-        <CrmFilters search={search} onSearchChange={setSearch} placeholder="Buscar tarefa...">
-          <select
+        <CrmFilters
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Buscar tarefa..."
+          filteredCount={items.length}
+          totalCount={total}
+        >
+          <FilterSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            label="Filtrar por status"
+            options={[
+              { value: FILTER_ALL, label: "Todos os status" },
+              ...(Object.entries(TASK_STATUS) as [TaskStatus, string][]).map(
+                ([value, label]) => ({ value, label }),
+              ),
+            ]}
+          />
+          <FilterSelect
+            value={priorityFilter}
+            onChange={setPriorityFilter}
+            label="Filtrar por prioridade"
+            options={[
+              { value: FILTER_ALL, label: "Todas as prioridades" },
+              ...(Object.entries(TASK_PRIORITY) as [TaskPriority, string][]).map(
+                ([value, label]) => ({ value, label }),
+              ),
+            ]}
+          />
+          <FilterSelect
+            value={ownerFilter}
+            onChange={setOwnerFilter}
+            label="Filtrar por responsável"
+            options={[
+              { value: FILTER_ALL, label: "Todos os responsáveis" },
+              ...(facets?.owners ?? []).map((o) => ({ value: o, label: o })),
+            ]}
+          />
+          <FilterSelect
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-            aria-label="Filtrar por tipo"
-          >
-            <option value="all">Todos os tipos</option>
-            <option value="comercial">Comercial</option>
-            <option value="juridica">Jurídica</option>
-            <option value="operacional">Operacional</option>
-          </select>
+            onChange={setTypeFilter}
+            label="Filtrar por tipo"
+            options={[
+              { value: FILTER_ALL, label: "Todos os tipos" },
+              { value: "comercial", label: "Comercial" },
+              { value: "juridica", label: "Jurídica" },
+              { value: "operacional", label: "Operacional" },
+            ]}
+          />
+          <FilterSelect
+            value={dueFilter}
+            onChange={setDueFilter}
+            label="Filtrar por prazo"
+            options={[
+              { value: FILTER_ALL, label: "Todos os prazos" },
+              { value: "vencidas", label: "Vencidas" },
+              { value: "proximas", label: "Próximas (7 dias)" },
+            ]}
+          />
         </CrmFilters>
         {isLoading ? (
           <CrmLoadingState />
         ) : (
           <EntityTable
-            data={filtered}
+            data={items}
+            isFiltered={isFiltered}
+            getRowClassName={(r) =>
+              isTaskOverdue(r) ? "bg-red-50/60 dark:bg-red-950/20" : undefined
+            }
             columns={[
-              { key: "title", header: "Tarefa", cell: (r) => <span className="font-medium">{r.title}</span> },
-              { key: "related", header: "Vínculo", cell: (r) => <span className="font-mono text-xs">{r.relatedTo}</span> },
-              { key: "type", header: "Tipo", cell: (r) => <Badge variant="secondary">{r.type}</Badge> },
-              { key: "priority", header: "Prioridade", cell: (r) => <Badge variant={priorityBadgeVariant(r.priority)}>{TASK_PRIORITY[r.priority]}</Badge> },
+              {
+                key: "title",
+                header: "Tarefa",
+                cell: (r) => <span className="font-medium">{r.title}</span>,
+              },
+              {
+                key: "related",
+                header: "Vínculo",
+                cell: (r) => (
+                  <span className="font-mono text-xs">{r.relatedTo}</span>
+                ),
+              },
+              {
+                key: "type",
+                header: "Tipo",
+                cell: (r) => <Badge variant="secondary">{r.type}</Badge>,
+              },
+              {
+                key: "priority",
+                header: "Prioridade",
+                cell: (r) => (
+                  <Badge variant={priorityBadgeVariant(r.priority)}>
+                    {TASK_PRIORITY[r.priority]}
+                  </Badge>
+                ),
+              },
               {
                 key: "status",
                 header: "Status",
@@ -89,7 +192,23 @@ export default function CrmTasksPage() {
                   </select>
                 ),
               },
-              { key: "due", header: "Prazo", cell: (r) => formatDate(r.dueDate) },
+              {
+                key: "due",
+                header: "Prazo",
+                cell: (r) => (
+                  <span
+                    className={
+                      isTaskOverdue(r)
+                        ? "text-red-700 dark:text-red-400 font-medium"
+                        : isWithinDays(r.dueDate, 3) && r.status !== "concluida"
+                          ? "font-medium"
+                          : ""
+                    }
+                  >
+                    {formatDate(r.dueDate)}
+                  </span>
+                ),
+              },
               { key: "owner", header: "Responsável", cell: (r) => r.owner },
             ]}
           />

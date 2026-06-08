@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { resolveSession } from "../../shared/agro/auth.js";
+import { resolveSession } from "../_lib/auth-server.js";
 import { getToken, json, methodNotAllowed } from "../_lib/http.js";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {

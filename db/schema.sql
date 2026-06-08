@@ -7,8 +7,17 @@ CREATE TYPE agro.lead_status AS ENUM (
   'novo', 'qualificando', 'qualificado', 'descartado'
 );
 
+-- Migração futura: ALTER TYPE ... ADD VALUE para ambientes com enum legado 'proposta'
 CREATE TYPE agro.opportunity_stage AS ENUM (
-  'qualificacao', 'proposta', 'negociacao', 'contrato', 'perdido'
+  'novo_contato',
+  'diagnostico_agendado',
+  'diagnostico_realizado',
+  'proposta_elaboracao',
+  'proposta_enviada',
+  'negociacao',
+  'contrato',
+  'perdido',
+  'arquivado'
 );
 
 CREATE TYPE agro.matter_status AS ENUM (
@@ -29,6 +38,14 @@ CREATE TYPE agro.account_type AS ENUM (
 
 CREATE TYPE agro.user_role AS ENUM ('gestao', 'comercial', 'juridico');
 
+CREATE TYPE agro.lead_priority AS ENUM ('baixa', 'media', 'alta');
+
+CREATE TYPE agro.matter_urgency AS ENUM ('normal', 'alta', 'critica');
+
+CREATE TYPE agro.relationship_status AS ENUM (
+  'ativo', 'em_expansao', 'em_risco', 'inativo'
+);
+
 CREATE TABLE agro.users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
@@ -47,6 +64,11 @@ CREATE TABLE agro.accounts (
   main_crop TEXT,
   owner TEXT NOT NULL,
   since TEXT,
+  properties JSONB DEFAULT '[]'::jsonb,
+  contacts JSONB DEFAULT '[]'::jsonb,
+  contracted_areas JSONB DEFAULT '[]'::jsonb,
+  mapped_risks JSONB DEFAULT '[]'::jsonb,
+  relationship_status agro.relationship_status,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -63,6 +85,10 @@ CREATE TABLE agro.leads (
   account_id TEXT REFERENCES agro.accounts(id) ON DELETE SET NULL,
   next_contact DATE,
   notes TEXT,
+  lead_type TEXT,
+  legal_pain TEXT,
+  interest_area TEXT,
+  priority agro.lead_priority,
   created_at DATE NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -79,6 +105,8 @@ CREATE TABLE agro.opportunities (
   next_contact DATE,
   priority TEXT NOT NULL DEFAULT 'normal',
   practice TEXT,
+  probability SMALLINT CHECK (probability IS NULL OR (probability >= 0 AND probability <= 100)),
+  next_step TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -94,6 +122,9 @@ CREATE TABLE agro.matters (
   deadline DATE NOT NULL,
   owner TEXT NOT NULL,
   description TEXT,
+  urgency agro.matter_urgency,
+  pending_documents JSONB DEFAULT '[]'::jsonb,
+  next_steps TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

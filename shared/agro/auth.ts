@@ -4,7 +4,10 @@ interface AuthUserRecord extends AgroUser {
   password: string;
 }
 
-/** Senha dev/mock — substituir por hash + SSO em produção. */
+/**
+ * Autenticação legada para DX no browser (local-handlers).
+ * Em produção a API usa api/_lib/auth-server.ts (scrypt + HMAC).
+ */
 const DEV_PASSWORD = "jgg-agro-dev";
 
 const USERS: AuthUserRecord[] = [

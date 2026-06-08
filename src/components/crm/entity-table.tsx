@@ -11,17 +11,23 @@ interface EntityTableProps<T> {
   columns: Column<T>[];
   data: T[];
   emptyMessage?: string;
+  filteredEmptyMessage?: string;
+  isFiltered?: boolean;
+  getRowClassName?: (row: T) => string | undefined;
 }
 
 export function EntityTable<T extends { id: string }>({
   columns,
   data,
   emptyMessage = "Nenhum registro encontrado.",
+  filteredEmptyMessage = "Nenhum resultado com os filtros atuais.",
+  isFiltered = false,
+  getRowClassName,
 }: EntityTableProps<T>) {
   if (data.length === 0) {
     return (
       <p className="text-sm text-muted-foreground py-12 text-center border border-dashed border-border rounded-xl">
-        {emptyMessage}
+        {isFiltered ? filteredEmptyMessage : emptyMessage}
       </p>
     );
   }
@@ -36,7 +42,7 @@ export function EntityTable<T extends { id: string }>({
                 <th
                   key={col.key}
                   className={cn(
-                    "text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide",
+                    "text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap",
                     col.className,
                   )}
                 >
@@ -49,7 +55,10 @@ export function EntityTable<T extends { id: string }>({
             {data.map((row) => (
               <tr
                 key={row.id}
-                className="border-b border-border/60 last:border-0 hover:bg-muted/20 transition-colors"
+                className={cn(
+                  "border-b border-border/60 last:border-0 hover:bg-muted/20 transition-colors",
+                  getRowClassName?.(row),
+                )}
               >
                 {columns.map((col) => (
                   <td key={col.key} className={cn("px-4 py-3", col.className)}>

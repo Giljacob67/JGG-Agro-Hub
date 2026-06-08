@@ -2,38 +2,66 @@ import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
+import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useMatters } from "@/hooks/use-crm-queries";
 import {
   MATTER_STATUS,
   RISK_LEVEL,
   formatDate,
-  isOverdue,
+  isCriticalDeadline,
   riskBadgeVariant,
 } from "@/lib/crm-labels";
+import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { ROUTES } from "@/lib/routes";
+import type { MatterStatus, RiskLevel } from "@shared/agro/types";
 
 export default function CrmMattersPage() {
   usePageTitle("Demandas jurídicas");
-  const { data: matters = [], isLoading } = useMatters();
   const [search, setSearch] = useState("");
-  const [riskFilter, setRiskFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState(FILTER_ALL);
+  const [riskFilter, setRiskFilter] = useState(FILTER_ALL);
+  const [practiceFilter, setPracticeFilter] = useState(FILTER_ALL);
+  const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
+  const [deadlineFilter, setDeadlineFilter] = useState(FILTER_ALL);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return matters.filter((m) => {
-      const matchSearch =
-        !q ||
-        m.title.toLowerCase().includes(q) ||
-        m.accountName.toLowerCase().includes(q) ||
-        m.practice.toLowerCase().includes(q);
-      const matchRisk = riskFilter === "all" || m.risk === riskFilter;
-      return matchSearch && matchRisk;
-    });
-  }, [matters, search, riskFilter]);
+  const debouncedSearch = useDebouncedValue(search);
+
+  const listParams = useMemo(
+    () => ({
+      facets: true,
+      page: 1,
+      pageSize: 100,
+      search: debouncedSearch.trim() || undefined,
+      status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
+      risk: riskFilter !== FILTER_ALL ? riskFilter : undefined,
+      practice: practiceFilter !== FILTER_ALL ? practiceFilter : undefined,
+      owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
+      deadline: deadlineFilter !== FILTER_ALL ? deadlineFilter : undefined,
+    }),
+    [
+      debouncedSearch,
+      statusFilter,
+      riskFilter,
+      practiceFilter,
+      ownerFilter,
+      deadlineFilter,
+    ],
+  );
+
+  const { data, isLoading } = useMatters(listParams);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const facets = data?.facets;
+
+  const isFiltered = hasActiveFilters(
+    { statusFilter, riskFilter, practiceFilter, ownerFilter, deadlineFilter },
+    search,
+  );
 
   return (
     <AppShell>
@@ -44,25 +72,76 @@ export default function CrmMattersPage() {
             Matters em aberto — prazos, riscos e status operacional.
           </p>
         </header>
-        <CrmFilters search={search} onSearchChange={setSearch} placeholder="Buscar demanda...">
-          <select
+        <CrmFilters
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Buscar demanda..."
+          filteredCount={items.length}
+          totalCount={total}
+        >
+          <FilterSelect
+            value={statusFilter}
+            onChange={setStatusFilter}
+            label="Filtrar por status"
+            options={[
+              { value: FILTER_ALL, label: "Todos os status" },
+              ...(Object.entries(MATTER_STATUS) as [MatterStatus, string][]).map(
+                ([value, label]) => ({ value, label }),
+              ),
+            ]}
+          />
+          <FilterSelect
             value={riskFilter}
-            onChange={(e) => setRiskFilter(e.target.value)}
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-            aria-label="Filtrar por risco"
-          >
-            <option value="all">Todos os riscos</option>
-            <option value="critico">Crítico</option>
-            <option value="alto">Alto</option>
-            <option value="medio">Médio</option>
-            <option value="baixo">Baixo</option>
-          </select>
+            onChange={setRiskFilter}
+            label="Filtrar por risco"
+            options={[
+              { value: FILTER_ALL, label: "Todos os riscos" },
+              ...(Object.entries(RISK_LEVEL) as [RiskLevel, string][]).map(
+                ([value, label]) => ({ value, label }),
+              ),
+            ]}
+          />
+          <FilterSelect
+            value={practiceFilter}
+            onChange={setPracticeFilter}
+            label="Filtrar por área jurídica"
+            options={[
+              { value: FILTER_ALL, label: "Todas as áreas" },
+              ...(facets?.practices ?? []).map((p) => ({ value: p, label: p })),
+            ]}
+          />
+          <FilterSelect
+            value={ownerFilter}
+            onChange={setOwnerFilter}
+            label="Filtrar por responsável"
+            options={[
+              { value: FILTER_ALL, label: "Todos os responsáveis" },
+              ...(facets?.owners ?? []).map((o) => ({ value: o, label: o })),
+            ]}
+          />
+          <FilterSelect
+            value={deadlineFilter}
+            onChange={setDeadlineFilter}
+            label="Filtrar por prazo"
+            options={[
+              { value: FILTER_ALL, label: "Todos os prazos" },
+              { value: "vencidas", label: "Vencidas" },
+              { value: "proximas", label: "Próximas (7 dias)" },
+              { value: "criticas", label: "Críticas" },
+            ]}
+          />
         </CrmFilters>
         {isLoading ? (
           <CrmLoadingState />
         ) : (
           <EntityTable
-            data={filtered}
+            data={items}
+            isFiltered={isFiltered}
+            getRowClassName={(r) =>
+              isCriticalDeadline(r.deadline, r.risk, r.status)
+                ? "bg-red-50/60 dark:bg-red-950/20"
+                : undefined
+            }
             columns={[
               {
                 key: "title",
@@ -78,17 +157,33 @@ export default function CrmMattersPage() {
               },
               { key: "account", header: "Conta", cell: (r) => r.accountName },
               { key: "practice", header: "Área", cell: (r) => r.practice },
-              { key: "status", header: "Status", cell: (r) => <Badge variant="outline">{MATTER_STATUS[r.status]}</Badge> },
+              {
+                key: "status",
+                header: "Status",
+                cell: (r) => (
+                  <Badge variant="outline">{MATTER_STATUS[r.status]}</Badge>
+                ),
+              },
               {
                 key: "risk",
                 header: "Risco",
-                cell: (r) => <Badge variant={riskBadgeVariant(r.risk)}>{RISK_LEVEL[r.risk]}</Badge>,
+                cell: (r) => (
+                  <Badge variant={riskBadgeVariant(r.risk)}>
+                    {RISK_LEVEL[r.risk]}
+                  </Badge>
+                ),
               },
               {
                 key: "deadline",
                 header: "Prazo",
                 cell: (r) => (
-                  <span className={isOverdue(r.deadline) && r.status !== "concluida" ? "text-red-700 font-medium" : ""}>
+                  <span
+                    className={
+                      isCriticalDeadline(r.deadline, r.risk, r.status)
+                        ? "text-red-700 dark:text-red-400 font-medium"
+                        : ""
+                    }
+                  >
                     {formatDate(r.deadline)}
                   </span>
                 ),

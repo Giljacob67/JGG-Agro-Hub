@@ -1,3 +1,24 @@
+import {
+  buildAccountFacets,
+  buildLeadFacets,
+  buildMatterFacets,
+  buildOpportunityFacets,
+  buildTaskFacets,
+  filterAccounts,
+  filterLeads,
+  filterMatters,
+  filterOpportunities,
+  filterTasks,
+} from "../../../shared/agro/filters.js";
+import type {
+  AccountListParams,
+  LeadListParams,
+  MatterListParams,
+  OpportunityListParams,
+  PaginatedResult,
+  TaskListParams,
+} from "../../../shared/agro/list-types.js";
+import { paginate } from "../../../shared/agro/list-types.js";
 import type {
   Account,
   Lead,
@@ -14,11 +35,18 @@ import {
   mapOpportunity,
   mapTask,
 } from "./mappers.js";
+import { toJsonArray } from "./json-utils.js";
 
-export async function dbListLeads(): Promise<Lead[]> {
+export async function dbListLeads(
+  params: LeadListParams = {},
+): Promise<PaginatedResult<Lead>> {
   const sql = getSql();
   const rows = await sql`SELECT * FROM agro.leads ORDER BY created_at DESC`;
-  return rows.map((r) => mapLead(r as Record<string, unknown>));
+  const leads = rows.map((r) => mapLead(r as Record<string, unknown>));
+  const filtered = filterLeads(leads, params);
+  const result = paginate(filtered, params);
+  if (params.facets) result.facets = buildLeadFacets(leads);
+  return result;
 }
 
 export async function dbGetLead(id: string): Promise<Lead | null> {
@@ -36,11 +64,16 @@ export async function dbCreateLead(
     input.id ??
     `LD-${String((await sql`SELECT COUNT(*)::int AS c FROM agro.leads`)[0].c + 1).padStart(3, "0")}`;
   await sql`
-    INSERT INTO agro.leads (id, name, contact, region, crop, source, status, owner, account_id, next_contact, notes, created_at)
+    INSERT INTO agro.leads (
+      id, name, contact, region, crop, source, status, owner, account_id,
+      next_contact, notes, created_at, lead_type, legal_pain, interest_area, priority
+    )
     VALUES (
       ${id}, ${input.name}, ${input.contact}, ${input.region}, ${input.crop},
       ${input.source}, ${input.status}, ${input.owner}, ${input.accountId ?? null},
-      ${input.nextContact}, ${input.notes}, ${input.createdAt}
+      ${input.nextContact}, ${input.notes}, ${input.createdAt},
+      ${input.leadType ?? null}, ${input.legalPain ?? null},
+      ${input.interestArea ?? null}, ${input.priority ?? null}
     )
   `;
   const lead = await dbGetLead(id);
@@ -69,18 +102,24 @@ export async function dbUpdateLead(
   return dbGetLead(id);
 }
 
-export async function dbListAccounts(): Promise<Account[]> {
+export async function dbListAccounts(
+  params: AccountListParams = {},
+): Promise<PaginatedResult<Account>> {
   const sql = getSql();
   const rows = await sql`
     SELECT a.*,
       (SELECT COUNT(*)::int FROM agro.matters m
         WHERE m.account_id = a.id AND m.status != 'concluida') AS active_matters,
       (SELECT COUNT(*)::int FROM agro.opportunities o
-        WHERE o.account_id = a.id AND o.stage NOT IN ('perdido', 'contrato')) AS active_opportunities
+        WHERE o.account_id = a.id AND o.stage NOT IN ('perdido', 'contrato', 'arquivado')) AS active_opportunities
     FROM agro.accounts a
     ORDER BY a.name
   `;
-  return rows.map((r) => mapAccount(r as Record<string, unknown>));
+  const accounts = rows.map((r) => mapAccount(r as Record<string, unknown>));
+  const filtered = filterAccounts(accounts, params);
+  const result = paginate(filtered, params);
+  if (params.facets) result.facets = buildAccountFacets(accounts);
+  return result;
 }
 
 export async function dbGetAccount(id: string): Promise<Account | null> {
@@ -90,7 +129,7 @@ export async function dbGetAccount(id: string): Promise<Account | null> {
       (SELECT COUNT(*)::int FROM agro.matters m
         WHERE m.account_id = a.id AND m.status != 'concluida') AS active_matters,
       (SELECT COUNT(*)::int FROM agro.opportunities o
-        WHERE o.account_id = a.id AND o.stage NOT IN ('perdido', 'contrato')) AS active_opportunities
+        WHERE o.account_id = a.id AND o.stage NOT IN ('perdido', 'contrato', 'arquivado')) AS active_opportunities
     FROM agro.accounts a
     WHERE a.id = ${id}
   `;
@@ -106,7 +145,7 @@ export async function dbGetAccountTimeline(accountId: string) {
     sql`SELECT * FROM agro.matters WHERE account_id = ${accountId}`,
   ]);
 
-  const allTasks = await dbListTasks();
+  const allTasks = (await dbListTasks({ pageSize: 10_000 })).items;
   const oppIds = new Set(opportunities.map((o) => String((o as Record<string, unknown>).id)));
   const matterIds = new Set(matters.map((m) => String((m as Record<string, unknown>).id)));
   const leadIds = new Set(leads.map((l) => String((l as Record<string, unknown>).id)));
@@ -128,10 +167,18 @@ export async function dbGetAccountTimeline(accountId: string) {
   };
 }
 
-export async function dbListOpportunities(): Promise<Opportunity[]> {
+export async function dbListOpportunities(
+  params: OpportunityListParams = {},
+): Promise<PaginatedResult<Opportunity>> {
   const sql = getSql();
   const rows = await sql`SELECT * FROM agro.opportunities ORDER BY expected_close`;
-  return rows.map((r) => mapOpportunity(r as Record<string, unknown>));
+  const opportunities = rows.map((r) =>
+    mapOpportunity(r as Record<string, unknown>),
+  );
+  const filtered = filterOpportunities(opportunities, params);
+  const result = paginate(filtered, params);
+  if (params.facets) result.facets = buildOpportunityFacets(opportunities);
+  return result;
 }
 
 export async function dbGetOpportunity(id: string): Promise<Opportunity | null> {
@@ -141,10 +188,16 @@ export async function dbGetOpportunity(id: string): Promise<Opportunity | null> 
   return mapOpportunity(rows[0] as Record<string, unknown>);
 }
 
-export async function dbListMatters(): Promise<Matter[]> {
+export async function dbListMatters(
+  params: MatterListParams = {},
+): Promise<PaginatedResult<Matter>> {
   const sql = getSql();
   const rows = await sql`SELECT * FROM agro.matters ORDER BY deadline`;
-  return rows.map((r) => mapMatter(r as Record<string, unknown>));
+  const matters = rows.map((r) => mapMatter(r as Record<string, unknown>));
+  const filtered = filterMatters(matters, params);
+  const result = paginate(filtered, params);
+  if (params.facets) result.facets = buildMatterFacets(matters);
+  return result;
 }
 
 export async function dbGetMatter(id: string): Promise<Matter | null> {
@@ -154,10 +207,16 @@ export async function dbGetMatter(id: string): Promise<Matter | null> {
   return mapMatter(rows[0] as Record<string, unknown>);
 }
 
-export async function dbListTasks(): Promise<Task[]> {
+export async function dbListTasks(
+  params: TaskListParams = {},
+): Promise<PaginatedResult<Task>> {
   const sql = getSql();
   const rows = await sql`SELECT * FROM agro.tasks ORDER BY due_date`;
-  return rows.map((r) => mapTask(r as Record<string, unknown>));
+  const tasks = rows.map((r) => mapTask(r as Record<string, unknown>));
+  const filtered = filterTasks(tasks, params);
+  const result = paginate(filtered, params);
+  if (params.facets) result.facets = buildTaskFacets(tasks);
+  return result;
 }
 
 export async function dbGetTask(id: string): Promise<Task | null> {
@@ -234,13 +293,19 @@ export type CrmDataset = {
 
 export async function dbLoadAll(): Promise<CrmDataset> {
   const [leads, accounts, opportunities, matters, tasks] = await Promise.all([
-    dbListLeads(),
-    dbListAccounts(),
-    dbListOpportunities(),
-    dbListMatters(),
-    dbListTasks(),
+    dbListLeads({ pageSize: 10_000 }),
+    dbListAccounts({ pageSize: 10_000 }),
+    dbListOpportunities({ pageSize: 10_000 }),
+    dbListMatters({ pageSize: 10_000 }),
+    dbListTasks({ pageSize: 10_000 }),
   ]);
-  return { leads, accounts, opportunities, matters, tasks };
+  return {
+    leads: leads.items,
+    accounts: accounts.items,
+    opportunities: opportunities.items,
+    matters: matters.items,
+    tasks: tasks.items,
+  };
 }
 
 export async function dbSeedEmpty(): Promise<boolean> {
@@ -254,41 +319,80 @@ export async function dbUpsertSeed(data: CrmDataset) {
 
   for (const a of data.accounts) {
     await sql`
-      INSERT INTO agro.accounts (id, name, type, region, area_ha, main_crop, owner, since)
-      VALUES (${a.id}, ${a.name}, ${a.type}, ${a.region}, ${a.areaHa}, ${a.mainCrop}, ${a.owner}, ${a.since})
+      INSERT INTO agro.accounts (
+        id, name, type, region, area_ha, main_crop, owner, since,
+        properties, contacts, contracted_areas, mapped_risks, relationship_status
+      )
+      VALUES (
+        ${a.id}, ${a.name}, ${a.type}, ${a.region}, ${a.areaHa}, ${a.mainCrop}, ${a.owner}, ${a.since},
+        ${toJsonArray(a.properties)}, ${toJsonArray(a.contacts)},
+        ${toJsonArray(a.contractedAreas)}, ${toJsonArray(a.mappedRisks)},
+        ${a.relationshipStatus ?? null}
+      )
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name, type = EXCLUDED.type, region = EXCLUDED.region,
         area_ha = EXCLUDED.area_ha, main_crop = EXCLUDED.main_crop,
-        owner = EXCLUDED.owner, since = EXCLUDED.since, updated_at = now()
+        owner = EXCLUDED.owner, since = EXCLUDED.since,
+        properties = EXCLUDED.properties, contacts = EXCLUDED.contacts,
+        contracted_areas = EXCLUDED.contracted_areas, mapped_risks = EXCLUDED.mapped_risks,
+        relationship_status = EXCLUDED.relationship_status, updated_at = now()
     `;
   }
 
   for (const l of data.leads) {
     await sql`
-      INSERT INTO agro.leads (id, name, contact, region, crop, source, status, owner, account_id, next_contact, notes, created_at)
-      VALUES (${l.id}, ${l.name}, ${l.contact}, ${l.region}, ${l.crop}, ${l.source}, ${l.status}, ${l.owner}, ${l.accountId ?? null}, ${l.nextContact}, ${l.notes}, ${l.createdAt})
+      INSERT INTO agro.leads (
+        id, name, contact, region, crop, source, status, owner, account_id,
+        next_contact, notes, created_at, lead_type, legal_pain, interest_area, priority
+      )
+      VALUES (
+        ${l.id}, ${l.name}, ${l.contact}, ${l.region}, ${l.crop}, ${l.source}, ${l.status},
+        ${l.owner}, ${l.accountId ?? null}, ${l.nextContact}, ${l.notes}, ${l.createdAt},
+        ${l.leadType ?? null}, ${l.legalPain ?? null}, ${l.interestArea ?? null}, ${l.priority ?? null}
+      )
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name, status = EXCLUDED.status, owner = EXCLUDED.owner,
-        next_contact = EXCLUDED.next_contact, notes = EXCLUDED.notes, updated_at = now()
+        next_contact = EXCLUDED.next_contact, notes = EXCLUDED.notes,
+        lead_type = EXCLUDED.lead_type, legal_pain = EXCLUDED.legal_pain,
+        interest_area = EXCLUDED.interest_area, priority = EXCLUDED.priority,
+        updated_at = now()
     `;
   }
 
   for (const o of data.opportunities) {
     await sql`
-      INSERT INTO agro.opportunities (id, title, account_id, account_name, stage, value_brl, owner, expected_close, next_contact, priority, practice)
-      VALUES (${o.id}, ${o.title}, ${o.accountId ?? null}, ${o.accountName}, ${o.stage}, ${o.valueBrl}, ${o.owner}, ${o.expectedClose}, ${o.nextContact}, ${o.priority}, ${o.practice})
+      INSERT INTO agro.opportunities (
+        id, title, account_id, account_name, stage, value_brl, owner,
+        expected_close, next_contact, priority, practice, probability, next_step
+      )
+      VALUES (
+        ${o.id}, ${o.title}, ${o.accountId ?? null}, ${o.accountName}, ${o.stage},
+        ${o.valueBrl}, ${o.owner}, ${o.expectedClose}, ${o.nextContact},
+        ${o.priority}, ${o.practice}, ${o.probability ?? null}, ${o.nextStep ?? null}
+      )
       ON CONFLICT (id) DO UPDATE SET
         title = EXCLUDED.title, stage = EXCLUDED.stage, value_brl = EXCLUDED.value_brl,
-        next_contact = EXCLUDED.next_contact, priority = EXCLUDED.priority, updated_at = now()
+        next_contact = EXCLUDED.next_contact, priority = EXCLUDED.priority,
+        practice = EXCLUDED.practice, probability = EXCLUDED.probability,
+        next_step = EXCLUDED.next_step, updated_at = now()
     `;
   }
 
   for (const m of data.matters) {
     await sql`
-      INSERT INTO agro.matters (id, title, account_id, account_name, practice, status, risk, deadline, owner, description)
-      VALUES (${m.id}, ${m.title}, ${m.accountId ?? null}, ${m.accountName}, ${m.practice}, ${m.status}, ${m.risk}, ${m.deadline}, ${m.owner}, ${m.description})
+      INSERT INTO agro.matters (
+        id, title, account_id, account_name, practice, status, risk, deadline,
+        owner, description, urgency, pending_documents, next_steps
+      )
+      VALUES (
+        ${m.id}, ${m.title}, ${m.accountId ?? null}, ${m.accountName}, ${m.practice},
+        ${m.status}, ${m.risk}, ${m.deadline}, ${m.owner}, ${m.description},
+        ${m.urgency ?? null}, ${toJsonArray(m.pendingDocuments)}, ${m.nextSteps ?? null}
+      )
       ON CONFLICT (id) DO UPDATE SET
-        status = EXCLUDED.status, risk = EXCLUDED.risk, deadline = EXCLUDED.deadline, updated_at = now()
+        status = EXCLUDED.status, risk = EXCLUDED.risk, deadline = EXCLUDED.deadline,
+        urgency = EXCLUDED.urgency, pending_documents = EXCLUDED.pending_documents,
+        next_steps = EXCLUDED.next_steps, updated_at = now()
     `;
   }
 

@@ -6,6 +6,7 @@ import {
   listTasks,
   updateTaskStatus,
 } from "../_lib/data-service.js";
+import { parseTaskListQuery } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -22,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
       return json(res, task);
     }
-    return json(res, await listTasks());
+    return json(res, await listTasks(parseTaskListQuery(req)));
   }
 
   if (req.method === "PATCH") {

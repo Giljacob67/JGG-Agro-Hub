@@ -3,36 +3,62 @@ import { Link } from "wouter";
 import { Download } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
+import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateLeadForm } from "@/components/crm/create-lead-form";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useLeads } from "@/hooks/use-crm-queries";
 import { LEAD_STATUS, formatDate, isWithinDays } from "@/lib/crm-labels";
+import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { exportToCsv } from "@/lib/export-csv";
 import { ROUTES } from "@/lib/routes";
 
 export default function CrmLeadsPage() {
   usePageTitle("Leads Agro");
-  const { data: leads = [], isLoading } = useLeads();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState(FILTER_ALL);
+  const [regionFilter, setRegionFilter] = useState(FILTER_ALL);
+  const [sourceFilter, setSourceFilter] = useState(FILTER_ALL);
+  const [cropFilter, setCropFilter] = useState(FILTER_ALL);
+  const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return leads.filter((l) => {
-      const matchSearch =
-        !q ||
-        l.name.toLowerCase().includes(q) ||
-        l.region.toLowerCase().includes(q) ||
-        l.owner.toLowerCase().includes(q) ||
-        l.crop.toLowerCase().includes(q);
-      const matchStatus = statusFilter === "all" || l.status === statusFilter;
-      return matchSearch && matchStatus;
-    });
-  }, [leads, search, statusFilter]);
+  const debouncedSearch = useDebouncedValue(search);
+
+  const listParams = useMemo(
+    () => ({
+      facets: true,
+      page: 1,
+      pageSize: 100,
+      search: debouncedSearch.trim() || undefined,
+      status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
+      region: regionFilter !== FILTER_ALL ? regionFilter : undefined,
+      source: sourceFilter !== FILTER_ALL ? sourceFilter : undefined,
+      crop: cropFilter !== FILTER_ALL ? cropFilter : undefined,
+      owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
+    }),
+    [
+      debouncedSearch,
+      statusFilter,
+      regionFilter,
+      sourceFilter,
+      cropFilter,
+      ownerFilter,
+    ],
+  );
+
+  const { data, isLoading } = useLeads(listParams);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const facets = data?.facets;
+
+  const isFiltered = hasActiveFilters(
+    { statusFilter, regionFilter, sourceFilter, cropFilter, ownerFilter },
+    search,
+  );
 
   return (
     <AppShell>
@@ -48,7 +74,7 @@ export default function CrmLeadsPage() {
             variant="outline"
             size="sm"
             onClick={() =>
-              exportToCsv(filtered, "leads-agro.csv", [
+              exportToCsv(items, "leads-agro.csv", [
                 { key: "id", header: "ID" },
                 { key: "name", header: "Nome" },
                 { key: "region", header: "Região" },
@@ -58,7 +84,7 @@ export default function CrmLeadsPage() {
                 { key: "nextContact", header: "Próximo contato" },
               ])
             }
-            disabled={filtered.length === 0}
+            disabled={items.length === 0}
           >
             <Download className="w-3.5 h-3.5" /> Exportar CSV
           </Button>
@@ -68,25 +94,64 @@ export default function CrmLeadsPage() {
           search={search}
           onSearchChange={setSearch}
           placeholder="Buscar lead, região, cultura ou responsável..."
+          filteredCount={items.length}
+          totalCount={total}
         >
-          <select
+          <FilterSelect
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="h-9 rounded-md border border-border bg-background px-3 text-sm"
-            aria-label="Filtrar por status"
-          >
-            <option value="all">Todos os status</option>
-            <option value="novo">Novo</option>
-            <option value="qualificando">Qualificando</option>
-            <option value="qualificado">Qualificado</option>
-            <option value="descartado">Descartado</option>
-          </select>
+            onChange={setStatusFilter}
+            label="Filtrar por status"
+            options={[
+              { value: FILTER_ALL, label: "Todos os status" },
+              ...Object.entries(LEAD_STATUS).map(([value, label]) => ({
+                value,
+                label,
+              })),
+            ]}
+          />
+          <FilterSelect
+            value={regionFilter}
+            onChange={setRegionFilter}
+            label="Filtrar por região"
+            options={[
+              { value: FILTER_ALL, label: "Todas as regiões" },
+              ...(facets?.regions ?? []).map((r) => ({ value: r, label: r })),
+            ]}
+          />
+          <FilterSelect
+            value={sourceFilter}
+            onChange={setSourceFilter}
+            label="Filtrar por origem"
+            options={[
+              { value: FILTER_ALL, label: "Todas as origens" },
+              ...(facets?.sources ?? []).map((s) => ({ value: s, label: s })),
+            ]}
+          />
+          <FilterSelect
+            value={cropFilter}
+            onChange={setCropFilter}
+            label="Filtrar por cultura"
+            options={[
+              { value: FILTER_ALL, label: "Todas as culturas" },
+              ...(facets?.crops ?? []).map((c) => ({ value: c, label: c })),
+            ]}
+          />
+          <FilterSelect
+            value={ownerFilter}
+            onChange={setOwnerFilter}
+            label="Filtrar por responsável"
+            options={[
+              { value: FILTER_ALL, label: "Todos os responsáveis" },
+              ...(facets?.owners ?? []).map((o) => ({ value: o, label: o })),
+            ]}
+          />
         </CrmFilters>
         {isLoading ? (
           <CrmLoadingState />
         ) : (
           <EntityTable
-            data={filtered}
+            data={items}
+            isFiltered={isFiltered}
             columns={[
               {
                 key: "id",

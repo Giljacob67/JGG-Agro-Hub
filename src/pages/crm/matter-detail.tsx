@@ -11,8 +11,10 @@ import {
 } from "@/hooks/use-crm-queries";
 import {
   MATTER_STATUS,
+  MATTER_URGENCY,
   RISK_LEVEL,
   formatDate,
+  isCriticalDeadline,
   riskBadgeVariant,
 } from "@/lib/crm-labels";
 import type { MatterStatus, RiskLevel } from "@shared/agro/types";
@@ -107,16 +109,48 @@ export default function CrmMatterDetailPage() {
             </div>
             <div>
               <p className="text-xs text-muted-foreground">Prazo</p>
-              <Badge variant={riskBadgeVariant(matter.risk)}>
+              <span
+                className={
+                  isCriticalDeadline(matter.deadline, matter.risk, matter.status)
+                    ? "text-red-700 dark:text-red-400 font-medium"
+                    : ""
+                }
+              >
                 {formatDate(matter.deadline)}
-              </Badge>
+              </span>
             </div>
+            {matter.urgency && (
+              <div>
+                <p className="text-xs text-muted-foreground">Urgência</p>
+                <Badge variant={riskBadgeVariant(matter.risk)}>
+                  {MATTER_URGENCY[matter.urgency]}
+                </Badge>
+              </div>
+            )}
           </div>
 
           <div>
             <p className="text-xs text-muted-foreground mb-1">Descrição</p>
             <p className="text-sm leading-relaxed">{matter.description}</p>
           </div>
+
+          {matter.nextSteps && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-1">Próximos passos</p>
+              <p className="text-sm leading-relaxed">{matter.nextSteps}</p>
+            </div>
+          )}
+
+          {matter.pendingDocuments && matter.pendingDocuments.length > 0 && (
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Documentos pendentes</p>
+              <ul className="space-y-1 text-sm">
+                {matter.pendingDocuments.map((doc) => (
+                  <li key={doc}>{doc}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Card>
 
         {tasks && tasks.length > 0 && (

@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { agroApi } from "@/lib/api/client";
 import type {
+  AccountListParams,
+  LeadListParams,
+  MatterListParams,
+  OpportunityListParams,
+  TaskListParams,
+} from "@shared/agro/list-types";
+import type {
   LeadStatus,
   MatterStatus,
   OpportunityPriority,
@@ -24,8 +31,11 @@ export const crmKeys = {
   relatedTasks: (id: string) => ["crm", "tasks", "related", id] as const,
 };
 
-export function useLeads() {
-  return useQuery({ queryKey: crmKeys.leads, queryFn: agroApi.leads });
+export function useLeads(params: LeadListParams = { facets: true }) {
+  return useQuery({
+    queryKey: [...crmKeys.leads, params],
+    queryFn: () => agroApi.leads(params),
+  });
 }
 
 export function useLead(id: string) {
@@ -47,8 +57,11 @@ export function useCreateLead() {
   });
 }
 
-export function useAccounts() {
-  return useQuery({ queryKey: crmKeys.accounts, queryFn: agroApi.accounts });
+export function useAccounts(params: AccountListParams = { facets: true }) {
+  return useQuery({
+    queryKey: [...crmKeys.accounts, params],
+    queryFn: () => agroApi.accounts(params),
+  });
 }
 
 export function useAccountTimeline(id: string) {
@@ -59,10 +72,10 @@ export function useAccountTimeline(id: string) {
   });
 }
 
-export function useOpportunities() {
+export function useOpportunities(params: OpportunityListParams = { facets: true }) {
   return useQuery({
-    queryKey: crmKeys.opportunities,
-    queryFn: agroApi.opportunities,
+    queryKey: [...crmKeys.opportunities, params],
+    queryFn: () => agroApi.opportunities(params),
   });
 }
 
@@ -74,8 +87,11 @@ export function useOpportunity(id: string) {
   });
 }
 
-export function useMatters() {
-  return useQuery({ queryKey: crmKeys.matters, queryFn: agroApi.matters });
+export function useMatters(params: MatterListParams = { facets: true }) {
+  return useQuery({
+    queryKey: [...crmKeys.matters, params],
+    queryFn: () => agroApi.matters(params),
+  });
 }
 
 export function useMatter(id: string) {
@@ -86,8 +102,11 @@ export function useMatter(id: string) {
   });
 }
 
-export function useTasks() {
-  return useQuery({ queryKey: crmKeys.tasks, queryFn: agroApi.tasks });
+export function useTasks(params: TaskListParams = { facets: true }) {
+  return useQuery({
+    queryKey: [...crmKeys.tasks, params],
+    queryFn: () => agroApi.tasks(params),
+  });
 }
 
 export function useRelatedTasks(entityId: string) {

@@ -1,7 +1,29 @@
 import * as memory from "../../shared/agro/store.js";
+import {
+  buildAccountFacets,
+  buildLeadFacets,
+  buildMatterFacets,
+  buildOpportunityFacets,
+  buildTaskFacets,
+  filterAccounts,
+  filterLeads,
+  filterMatters,
+  filterOpportunities,
+  filterTasks,
+} from "../../shared/agro/filters.js";
+import type {
+  AccountListParams,
+  LeadListParams,
+  MatterListParams,
+  OpportunityListParams,
+  PaginatedResult,
+  TaskListParams,
+} from "../../shared/agro/list-types.js";
+import { paginate } from "../../shared/agro/list-types.js";
 import type {
   Account,
   Lead,
+  LeadPriority,
   LeadStatus,
   Matter,
   MatterStatus,
@@ -28,11 +50,29 @@ export type CreateLeadInput = {
   notes?: string;
   nextContact?: string | null;
   accountId?: string | null;
+  leadType?: string;
+  legalPain?: string;
+  interestArea?: string;
+  priority?: LeadPriority;
 };
 
-export async function listLeads(): Promise<Lead[]> {
-  if (isDbEnabled()) return db.dbListLeads();
-  return memory.listLeads();
+function withFacets<T, P extends { facets?: boolean }>(
+  all: T[],
+  params: P,
+  filterFn: (items: T[], params: P) => T[],
+  facetFn: (items: T[]) => Record<string, string[]>,
+): PaginatedResult<T> {
+  const filtered = filterFn(all, params);
+  const result = paginate(filtered, params);
+  if (params.facets) result.facets = facetFn(all);
+  return result;
+}
+
+export async function listLeads(
+  params: LeadListParams = {},
+): Promise<PaginatedResult<Lead>> {
+  if (isDbEnabled()) return db.dbListLeads(params);
+  return withFacets(memory.listLeads(), params, filterLeads, buildLeadFacets);
 }
 
 export async function getLead(id: string): Promise<Lead | undefined | null> {
@@ -53,6 +93,10 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     notes: input.notes ?? "",
     nextContact: input.nextContact ?? null,
     accountId: input.accountId ?? null,
+    leadType: input.leadType,
+    legalPain: input.legalPain,
+    interestArea: input.interestArea,
+    priority: input.priority,
     createdAt: today,
   };
   if (isDbEnabled()) return db.dbCreateLead(payload);
@@ -70,9 +114,16 @@ export async function updateLead(
   return memory.patchLead(id, patch) ?? undefined;
 }
 
-export async function listAccounts(): Promise<Account[]> {
-  if (isDbEnabled()) return db.dbListAccounts();
-  return memory.listAccounts();
+export async function listAccounts(
+  params: AccountListParams = {},
+): Promise<PaginatedResult<Account>> {
+  if (isDbEnabled()) return db.dbListAccounts(params);
+  return withFacets(
+    memory.listAccounts(),
+    params,
+    filterAccounts,
+    buildAccountFacets,
+  );
 }
 
 export async function getAccount(id: string): Promise<Account | undefined | null> {
@@ -85,9 +136,16 @@ export async function getAccountTimeline(accountId: string) {
   return memory.getAccountTimeline(accountId);
 }
 
-export async function listOpportunities(): Promise<Opportunity[]> {
-  if (isDbEnabled()) return db.dbListOpportunities();
-  return memory.listOpportunities();
+export async function listOpportunities(
+  params: OpportunityListParams = {},
+): Promise<PaginatedResult<Opportunity>> {
+  if (isDbEnabled()) return db.dbListOpportunities(params);
+  return withFacets(
+    memory.listOpportunities(),
+    params,
+    filterOpportunities,
+    buildOpportunityFacets,
+  );
 }
 
 export async function getOpportunity(id: string): Promise<Opportunity | undefined | null> {
@@ -103,9 +161,11 @@ export async function updateOpportunity(
   return memory.patchOpportunity(id, patch) ?? undefined;
 }
 
-export async function listMatters(): Promise<Matter[]> {
-  if (isDbEnabled()) return db.dbListMatters();
-  return memory.listMatters();
+export async function listMatters(
+  params: MatterListParams = {},
+): Promise<PaginatedResult<Matter>> {
+  if (isDbEnabled()) return db.dbListMatters(params);
+  return withFacets(memory.listMatters(), params, filterMatters, buildMatterFacets);
 }
 
 export async function getMatter(id: string): Promise<Matter | undefined | null> {
@@ -121,9 +181,11 @@ export async function updateMatter(
   return memory.patchMatter(id, patch) ?? undefined;
 }
 
-export async function listTasks(): Promise<Task[]> {
-  if (isDbEnabled()) return db.dbListTasks();
-  return memory.listTasks();
+export async function listTasks(
+  params: TaskListParams = {},
+): Promise<PaginatedResult<Task>> {
+  if (isDbEnabled()) return db.dbListTasks(params);
+  return withFacets(memory.listTasks(), params, filterTasks, buildTaskFacets);
 }
 
 export async function getTask(id: string): Promise<Task | undefined | null> {
@@ -155,7 +217,7 @@ export async function loadCrmDataset() {
   };
 }
 
-export async function setupDatabase() {
+export async function setupDatabase(options?: { force?: boolean }) {
   const { runMigrations } = await import("./db/migrate.js");
   const {
     SEED_ACCOUNTS,
@@ -166,6 +228,16 @@ export async function setupDatabase() {
   } = await import("../../shared/agro/seed.js");
 
   await runMigrations();
+
+  const force = options?.force === true;
+  if (!force) {
+    const empty = await db.dbSeedEmpty();
+    if (!empty) {
+      const leads = await listLeads();
+      return { leadsCount: leads.total, reseeded: false };
+    }
+  }
+
   await db.dbUpsertSeed({
     accounts: SEED_ACCOUNTS,
     leads: SEED_LEADS,
@@ -175,5 +247,5 @@ export async function setupDatabase() {
   });
 
   const leads = await listLeads();
-  return { leadsCount: leads.length };
+  return { leadsCount: leads.total, reseeded: true };
 }

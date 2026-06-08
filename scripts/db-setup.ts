@@ -1,6 +1,8 @@
 /**
  * Migra e popula o PostgreSQL com dados fictícios Agro.
- * Uso: DATABASE_URL=postgres://... npm run db:setup
+ * Uso:
+ *   DATABASE_URL=postgres://... npm run db:setup
+ *   DATABASE_URL=postgres://... npm run db:reseed
  */
 import { neon } from "@neondatabase/serverless";
 import { runMigrations } from "../api/_lib/db/migrate";
@@ -20,13 +22,25 @@ async function main() {
     process.exit(1);
   }
 
+  const force = process.argv.includes("--force");
+
   process.env.DATABASE_URL = url;
   const sql = neon(url);
 
   console.log("Aplicando migração…");
   await runMigrations(sql);
 
-  console.log("Populando seed Agro…");
+  if (!force) {
+    const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM agro.accounts`;
+    if (Number(count) > 0) {
+      console.log(
+        `Banco já populado (${count} contas). Use --force para re-seed completo.`,
+      );
+      process.exit(0);
+    }
+  }
+
+  console.log(force ? "Re-populando seed Agro (force)…" : "Populando seed Agro…");
   await dbUpsertSeed({
     accounts: SEED_ACCOUNTS,
     leads: SEED_LEADS,

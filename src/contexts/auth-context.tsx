@@ -14,6 +14,7 @@ interface AuthContextValue {
   user: AgroUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  acceptToken: (token: string) => Promise<void>;
   logout: () => void;
   canAccess: (resource: string) => boolean;
 }
@@ -71,6 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(loggedUser);
   }, []);
 
+  const acceptToken = useCallback(async (token: string) => {
+    setAuthToken(token);
+    const me = await agroApi.me();
+    setUser(me);
+  }, []);
+
   const logout = useCallback(() => {
     setAuthToken(null);
     setUser(null);
@@ -81,11 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
+      acceptToken,
       logout,
       canAccess: (resource: string) =>
         user ? roleCanAccess(user.role, resource) : false,
     }),
-    [user, loading, login, logout],
+    [user, loading, login, acceptToken, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -17,7 +17,16 @@ import type {
   Task,
 } from "./types.js";
 
-const OPEN_STAGES = new Set(["qualificacao", "proposta", "negociacao"]);
+const OPEN_STAGES = new Set([
+  "novo_contato",
+  "diagnostico_agendado",
+  "diagnostico_realizado",
+  "proposta_elaboracao",
+  "proposta_enviada",
+  "negociacao",
+]);
+
+const CLOSED_STAGES = new Set(["contrato", "perdido", "arquivado"]);
 
 export interface CrmDataset {
   leads: Lead[];
@@ -43,9 +52,7 @@ function getActiveLeads(leads: Lead[]) {
 }
 
 function getOpenOpportunities(opportunities: Opportunity[]) {
-  return opportunities.filter(
-    (o) => o.stage !== "perdido" && o.stage !== "contrato",
-  );
+  return opportunities.filter((o) => !CLOSED_STAGES.has(o.stage));
 }
 
 function getActiveMatters(matters: Matter[]) {
@@ -69,7 +76,9 @@ function getUpcomingTasks(tasks: Task[], days = 7) {
 }
 
 function getPipelineByStage(opportunities: Opportunity[]) {
-  return OPPORTUNITY_STAGES.filter((s) => s.id !== "perdido").map((stage) => {
+  return OPPORTUNITY_STAGES.filter(
+    (s) => s.id !== "perdido" && s.id !== "arquivado",
+  ).map((stage) => {
     const items = opportunities.filter((o) => o.stage === stage.id);
     return {
       ...stage,

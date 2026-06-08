@@ -4,6 +4,7 @@ import {
   listOpportunities,
   updateOpportunity,
 } from "../_lib/data-service.js";
+import { parseOpportunityListQuery } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -16,7 +17,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
       return json(res, opp);
     }
-    return json(res, await listOpportunities());
+    return json(res, await listOpportunities(parseOpportunityListQuery(req)));
   }
 
   if (req.method === "PATCH") {

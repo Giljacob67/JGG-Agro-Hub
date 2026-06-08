@@ -1,11 +1,14 @@
 import type {
   LeadStatus,
+  LeadPriority,
   MatterStatus,
+  MatterUrgency,
   OpportunityStage,
   RiskLevel,
   TaskPriority,
   TaskStatus,
   AccountType,
+  RelationshipStatus,
 } from "./crm-types";
 import type { BadgeProps } from "@/components/ui/badge";
 
@@ -16,12 +19,22 @@ export const LEAD_STATUS: Record<LeadStatus, string> = {
   descartado: "Descartado",
 };
 
+export const LEAD_PRIORITY: Record<LeadPriority, string> = {
+  baixa: "Baixa",
+  media: "Média",
+  alta: "Alta",
+};
+
 export const OPPORTUNITY_STAGE: Record<OpportunityStage, string> = {
-  qualificacao: "Qualificação",
-  proposta: "Proposta",
-  negociacao: "Negociação",
-  contrato: "Contrato",
+  novo_contato: "Novo contato",
+  diagnostico_agendado: "Diagnóstico agendado",
+  diagnostico_realizado: "Diagnóstico realizado",
+  proposta_elaboracao: "Proposta em elaboração",
+  proposta_enviada: "Proposta enviada",
+  negociacao: "Em negociação",
+  contrato: "Contratado",
   perdido: "Perdido",
+  arquivado: "Arquivado",
 };
 
 export const MATTER_STATUS: Record<MatterStatus, string> = {
@@ -29,6 +42,12 @@ export const MATTER_STATUS: Record<MatterStatus, string> = {
   em_andamento: "Em andamento",
   aguardando: "Aguardando",
   concluida: "Concluída",
+};
+
+export const MATTER_URGENCY: Record<MatterUrgency, string> = {
+  normal: "Normal",
+  alta: "Alta",
+  critica: "Crítica",
 };
 
 export const RISK_LEVEL: Record<RiskLevel, string> = {
@@ -61,6 +80,13 @@ export const ACCOUNT_TYPE: Record<AccountType, string> = {
   investidor: "Investidor",
 };
 
+export const RELATIONSHIP_STATUS: Record<RelationshipStatus, string> = {
+  ativo: "Ativo",
+  em_expansao: "Em expansão",
+  em_risco: "Em risco",
+  inativo: "Inativo",
+};
+
 export function riskBadgeVariant(risk: RiskLevel): BadgeProps["variant"] {
   if (risk === "critico") return "danger";
   if (risk === "alto") return "warning";
@@ -90,26 +116,27 @@ export function formatBrl(value: number) {
   });
 }
 
+export {
+  isCriticalDeadline,
+  isOverdue,
+  isTaskOverdue,
+  isWithinDays,
+} from "@shared/agro/date-utils";
+
 export function formatDate(date: string) {
   return new Date(date + "T12:00:00").toLocaleDateString("pt-BR");
-}
-
-export function isOverdue(date: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return new Date(date + "T12:00:00") < today;
-}
-
-export function isWithinDays(date: string, days: number) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const target = new Date(date + "T12:00:00");
-  const limit = new Date(today);
-  limit.setDate(limit.getDate() + days);
-  return target >= today && target <= limit;
 }
 
 export const OPPORTUNITY_PRIORITY = {
   normal: "Normal",
   alta: "Alta",
 } as const;
+
+export const VALUE_FILTER_RANGES = {
+  all: { label: "Todos os valores", min: 0, max: Infinity },
+  ate_100k: { label: "Até R$ 100 mil", min: 0, max: 100_000 },
+  "100k_200k": { label: "R$ 100–200 mil", min: 100_000, max: 200_000 },
+  acima_200k: { label: "Acima de R$ 200 mil", min: 200_000, max: Infinity },
+} as const;
+
+export type ValueFilterKey = keyof typeof VALUE_FILTER_RANGES;

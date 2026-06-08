@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Redirect, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,8 +10,9 @@ import { JGG_AGRO_HUB_NAME, JGG_GROUP_NAME } from "@/lib/brand";
 
 export default function AgroLoginPage() {
   usePageTitle("Acesso");
-  const { user, login } = useAuth();
+  const { user, login, acceptToken } = useAuth();
   const [location] = useLocation();
+  const ssoEnabled = import.meta.env.VITE_SSO_ENABLED === "true";
   const [email, setEmail] = useState("agro@jgggroup.com.br");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -19,6 +20,12 @@ export default function AgroLoginPage() {
 
   const params = new URLSearchParams(location.split("?")[1] ?? "");
   const from = params.get("from") || ROUTES.commandCenter;
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.split("?")[1] ?? "");
+    const token = params.get("token");
+    if (token) void acceptToken(token);
+  }, [location, acceptToken]);
 
   if (user) return <Redirect to={from} />;
 
@@ -86,6 +93,20 @@ export default function AgroLoginPage() {
             {submitting ? "Entrando…" : "Entrar"}
           </Button>
         </form>
+
+        {ssoEnabled && (
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full mt-3"
+            onClick={() => {
+              const target = `/api/auth/sso?from=${encodeURIComponent(from)}`;
+              window.location.href = target;
+            }}
+          >
+            Entrar com SSO corporativo
+          </Button>
+        )}
 
         <p className="text-[11px] text-muted-foreground mt-6 leading-relaxed">
           Ambiente de desenvolvimento: senha padrão{" "}

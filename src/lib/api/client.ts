@@ -1,4 +1,13 @@
 import { handleLocalApi } from "./local-handlers";
+import { buildQuery } from "./build-query";
+import type {
+  AccountListParams,
+  LeadListParams,
+  MatterListParams,
+  OpportunityListParams,
+  PaginatedResult,
+  TaskListParams,
+} from "@shared/agro/list-types";
 
 const TOKEN_KEY = "agro_auth_token";
 
@@ -57,12 +66,37 @@ export const agroApi = {
 
   me: () => request<import("@shared/agro/types").AgroUser>("/api/auth/me"),
 
-  leads: () => request<import("@shared/agro/types").Lead[]>("/api/agro/leads"),
+  leads: (params: LeadListParams = {}) =>
+    request<PaginatedResult<import("@shared/agro/types").Lead>>(
+      `/api/agro/leads${buildQuery({
+        facets: params.facets ?? true,
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 100,
+        search: params.search,
+        status: params.status,
+        region: params.region,
+        source: params.source,
+        crop: params.crop,
+        owner: params.owner,
+      })}`,
+    ),
+
   lead: (id: string) =>
     request<import("@shared/agro/types").Lead>(`/api/agro/leads?id=${id}`),
 
-  accounts: () =>
-    request<import("@shared/agro/types").Account[]>("/api/agro/accounts"),
+  accounts: (params: AccountListParams = {}) =>
+    request<PaginatedResult<import("@shared/agro/types").Account>>(
+      `/api/agro/accounts${buildQuery({
+        facets: params.facets ?? true,
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 100,
+        search: params.search,
+        type: params.type,
+        region: params.region,
+        owner: params.owner,
+      })}`,
+    ),
+
   account: (id: string) =>
     request<import("@shared/agro/types").Account>(`/api/agro/accounts?id=${id}`),
   accountTimeline: (id: string) =>
@@ -73,19 +107,59 @@ export const agroApi = {
       >;
     }>(`/api/agro/accounts?id=${id}&timeline=1`),
 
-  opportunities: () =>
-    request<import("@shared/agro/types").Opportunity[]>("/api/agro/opportunities"),
+  opportunities: (params: OpportunityListParams = {}) =>
+    request<PaginatedResult<import("@shared/agro/types").Opportunity>>(
+      `/api/agro/opportunities${buildQuery({
+        facets: params.facets ?? true,
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 100,
+        search: params.search,
+        stage: params.stage,
+        practice: params.practice,
+        owner: params.owner,
+        priority: params.priority,
+        valueRange: params.valueRange,
+      })}`,
+    ),
+
   opportunity: (id: string) =>
     request<import("@shared/agro/types").Opportunity>(
       `/api/agro/opportunities?id=${id}`,
     ),
 
-  matters: () =>
-    request<import("@shared/agro/types").Matter[]>("/api/agro/matters"),
+  matters: (params: MatterListParams = {}) =>
+    request<PaginatedResult<import("@shared/agro/types").Matter>>(
+      `/api/agro/matters${buildQuery({
+        facets: params.facets ?? true,
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 100,
+        search: params.search,
+        status: params.status,
+        risk: params.risk,
+        practice: params.practice,
+        owner: params.owner,
+        deadline: params.deadline,
+      })}`,
+    ),
+
   matter: (id: string) =>
     request<import("@shared/agro/types").Matter>(`/api/agro/matters?id=${id}`),
 
-  tasks: () => request<import("@shared/agro/types").Task[]>("/api/agro/tasks"),
+  tasks: (params: TaskListParams = {}) =>
+    request<PaginatedResult<import("@shared/agro/types").Task>>(
+      `/api/agro/tasks${buildQuery({
+        facets: params.facets ?? true,
+        page: params.page ?? 1,
+        pageSize: params.pageSize ?? 100,
+        search: params.search,
+        status: params.status,
+        priority: params.priority,
+        owner: params.owner,
+        type: params.type,
+        due: params.due,
+      })}`,
+    ),
+
   tasksByRelated: (relatedTo: string) =>
     request<import("@shared/agro/types").Task[]>(
       `/api/agro/tasks?relatedTo=${relatedTo}`,
@@ -118,6 +192,10 @@ export const agroApi = {
     nextContact?: string | null;
     accountId?: string | null;
     status?: import("@shared/agro/types").LeadStatus;
+    leadType?: string;
+    legalPain?: string;
+    interestArea?: string;
+    priority?: import("@shared/agro/types").LeadPriority;
   }) =>
     request<import("@shared/agro/types").Lead>("/api/agro/leads", {
       method: "POST",

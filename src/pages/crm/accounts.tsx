@@ -2,28 +2,49 @@ import { useMemo, useState } from "react";
 import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
+import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAccounts } from "@/hooks/use-crm-queries";
 import { ACCOUNT_TYPE } from "@/lib/crm-labels";
+import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { ROUTES } from "@/lib/routes";
+import type { AccountType } from "@shared/agro/types";
 
 export default function CrmAccountsPage() {
   usePageTitle("Contas Agro");
-  const { data: accounts = [], isLoading } = useAccounts();
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState(FILTER_ALL);
+  const [regionFilter, setRegionFilter] = useState(FILTER_ALL);
+  const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
 
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase();
-    return accounts.filter(
-      (a) =>
-        !q ||
-        a.name.toLowerCase().includes(q) ||
-        a.region.toLowerCase().includes(q),
-    );
-  }, [accounts, search]);
+  const debouncedSearch = useDebouncedValue(search);
+
+  const listParams = useMemo(
+    () => ({
+      facets: true,
+      page: 1,
+      pageSize: 100,
+      search: debouncedSearch.trim() || undefined,
+      type: typeFilter !== FILTER_ALL ? typeFilter : undefined,
+      region: regionFilter !== FILTER_ALL ? regionFilter : undefined,
+      owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
+    }),
+    [debouncedSearch, typeFilter, regionFilter, ownerFilter],
+  );
+
+  const { data, isLoading } = useAccounts(listParams);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const facets = data?.facets;
+
+  const isFiltered = hasActiveFilters(
+    { typeFilter, regionFilter, ownerFilter },
+    search,
+  );
 
   return (
     <AppShell>
@@ -34,12 +55,49 @@ export default function CrmAccountsPage() {
             Carteira ativa do JGG Group — produtores, cooperativas e operações.
           </p>
         </header>
-        <CrmFilters search={search} onSearchChange={setSearch} placeholder="Buscar conta ou região..." />
+        <CrmFilters
+          search={search}
+          onSearchChange={setSearch}
+          placeholder="Buscar conta ou região..."
+          filteredCount={items.length}
+          totalCount={total}
+        >
+          <FilterSelect
+            value={typeFilter}
+            onChange={setTypeFilter}
+            label="Filtrar por tipo"
+            options={[
+              { value: FILTER_ALL, label: "Todos os tipos" },
+              ...(Object.entries(ACCOUNT_TYPE) as [AccountType, string][]).map(
+                ([value, label]) => ({ value, label }),
+              ),
+            ]}
+          />
+          <FilterSelect
+            value={regionFilter}
+            onChange={setRegionFilter}
+            label="Filtrar por região"
+            options={[
+              { value: FILTER_ALL, label: "Todas as regiões" },
+              ...(facets?.regions ?? []).map((r) => ({ value: r, label: r })),
+            ]}
+          />
+          <FilterSelect
+            value={ownerFilter}
+            onChange={setOwnerFilter}
+            label="Filtrar por responsável"
+            options={[
+              { value: FILTER_ALL, label: "Todos os responsáveis" },
+              ...(facets?.owners ?? []).map((o) => ({ value: o, label: o })),
+            ]}
+          />
+        </CrmFilters>
         {isLoading ? (
           <CrmLoadingState />
         ) : (
           <EntityTable
-            data={filtered}
+            data={items}
+            isFiltered={isFiltered}
             columns={[
               {
                 key: "name",
@@ -53,11 +111,25 @@ export default function CrmAccountsPage() {
                   </Link>
                 ),
               },
-              { key: "type", header: "Tipo", cell: (r) => <Badge variant="secondary">{ACCOUNT_TYPE[r.type]}</Badge> },
+              {
+                key: "type",
+                header: "Tipo",
+                cell: (r) => (
+                  <Badge variant="secondary">{ACCOUNT_TYPE[r.type]}</Badge>
+                ),
+              },
               { key: "region", header: "Região", cell: (r) => r.region },
-              { key: "area", header: "Área (ha)", cell: (r) => (r.areaHa ? r.areaHa.toLocaleString("pt-BR") : "—") },
+              {
+                key: "area",
+                header: "Área (ha)",
+                cell: (r) => (r.areaHa ? r.areaHa.toLocaleString("pt-BR") : "—"),
+              },
               { key: "matters", header: "Demandas", cell: (r) => r.activeMatters },
-              { key: "opps", header: "Oportunidades", cell: (r) => r.activeOpportunities },
+              {
+                key: "opps",
+                header: "Oportunidades",
+                cell: (r) => r.activeOpportunities,
+              },
               { key: "owner", header: "Responsável", cell: (r) => r.owner },
             ]}
           />

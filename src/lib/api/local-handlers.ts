@@ -1,4 +1,24 @@
 import { authenticate, resolveSession } from "@shared/agro/auth";
+import {
+  buildAccountFacets,
+  buildLeadFacets,
+  buildMatterFacets,
+  buildOpportunityFacets,
+  buildTaskFacets,
+  filterAccounts,
+  filterLeads,
+  filterMatters,
+  filterOpportunities,
+  filterTasks,
+} from "@shared/agro/filters";
+import { paginate } from "@shared/agro/list-types";
+import {
+  parseAccountParams,
+  parseLeadParams,
+  parseMatterParams,
+  parseOpportunityParams,
+  parseTaskParams,
+} from "@shared/agro/list-params";
 import { computeCrmStats } from "@shared/agro/stats";
 import {
   addLead,
@@ -70,6 +90,10 @@ export async function handleLocalApi(
         nextContact: body.nextContact ?? null,
         accountId: body.accountId ?? null,
         createdAt: today,
+        leadType: body.leadType,
+        legalPain: body.legalPain,
+        interestArea: body.interestArea,
+        priority: body.priority,
       };
       addLead(lead);
       return { status: 201, data: lead };
@@ -92,7 +116,12 @@ export async function handleLocalApi(
         ? { status: 200, data: lead }
         : { status: 404, data: { error: "Lead não encontrado" } };
     }
-    return { status: 200, data: listLeads() };
+
+    const query = parseLeadParams(params);
+    const all = listLeads();
+    const result = paginate(filterLeads(all, query), query);
+    if (query.facets) result.facets = buildLeadFacets(all);
+    return { status: 200, data: result };
   }
 
   if (pathname === "/api/agro/accounts") {
@@ -105,7 +134,12 @@ export async function handleLocalApi(
       }
       return { status: 200, data: account };
     }
-    return { status: 200, data: listAccounts() };
+
+    const query = parseAccountParams(params);
+    const all = listAccounts();
+    const result = paginate(filterAccounts(all, query), query);
+    if (query.facets) result.facets = buildAccountFacets(all);
+    return { status: 200, data: result };
   }
 
   if (pathname === "/api/agro/opportunities") {
@@ -126,7 +160,12 @@ export async function handleLocalApi(
         ? { status: 200, data: opp }
         : { status: 404, data: { error: "Oportunidade não encontrada" } };
     }
-    return { status: 200, data: listOpportunities() };
+
+    const query = parseOpportunityParams(params);
+    const all = listOpportunities();
+    const result = paginate(filterOpportunities(all, query), query);
+    if (query.facets) result.facets = buildOpportunityFacets(all);
+    return { status: 200, data: result };
   }
 
   if (pathname === "/api/agro/matters") {
@@ -147,7 +186,12 @@ export async function handleLocalApi(
         ? { status: 200, data: matter }
         : { status: 404, data: { error: "Demanda não encontrada" } };
     }
-    return { status: 200, data: listMatters() };
+
+    const query = parseMatterParams(params);
+    const all = listMatters();
+    const result = paginate(filterMatters(all, query), query);
+    if (query.facets) result.facets = buildMatterFacets(all);
+    return { status: 200, data: result };
   }
 
   if (pathname === "/api/agro/tasks") {
@@ -172,7 +216,12 @@ export async function handleLocalApi(
         ? { status: 200, data: task }
         : { status: 404, data: { error: "Tarefa não encontrada" } };
     }
-    return { status: 200, data: listTasks() };
+
+    const query = parseTaskParams(params);
+    const all = listTasks();
+    const result = paginate(filterTasks(all, query), query);
+    if (query.facets) result.facets = buildTaskFacets(all);
+    return { status: 200, data: result };
   }
 
   if (pathname === "/api/agro/stats") {

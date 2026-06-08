@@ -17,7 +17,7 @@ import {
 } from "@/lib/crm-labels";
 import type { OpportunityPriority, OpportunityStage } from "@shared/agro/types";
 import { ROUTES } from "@/lib/routes";
-import { OPPORTUNITY_STAGES } from "@/lib/crm-mock-data";
+import { OPPORTUNITY_STAGES } from "@shared/agro/seed";
 
 export default function CrmOpportunityDetailPage() {
   const [, params] = useRoute("/agro/crm/opportunities/:id");
@@ -119,6 +119,18 @@ export default function CrmOpportunityDetailPage() {
               <p className="text-xs text-muted-foreground">Fase atual</p>
               <Badge variant="outline">{OPPORTUNITY_STAGE[opp.stage]}</Badge>
             </div>
+            {opp.probability !== undefined && (
+              <div>
+                <p className="text-xs text-muted-foreground">Probabilidade</p>
+                <p>{opp.probability}%</p>
+              </div>
+            )}
+            {opp.nextStep && (
+              <div className="sm:col-span-2">
+                <p className="text-xs text-muted-foreground">Próximo passo</p>
+                <p>{opp.nextStep}</p>
+              </div>
+            )}
           </div>
         </Card>
 

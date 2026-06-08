@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "db:setup": "tsx scripts/db-setup.ts"
+    "db:setup": "tsx scripts/db-setup.ts",
+    "db:reseed": "tsx scripts/db-setup.ts -- --force"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",

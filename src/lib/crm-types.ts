@@ -1,12 +1,15 @@
 /** Re-exporta tipos canônicos do domínio Agro. */
 export type {
   LeadStatus,
+  LeadPriority,
   OpportunityStage,
   MatterStatus,
+  MatterUrgency,
   RiskLevel,
   TaskPriority,
   TaskStatus,
   AccountType,
+  RelationshipStatus,
   OpportunityPriority,
   AgroRole,
   Lead,

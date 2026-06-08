@@ -5,6 +5,7 @@ import {
   listLeads,
   updateLead,
 } from "../_lib/data-service.js";
+import { parseLeadListQuery } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -17,7 +18,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!lead) return json(res, { error: "Lead não encontrado" }, 404);
       return json(res, lead);
     }
-    return json(res, await listLeads());
+    return json(res, await listLeads(parseLeadListQuery(req)));
   }
 
   if (req.method === "POST") {
@@ -36,6 +37,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       nextContact: body.nextContact ?? null,
       accountId: body.accountId ?? null,
       status: body.status,
+      leadType: body.leadType ? String(body.leadType) : undefined,
+      legalPain: body.legalPain ? String(body.legalPain) : undefined,
+      interestArea: body.interestArea ? String(body.interestArea) : undefined,
+      priority: body.priority,
     });
     return json(res, lead, 201);
   }

@@ -4,6 +4,7 @@ import {
   getAccountTimeline,
   listAccounts,
 } from "../_lib/data-service.js";
+import { parseAccountListQuery } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -22,7 +23,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
       return json(res, account);
     }
-    return json(res, await listAccounts());
+    return json(res, await listAccounts(parseAccountListQuery(req)));
   }
 
   return methodNotAllowed(res);

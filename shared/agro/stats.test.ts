@@ -9,7 +9,7 @@ describe("computeCrmStats", () => {
     expect(stats.activeLeads).toBeGreaterThan(0);
     expect(stats.openOpportunities).toBeGreaterThan(0);
     expect(stats.pipelineValue).toBeGreaterThan(0);
-    expect(stats.pipelineByStage.length).toBe(4);
+    expect(stats.pipelineByStage.length).toBe(7);
     expect(stats.priorityOpportunities.length).toBeLessThanOrEqual(5);
     expect(stats.activeAccounts).toBeGreaterThan(0);
     expect(stats.practiceBreakdown.length).toBeGreaterThan(0);

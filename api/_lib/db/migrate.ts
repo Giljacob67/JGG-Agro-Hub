@@ -13,7 +13,7 @@ export async function runMigrations(
   `;
   await sql`
     DO $$ BEGIN
-      CREATE TYPE agro.opportunity_stage AS ENUM ('qualificacao','proposta','negociacao','contrato','perdido');
+      CREATE TYPE agro.opportunity_stage AS ENUM ('novo_contato','diagnostico_agendado','diagnostico_realizado','proposta_elaboracao','proposta_enviada','negociacao','contrato','perdido','arquivado');
     EXCEPTION WHEN duplicate_object THEN NULL; END $$
   `;
   await sql`
@@ -131,4 +131,80 @@ export async function runMigrations(
   await sql`CREATE INDEX IF NOT EXISTS idx_tasks_related ON agro.tasks(related_to)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_matters_deadline ON agro.matters(deadline)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_tasks_due ON agro.tasks(due_date)`;
+
+  await runEnrichedFieldMigrations(sql);
+}
+
+async function runEnrichedFieldMigrations(
+  sql: ReturnType<typeof neon>,
+) {
+  await sql`
+    DO $$ BEGIN
+      CREATE TYPE agro.lead_priority AS ENUM ('baixa','media','alta');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+  await sql`
+    DO $$ BEGIN
+      CREATE TYPE agro.matter_urgency AS ENUM ('normal','alta','critica');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+  await sql`
+    DO $$ BEGIN
+      CREATE TYPE agro.relationship_status AS ENUM ('ativo','em_expansao','em_risco','inativo');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+
+  await sql`
+    DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'novo_contato';
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+  await sql`
+    DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'diagnostico_agendado';
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+  await sql`
+    DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'diagnostico_realizado';
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+  await sql`
+    DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'proposta_elaboracao';
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+  await sql`
+    DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'proposta_enviada';
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+  await sql`
+    DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'arquivado';
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+
+  await sql`ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS properties JSONB DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS contacts JSONB DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS contracted_areas JSONB DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS mapped_risks JSONB DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS relationship_status agro.relationship_status`;
+
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS lead_type TEXT`;
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS legal_pain TEXT`;
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS interest_area TEXT`;
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS priority agro.lead_priority`;
+
+  await sql`ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS probability SMALLINT`;
+  await sql`ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS next_step TEXT`;
+
+  await sql`ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS urgency agro.matter_urgency`;
+  await sql`ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS pending_documents JSONB DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS next_steps TEXT`;
+
+  await sql`
+    UPDATE agro.opportunities
+    SET stage = 'proposta_elaboracao'
+    WHERE stage::text = 'proposta'
+  `;
+  await sql`
+    UPDATE agro.opportunities
+    SET stage = 'diagnostico_agendado'
+    WHERE stage::text = 'qualificacao'
+  `;
 }

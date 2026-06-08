@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useLead, useRelatedTasks, useUpdateLead } from "@/hooks/use-crm-queries";
-import { LEAD_STATUS, TASK_STATUS, formatDate } from "@/lib/crm-labels";
+import { LEAD_PRIORITY, LEAD_STATUS, TASK_STATUS, formatDate } from "@/lib/crm-labels";
 import type { LeadStatus } from "@shared/agro/types";
 import { ROUTES } from "@/lib/routes";
 
@@ -106,6 +106,30 @@ export default function CrmLeadDetailPage() {
               <p className="text-xs text-muted-foreground">Próximo contato</p>
               <p>{lead.nextContact ? formatDate(lead.nextContact) : "—"}</p>
             </div>
+            {lead.leadType && (
+              <div>
+                <p className="text-xs text-muted-foreground">Tipo</p>
+                <p>{lead.leadType}</p>
+              </div>
+            )}
+            {lead.priority && (
+              <div>
+                <p className="text-xs text-muted-foreground">Prioridade</p>
+                <p>{LEAD_PRIORITY[lead.priority]}</p>
+              </div>
+            )}
+            {lead.legalPain && (
+              <div className="sm:col-span-2">
+                <p className="text-xs text-muted-foreground">Principal dor jurídica</p>
+                <p>{lead.legalPain}</p>
+              </div>
+            )}
+            {lead.interestArea && (
+              <div className="sm:col-span-2">
+                <p className="text-xs text-muted-foreground">Área de interesse</p>
+                <p>{lead.interestArea}</p>
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs text-muted-foreground mb-1">Notas</p>
