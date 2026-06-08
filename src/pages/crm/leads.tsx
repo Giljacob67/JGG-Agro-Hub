@@ -5,13 +5,16 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
+import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateLeadForm } from "@/components/crm/create-lead-form";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useLeads } from "@/hooks/use-crm-queries";
+import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
 import { LEAD_STATUS, formatDate, isWithinDays } from "@/lib/crm-labels";
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { exportToCsv } from "@/lib/export-csv";
@@ -27,12 +30,20 @@ export default function CrmLeadsPage() {
   const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { page, setPage } = useCrmListPage(
+    debouncedSearch,
+    statusFilter,
+    regionFilter,
+    sourceFilter,
+    cropFilter,
+    ownerFilter,
+  );
 
   const listParams = useMemo(
     () => ({
       facets: true,
-      page: 1,
-      pageSize: 100,
+      page,
+      pageSize: DEFAULT_PAGE_SIZE,
       search: debouncedSearch.trim() || undefined,
       status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
       region: regionFilter !== FILTER_ALL ? regionFilter : undefined,
@@ -41,6 +52,7 @@ export default function CrmLeadsPage() {
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
     }),
     [
+      page,
       debouncedSearch,
       statusFilter,
       regionFilter,
@@ -204,6 +216,14 @@ export default function CrmLeadsPage() {
                 cell: (r) => formatDate(r.createdAt),
               },
             ]}
+          />
+        )}
+        {!isLoading && (
+          <CrmPagination
+            page={data?.page ?? page}
+            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
           />
         )}
       </div>

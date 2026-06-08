@@ -4,10 +4,13 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
+import { CrmPagination } from "@/components/crm/crm-pagination";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
 import { useOpportunities } from "@/hooks/use-crm-queries";
 import { OPPORTUNITY_STAGES } from "@shared/agro/seed";
 import {
@@ -31,12 +34,20 @@ export default function CrmOpportunitiesPage() {
   const [valueFilter, setValueFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { page, setPage } = useCrmListPage(
+    debouncedSearch,
+    stageFilter,
+    practiceFilter,
+    ownerFilter,
+    priorityFilter,
+    valueFilter,
+  );
 
   const listParams = useMemo(
     () => ({
       facets: true,
-      page: 1,
-      pageSize: 100,
+      page,
+      pageSize: DEFAULT_PAGE_SIZE,
       search: debouncedSearch.trim() || undefined,
       stage: stageFilter !== FILTER_ALL ? stageFilter : undefined,
       practice: practiceFilter !== FILTER_ALL ? practiceFilter : undefined,
@@ -45,6 +56,7 @@ export default function CrmOpportunitiesPage() {
       valueRange: valueFilter !== FILTER_ALL ? valueFilter : undefined,
     }),
     [
+      page,
       debouncedSearch,
       stageFilter,
       practiceFilter,
@@ -215,6 +227,14 @@ export default function CrmOpportunitiesPage() {
               })}
             </div>
           </div>
+        )}
+        {!isLoading && (
+          <CrmPagination
+            page={data?.page ?? page}
+            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
+          />
         )}
       </div>
     </AppShell>

@@ -4,11 +4,14 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
+import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAccounts } from "@/hooks/use-crm-queries";
+import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
 import { ACCOUNT_TYPE } from "@/lib/crm-labels";
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { ROUTES } from "@/lib/routes";
@@ -22,18 +25,24 @@ export default function CrmAccountsPage() {
   const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { page, setPage } = useCrmListPage(
+    debouncedSearch,
+    typeFilter,
+    regionFilter,
+    ownerFilter,
+  );
 
   const listParams = useMemo(
     () => ({
       facets: true,
-      page: 1,
-      pageSize: 100,
+      page,
+      pageSize: DEFAULT_PAGE_SIZE,
       search: debouncedSearch.trim() || undefined,
       type: typeFilter !== FILTER_ALL ? typeFilter : undefined,
       region: regionFilter !== FILTER_ALL ? regionFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
     }),
-    [debouncedSearch, typeFilter, regionFilter, ownerFilter],
+    [page, debouncedSearch, typeFilter, regionFilter, ownerFilter],
   );
 
   const { data, isLoading } = useAccounts(listParams);
@@ -132,6 +141,14 @@ export default function CrmAccountsPage() {
               },
               { key: "owner", header: "Responsável", cell: (r) => r.owner },
             ]}
+          />
+        )}
+        {!isLoading && (
+          <CrmPagination
+            page={data?.page ?? page}
+            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
           />
         )}
       </div>

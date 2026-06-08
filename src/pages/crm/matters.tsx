@@ -4,11 +4,14 @@ import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
+import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
+import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useMatters } from "@/hooks/use-crm-queries";
+import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
 import {
   MATTER_STATUS,
   RISK_LEVEL,
@@ -30,12 +33,20 @@ export default function CrmMattersPage() {
   const [deadlineFilter, setDeadlineFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { page, setPage } = useCrmListPage(
+    debouncedSearch,
+    statusFilter,
+    riskFilter,
+    practiceFilter,
+    ownerFilter,
+    deadlineFilter,
+  );
 
   const listParams = useMemo(
     () => ({
       facets: true,
-      page: 1,
-      pageSize: 100,
+      page,
+      pageSize: DEFAULT_PAGE_SIZE,
       search: debouncedSearch.trim() || undefined,
       status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
       risk: riskFilter !== FILTER_ALL ? riskFilter : undefined,
@@ -44,6 +55,7 @@ export default function CrmMattersPage() {
       deadline: deadlineFilter !== FILTER_ALL ? deadlineFilter : undefined,
     }),
     [
+      page,
       debouncedSearch,
       statusFilter,
       riskFilter,
@@ -190,6 +202,14 @@ export default function CrmMattersPage() {
               },
               { key: "owner", header: "Responsável", cell: (r) => r.owner },
             ]}
+          />
+        )}
+        {!isLoading && (
+          <CrmPagination
+            page={data?.page ?? page}
+            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            total={total}
+            onPageChange={setPage}
           />
         )}
       </div>
