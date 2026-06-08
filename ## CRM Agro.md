@@ -2,7 +2,7 @@
 
 O CRM Agro é uma área operacional exclusiva da frente JGG Agro.
 
-Ele deve permanecer separado do CRM, command center ou fluxos da Tax Group.
+Ele deve permanecer separado do CRM, command center ou fluxos de outras frentes do JGG Group (ex.: tributária).
 
 Entidades principais:
 - Leads Agro

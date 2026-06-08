@@ -24,9 +24,6 @@ import {
   Link2,
 } from "lucide-react";
 
-/** Hub tributário — projeto e deploy separados na Vercel */
-export const TAX_HUB_URL = "https://tax-group-hub.vercel.app";
-
 export const AGRO_CONTACT_EMAIL = "agro@jgggroup.com.br";
 
 export const agroContactMailto = `mailto:${AGRO_CONTACT_EMAIL}?subject=${encodeURIComponent("Contato Hub Agro")}`;
@@ -223,9 +220,9 @@ export const DIFFERENTIALS: Differential[] = [
     icon: MessageSquare,
   },
   {
-    title: "Integração com a frente tributária quando necessário",
+    title: "Integração com a frente tributária JGG quando necessário",
     description:
-      "Articulação com o hub tributário em temas fiscais, mantendo cada frente com identidade e escopo próprios.",
+      "Articulação com outras frentes do JGG Group em temas fiscais, mantendo cada área com identidade e escopo próprios.",
     icon: Link2,
   },
 ];

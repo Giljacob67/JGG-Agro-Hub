@@ -1,7 +1,13 @@
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { NAV_LINKS, TAX_HUB_URL, agroContactMailto } from "@/lib/agro-content";
+import { NAV_LINKS, agroContactMailto } from "@/lib/agro-content";
+import {
+  JGG_AGRO_HUB_NAME,
+  JGG_GROUP_NAME,
+  JGG_TRIBUTARIO_LABEL,
+  JGG_TRIBUTARIO_URL,
+} from "@/lib/brand";
 
 export function AgroHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -12,21 +18,21 @@ export function AgroHeader() {
     <header className="sticky top-0 z-50 border-b border-border/50 bg-background/90 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
         <a
-          href="/"
+          href="/institucional"
           className="flex items-center gap-3 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md"
         >
           <div
             className="w-8 h-8 rounded-lg bg-primary/12 ring-1 ring-primary/25 flex items-center justify-center"
             aria-hidden="true"
           >
-            <span className="text-xs font-bold text-primary">JA</span>
+            <span className="text-xs font-bold text-primary">JG</span>
           </div>
           <div className="min-w-0">
             <span className="font-bold text-sm tracking-tight text-foreground block">
-              JGG Agro
+              {JGG_AGRO_HUB_NAME}
             </span>
             <span className="text-[10px] text-muted-foreground uppercase tracking-widest hidden sm:block">
-              Hub Jurídico
+              {JGG_GROUP_NAME}
             </span>
           </div>
         </a>
@@ -48,12 +54,18 @@ export function AgroHeader() {
 
         <div className="flex items-center gap-2 shrink-0">
           <a
-            href={TAX_HUB_URL}
+            href="/command-center"
+            className="hidden md:inline text-xs font-medium text-primary hover:text-primary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-2 py-1"
+          >
+            Acessar hub
+          </a>
+          <a
+            href={JGG_TRIBUTARIO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="hidden md:inline text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-2 py-1"
+            className="hidden lg:inline text-xs text-muted-foreground hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-2 py-1"
           >
-            Hub Tributário
+            {JGG_TRIBUTARIO_LABEL}
           </a>
           <Button size="sm" asChild className="hidden sm:inline-flex">
             <a href={agroContactMailto}>Falar com o time</a>
@@ -95,13 +107,22 @@ export function AgroHeader() {
             ))}
             <li className="pt-2 border-t border-border/50 mt-2">
               <a
-                href={TAX_HUB_URL}
+                href="/command-center"
+                onClick={handleNavClick}
+                className="block px-3 py-2.5 text-sm font-medium text-primary"
+              >
+                Acessar hub interno
+              </a>
+            </li>
+            <li>
+              <a
+                href={JGG_TRIBUTARIO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleNavClick}
                 className="block px-3 py-2.5 text-sm text-muted-foreground hover:text-foreground"
               >
-                Hub Tributário
+                {JGG_TRIBUTARIO_LABEL}
               </a>
             </li>
             <li className="pt-2">

@@ -1,6 +1,11 @@
 import { motion } from "framer-motion";
 import { ArrowUpRight } from "lucide-react";
-import { DIFFERENTIALS, TAX_HUB_URL } from "@/lib/agro-content";
+import { DIFFERENTIALS } from "@/lib/agro-content";
+import {
+  JGG_GROUP_NAME,
+  JGG_TRIBUTARIO_LABEL,
+  JGG_TRIBUTARIO_URL,
+} from "@/lib/brand";
 
 export function AgroDifferentials() {
   return (
@@ -42,23 +47,23 @@ export function AgroDifferentials() {
         viewport={{ once: true, margin: "-40px" }}
         transition={{ duration: 0.4 }}
         className="rounded-xl border border-border bg-muted/30 p-6 md:p-8 flex flex-col justify-center"
-        aria-label="Integração com hub tributário"
+        aria-label="Ecossistema JGG Group"
       >
         <p className="text-xs font-semibold uppercase tracking-widest text-primary/80 mb-3">
-          Ecossistema JGG
+          Ecossistema {JGG_GROUP_NAME}
         </p>
         <p className="text-sm text-muted-foreground leading-relaxed">
-          Quando a operação exige análise fiscal especializada, articulamos com a
-          frente tributária — cada hub mantém identidade, escopo e navegação
-          próprios, em projetos e domínios separados.
+          Quando a operação exige análise fiscal especializada, articulamos com
+          a frente tributária do {JGG_GROUP_NAME} — cada área com identidade,
+          escopo e ferramentas próprias.
         </p>
         <a
-          href={TAX_HUB_URL}
+          href={JGG_TRIBUTARIO_URL}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 mt-5 text-sm font-medium text-primary hover:text-primary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md w-fit"
         >
-          Conheça o hub tributário
+          {JGG_TRIBUTARIO_LABEL}
           <ArrowUpRight className="w-4 h-4" aria-hidden="true" />
         </a>
       </motion.aside>

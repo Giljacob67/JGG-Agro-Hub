@@ -111,7 +111,7 @@ export default function LandingPage() {
         <AgroSection
           id="diferenciais"
           title="Diferenciais"
-          description="Por que o hub Agro é uma frente jurídica à parte — com integração pontual ao tributário quando necessário."
+          description="Por que o hub Agro é uma frente jurídica do JGG Group — com integração pontual à frente tributária quando necessário."
         >
           <AgroDifferentials />
         </AgroSection>

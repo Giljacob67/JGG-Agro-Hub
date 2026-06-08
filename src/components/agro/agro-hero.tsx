@@ -36,7 +36,7 @@ export function AgroHero() {
           <motion.div variants={itemVariants} className="mb-5">
             <span className="inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-primary/80">
               <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-hidden="true" />
-              JGG Agro — Hub Jurídico
+              JGG Group — Hub Agro
             </span>
           </motion.div>
 
