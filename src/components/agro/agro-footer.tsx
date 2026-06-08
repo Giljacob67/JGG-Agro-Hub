@@ -4,6 +4,7 @@ import {
   JGG_TRIBUTARIO_LABEL,
   JGG_TRIBUTARIO_URL,
 } from "@/lib/brand";
+import { ROUTES } from "@/lib/routes";
 
 export function AgroFooter() {
   const year = new Date().getFullYear();
@@ -22,7 +23,7 @@ export function AgroFooter() {
           aria-label="Links do rodapé"
         >
           <a
-            href="/command-center"
+            href={ROUTES.commandCenter}
             className="hover:text-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-1"
           >
             Hub interno

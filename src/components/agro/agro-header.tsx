@@ -8,6 +8,7 @@ import {
   JGG_TRIBUTARIO_LABEL,
   JGG_TRIBUTARIO_URL,
 } from "@/lib/brand";
+import { ROUTES } from "@/lib/routes";
 
 export function AgroHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -54,7 +55,7 @@ export function AgroHeader() {
 
         <div className="flex items-center gap-2 shrink-0">
           <a
-            href="/command-center"
+            href={ROUTES.commandCenter}
             className="hidden md:inline text-xs font-medium text-primary hover:text-primary/80 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md px-2 py-1"
           >
             Acessar hub
@@ -107,7 +108,7 @@ export function AgroHeader() {
             ))}
             <li className="pt-2 border-t border-border/50 mt-2">
               <a
-                href="/command-center"
+                href={ROUTES.commandCenter}
                 onClick={handleNavClick}
                 className="block px-3 py-2.5 text-sm font-medium text-primary"
               >

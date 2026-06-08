@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
+import { usePageTitle } from "@/hooks/use-page-title";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/crm-labels";
 
 export default function CrmMattersPage() {
+  usePageTitle("Demandas jurídicas");
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
 

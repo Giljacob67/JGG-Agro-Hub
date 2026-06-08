@@ -1,25 +1,20 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X, ExternalLink } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { MAIN_NAV, CRM_NAV } from "@/lib/navigation";
-import {
-  JGG_AGRO_HUB_NAME,
-  JGG_AGRO_TAGLINE,
-  JGG_GROUP_NAME,
-  JGG_TRIBUTARIO_LABEL,
-  JGG_TRIBUTARIO_URL,
-} from "@/lib/brand";
+import { ROUTES, isCrmPath } from "@/lib/routes";
+import { JGG_AGRO_HUB_NAME, JGG_AGRO_TAGLINE, JGG_GROUP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const inCrm = location.startsWith("/crm");
+  const inCrm = isCrmPath(location);
 
   const nav = (
     <>
       <div className="px-4 py-4 border-b border-border/50">
-        <Link href="/command-center" className="flex items-center gap-3">
+        <Link href={ROUTES.commandCenter} className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-primary/12 ring-1 ring-primary/25 flex items-center justify-center shrink-0">
             <span className="text-xs font-bold text-primary">JG</span>
           </div>
@@ -40,13 +35,17 @@ export function AppSidebar() {
       <nav className="px-3 py-4 space-y-1" aria-label="Navegação principal">
         {MAIN_NAV.map((item) => {
           const active =
-            item.path === "/crm"
+            item.path === ROUTES.crm.root
               ? inCrm
               : location === item.path || location.startsWith(item.path + "/");
           return (
             <Link
               key={item.path}
-              href={item.path === "/crm" ? "/crm/leads" : item.path}
+              href={
+                item.path === ROUTES.crm.root
+                  ? ROUTES.crm.leads
+                  : item.path
+              }
               onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
@@ -93,15 +92,12 @@ export function AppSidebar() {
       )}
 
       <div className="mt-auto px-4 py-4 border-t border-border/50">
-        <a
-          href={JGG_TRIBUTARIO_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        <Link
+          href={ROUTES.institucional}
+          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
-          <ExternalLink className="w-3.5 h-3.5" />
-          {JGG_TRIBUTARIO_LABEL}
-        </a>
+          Página institucional
+        </Link>
       </div>
     </>
   );

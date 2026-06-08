@@ -2,40 +2,59 @@ import { Link } from "wouter";
 import {
   AlertTriangle,
   ArrowRight,
-  Briefcase,
+  CalendarClock,
   CheckSquare,
+  DollarSign,
   Scale,
   Target,
   UserPlus,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
-import { Card, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { KpiCard } from "@/components/crm/kpi-card";
+import { Card, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { usePageTitle } from "@/hooks/use-page-title";
 import {
-  MOCK_LEADS,
-  MOCK_OPPORTUNITIES,
-  MOCK_MATTERS,
-  MOCK_TASKS,
-  OPPORTUNITY_STAGES,
-} from "@/lib/crm-mock-data";
-import { formatDate, isOverdue, RISK_LEVEL } from "@/lib/crm-labels";
+  getActiveLeads,
+  getOpenOpportunities,
+  getActiveMatters,
+  getOverdueTasks,
+  getUpcomingTasks,
+  getPipelineValue,
+  getPipelineByStage,
+  getPriorityOpportunities,
+  getRiskAlerts,
+  getUpcomingMatters,
+  getUpcomingContacts,
+  formatPipelineValue,
+} from "@/lib/crm-stats";
+import {
+  formatBrl,
+  formatDate,
+  isOverdue,
+  OPPORTUNITY_PRIORITY,
+  RISK_LEVEL,
+} from "@/lib/crm-labels";
+import { ROUTES } from "@/lib/routes";
 import { JGG_AGRO_HUB_NAME, JGG_GROUP_NAME } from "@/lib/brand";
 
 export default function CommandCenterPage() {
-  const activeLeads = MOCK_LEADS.filter((l) => l.status !== "descartado");
-  const urgentMatters = MOCK_MATTERS.filter(
-    (m) => m.risk === "alto" || m.risk === "critico",
-  );
-  const overdueTasks = MOCK_TASKS.filter(
-    (t) => t.status === "atrasada" || isOverdue(t.dueDate),
-  );
-  const pipeline = OPPORTUNITY_STAGES.filter((s) => s.id !== "perdido").map(
-    (stage) => ({
-      ...stage,
-      count: MOCK_OPPORTUNITIES.filter((o) => o.stage === stage.id).length,
-    }),
-  );
+  usePageTitle("Mesa de Operações");
+
+  const activeLeads = getActiveLeads();
+  const openOpportunities = getOpenOpportunities();
+  const activeMatters = getActiveMatters();
+  const overdueTasks = getOverdueTasks();
+  const upcomingTasks = getUpcomingTasks(7);
+  const pipelineValue = getPipelineValue();
+  const pipeline = getPipelineByStage();
+  const priorityOpps = getPriorityOpportunities();
+  const riskAlerts = getRiskAlerts();
+  const upcomingMatters = getUpcomingMatters(14);
+  const upcomingContacts = getUpcomingContacts(14);
+
+  const alertCount = riskAlerts.length + overdueTasks.length;
 
   return (
     <AppShell>
@@ -48,89 +67,98 @@ export default function CommandCenterPage() {
             Mesa de Operações
           </h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-            Visão operacional do {JGG_AGRO_HUB_NAME} — leads, oportunidades,
-            demandas jurídicas e tarefas do time. Uso interno.
+            Painel operacional do {JGG_AGRO_HUB_NAME} — carteira comercial,
+            demandas jurídicas e tarefas do time Agro. Dados fictícios para uso
+            interno.
           </p>
         </header>
 
-        {(urgentMatters.length > 0 || overdueTasks.length > 0) && (
+        {alertCount > 0 && (
           <div className="rounded-xl border border-accent/30 bg-accent/8 p-4 md:p-5">
             <div className="flex items-start gap-3">
               <AlertTriangle className="w-5 h-5 text-accent shrink-0 mt-0.5" />
               <div className="flex-1 space-y-2">
-                <p className="text-sm font-semibold">Alertas operacionais</p>
-                <ul className="text-sm text-muted-foreground space-y-1">
-                  {urgentMatters.map((m) => (
+                <p className="text-sm font-semibold">
+                  Alertas de risco e urgência ({alertCount})
+                </p>
+                <ul className="text-sm text-muted-foreground space-y-1.5">
+                  {riskAlerts.map((m) => (
                     <li key={m.id}>
                       <span className="font-medium text-foreground">
                         {m.title}
                       </span>{" "}
-                      — prazo {formatDate(m.deadline)} (
-                      {RISK_LEVEL[m.risk]})
+                      — prazo {formatDate(m.deadline)} · risco{" "}
+                      {RISK_LEVEL[m.risk].toLowerCase()}
                     </li>
                   ))}
                   {overdueTasks.map((t) => (
                     <li key={t.id}>
-                      Tarefa atrasada:{" "}
+                      Tarefa vencida:{" "}
                       <span className="font-medium text-foreground">
                         {t.title}
-                      </span>
+                      </span>{" "}
+                      — {formatDate(t.dueDate)}
                     </li>
                   ))}
                 </ul>
+                <Button variant="outline" size="sm" asChild className="mt-2">
+                  <Link href={ROUTES.crm.matters}>
+                    Ver demandas <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </Button>
               </div>
             </div>
           </div>
         )}
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            {
-              label: "Leads ativos",
-              value: activeLeads.length,
-              icon: UserPlus,
-              href: "/crm/leads",
-            },
-            {
-              label: "Oportunidades",
-              value: MOCK_OPPORTUNITIES.length,
-              icon: Target,
-              href: "/crm/opportunities",
-            },
-            {
-              label: "Demandas jurídicas",
-              value: MOCK_MATTERS.length,
-              icon: Scale,
-              href: "/crm/matters",
-            },
-            {
-              label: "Tarefas abertas",
-              value: MOCK_TASKS.filter((t) => t.status !== "concluida").length,
-              icon: CheckSquare,
-              href: "/crm/tasks",
-            },
-          ].map((kpi) => (
-            <Link key={kpi.href} href={kpi.href}>
-              <Card className="hover:border-primary/30 transition-colors cursor-pointer h-full">
-                <CardHeader className="p-4 md:p-5">
-                  <div className="flex items-center justify-between">
-                    <kpi.icon className="w-4 h-4 text-primary" />
-                    <span className="text-2xl font-bold">{kpi.value}</span>
-                  </div>
-                  <CardTitle className="text-sm font-medium mt-2">
-                    {kpi.label}
-                  </CardTitle>
-                </CardHeader>
-              </Card>
-            </Link>
-          ))}
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <KpiCard
+            label="Leads ativos"
+            value={activeLeads.length}
+            icon={UserPlus}
+            href={ROUTES.crm.leads}
+          />
+          <KpiCard
+            label="Oportunidades abertas"
+            value={openOpportunities.length}
+            icon={Target}
+            href={ROUTES.crm.opportunities}
+          />
+          <KpiCard
+            label="Valor em pipeline"
+            value={formatPipelineValue(pipelineValue)}
+            sublabel="Oportunidades em aberto"
+            icon={DollarSign}
+            href={ROUTES.crm.opportunities}
+            highlight
+          />
+          <KpiCard
+            label="Demandas em andamento"
+            value={activeMatters.length}
+            icon={Scale}
+            href={ROUTES.crm.matters}
+          />
+          <KpiCard
+            label="Tarefas vencidas"
+            value={overdueTasks.length}
+            icon={CheckSquare}
+            href={ROUTES.crm.tasks}
+            highlight={overdueTasks.length > 0}
+          />
+          <KpiCard
+            label="Tarefas — 7 dias"
+            value={upcomingTasks.length}
+            sublabel="Próximas do vencimento"
+            icon={CalendarClock}
+            href={ROUTES.crm.tasks}
+          />
         </div>
 
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold">Pipeline comercial</h2>
+            <h2 className="text-lg font-bold">Pipeline por fase</h2>
             <Button variant="outline" size="sm" asChild>
-              <Link href="/crm/opportunities">
+              <Link href={ROUTES.crm.opportunities}>
                 Ver oportunidades <ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </Button>
@@ -141,7 +169,12 @@ export default function CommandCenterPage() {
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">
                   {stage.label}
                 </p>
-                <p className="text-xl font-bold mt-1">{stage.count}</p>
+                <p className="text-xl font-bold mt-1 tabular-nums">
+                  {stage.count}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 tabular-nums">
+                  {formatBrl(stage.value)}
+                </p>
               </Card>
             ))}
           </div>
@@ -149,18 +182,98 @@ export default function CommandCenterPage() {
 
         <div className="grid lg:grid-cols-2 gap-6">
           <section>
-            <h2 className="text-lg font-bold mb-4">Demandas com prazo próximo</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Oportunidades prioritárias</h2>
+              <Badge variant="muted">{priorityOpps.length}</Badge>
+            </div>
             <div className="space-y-3">
-              {MOCK_MATTERS.slice(0, 4).map((m) => (
+              {priorityOpps.map((o) => (
+                <Card key={o.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold leading-snug">
+                        {o.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {o.accountName} · {o.practice}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold text-primary tabular-nums">
+                        {formatBrl(o.valueBrl)}
+                      </p>
+                      {o.priority === "alta" && (
+                        <Badge variant="warning" className="mt-1">
+                          {OPPORTUNITY_PRIORITY.alta}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {o.nextContact && (
+                    <p className="text-[11px] text-muted-foreground mt-2">
+                      Próximo contato: {formatDate(o.nextContact)}
+                    </p>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Próximos contatos</h2>
+              <Badge variant="muted">{upcomingContacts.length}</Badge>
+            </div>
+            <div className="space-y-3">
+              {upcomingContacts.length === 0 ? (
+                <Card className="p-4 border-dashed">
+                  <p className="text-sm text-muted-foreground text-center">
+                    Nenhum contato agendado nos próximos 14 dias.
+                  </p>
+                </Card>
+              ) : (
+                upcomingContacts.slice(0, 6).map((c) => (
+                  <Card key={`${c.entityType}-${c.id}`} className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">{c.accountOrLead}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {c.name} · {c.owner}
+                        </p>
+                      </div>
+                      <Badge variant="outline">{formatDate(c.date)}</Badge>
+                    </div>
+                  </Card>
+                ))
+              )}
+            </div>
+          </section>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-6">
+          <section>
+            <h2 className="text-lg font-bold mb-4">
+              Demandas com prazo próximo
+            </h2>
+            <div className="space-y-3">
+              {upcomingMatters.slice(0, 5).map((m) => (
                 <Card key={m.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-semibold">{m.title}</p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {m.accountName} · {m.practice}
                       </p>
                     </div>
-                    <Badge variant={m.risk === "critico" ? "danger" : m.risk === "alto" ? "warning" : "outline"}>
+                    <Badge
+                      variant={
+                        m.risk === "critico"
+                          ? "danger"
+                          : m.risk === "alto"
+                            ? "warning"
+                            : "outline"
+                      }
+                    >
                       {formatDate(m.deadline)}
                     </Badge>
                   </div>
@@ -170,28 +283,29 @@ export default function CommandCenterPage() {
           </section>
 
           <section>
-            <h2 className="text-lg font-bold mb-4">Próximas tarefas</h2>
+            <h2 className="text-lg font-bold mb-4">Tarefas críticas</h2>
             <div className="space-y-3">
-              {MOCK_TASKS.filter((t) => t.status !== "concluida")
-                .slice(0, 4)
+              {[...overdueTasks, ...upcomingTasks]
+                .slice(0, 6)
                 .map((t) => (
                   <Card key={t.id} className="p-4">
-                    <div className="flex items-start gap-3">
-                      <Briefcase className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                      <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
                         <p className="text-sm font-semibold truncate">
                           {t.title}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">
-                          {t.owner} · {formatDate(t.dueDate)}
+                          {t.owner} · {t.relatedTo}
                         </p>
                       </div>
                       <Badge
                         variant={
-                          t.status === "atrasada" ? "danger" : "outline"
+                          t.status === "atrasada" || isOverdue(t.dueDate)
+                            ? "danger"
+                            : "outline"
                         }
                       >
-                        {t.type}
+                        {formatDate(t.dueDate)}
                       </Badge>
                     </div>
                   </Card>
@@ -202,8 +316,8 @@ export default function CommandCenterPage() {
 
         <Card className="p-4 bg-muted/30 border-dashed">
           <CardDescription className="text-xs">
-            Dados fictícios para operação interna. Integração com backend JGG
-            Group em fase posterior.
+            Dados fictícios para operação interna do JGG Group. Integração com
+            backend, autenticação e persistência em fase posterior.
           </CardDescription>
         </Card>
       </div>

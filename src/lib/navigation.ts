@@ -8,6 +8,7 @@ import {
   Scale,
   CheckSquare,
 } from "lucide-react";
+import { ROUTES } from "./routes";
 
 export interface NavItem {
   path: string;
@@ -16,14 +17,18 @@ export interface NavItem {
 }
 
 export const MAIN_NAV: NavItem[] = [
-  { path: "/command-center", label: "Mesa de Operações", icon: LayoutDashboard },
-  { path: "/crm", label: "CRM Agro", icon: Users },
+  {
+    path: ROUTES.commandCenter,
+    label: "Mesa de Operações",
+    icon: LayoutDashboard,
+  },
+  { path: ROUTES.crm.root, label: "CRM Agro", icon: Users },
 ];
 
 export const CRM_NAV: NavItem[] = [
-  { path: "/crm/leads", label: "Leads", icon: UserPlus },
-  { path: "/crm/accounts", label: "Contas", icon: Building2 },
-  { path: "/crm/opportunities", label: "Oportunidades", icon: Target },
-  { path: "/crm/matters", label: "Demandas jurídicas", icon: Scale },
-  { path: "/crm/tasks", label: "Tarefas", icon: CheckSquare },
+  { path: ROUTES.crm.leads, label: "Leads", icon: UserPlus },
+  { path: ROUTES.crm.accounts, label: "Contas", icon: Building2 },
+  { path: ROUTES.crm.opportunities, label: "Oportunidades", icon: Target },
+  { path: ROUTES.crm.matters, label: "Demandas jurídicas", icon: Scale },
+  { path: ROUTES.crm.tasks, label: "Tarefas", icon: CheckSquare },
 ];

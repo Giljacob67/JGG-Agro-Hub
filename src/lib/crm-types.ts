@@ -17,6 +17,8 @@ export type AccountType =
   | "trading"
   | "investidor";
 
+export type OpportunityPriority = "normal" | "alta";
+
 export interface Lead {
   id: string;
   name: string;
@@ -27,6 +29,7 @@ export interface Lead {
   status: LeadStatus;
   owner: string;
   createdAt: string;
+  nextContact: string | null;
   notes: string;
 }
 
@@ -51,6 +54,8 @@ export interface Opportunity {
   valueBrl: number;
   owner: string;
   expectedClose: string;
+  nextContact: string | null;
+  priority: OpportunityPriority;
   practice: string;
 }
 
