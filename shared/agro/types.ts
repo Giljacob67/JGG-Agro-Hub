@@ -1,0 +1,122 @@
+export type LeadStatus = "novo" | "qualificando" | "qualificado" | "descartado";
+export type OpportunityStage =
+  | "qualificacao"
+  | "proposta"
+  | "negociacao"
+  | "contrato"
+  | "perdido";
+export type MatterStatus = "aberta" | "em_andamento" | "aguardando" | "concluida";
+export type RiskLevel = "baixo" | "medio" | "alto" | "critico";
+export type TaskPriority = "baixa" | "media" | "alta" | "urgente";
+export type TaskStatus = "pendente" | "em_andamento" | "concluida" | "atrasada";
+export type AccountType =
+  | "produtor"
+  | "familia"
+  | "cooperativa"
+  | "agroindustria"
+  | "trading"
+  | "investidor";
+export type OpportunityPriority = "normal" | "alta";
+export type AgroRole = "gestao" | "comercial" | "juridico";
+
+export interface Lead {
+  id: string;
+  name: string;
+  contact: string;
+  region: string;
+  crop: string;
+  source: string;
+  status: LeadStatus;
+  owner: string;
+  createdAt: string;
+  nextContact: string | null;
+  notes: string;
+  accountId?: string | null;
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  type: AccountType;
+  region: string;
+  areaHa: number;
+  mainCrop: string;
+  owner: string;
+  activeMatters: number;
+  activeOpportunities: number;
+  since: string;
+}
+
+export interface Opportunity {
+  id: string;
+  title: string;
+  accountName: string;
+  accountId?: string;
+  stage: OpportunityStage;
+  valueBrl: number;
+  owner: string;
+  expectedClose: string;
+  nextContact: string | null;
+  priority: OpportunityPriority;
+  practice: string;
+}
+
+export interface Matter {
+  id: string;
+  title: string;
+  accountName: string;
+  accountId?: string;
+  practice: string;
+  status: MatterStatus;
+  risk: RiskLevel;
+  deadline: string;
+  owner: string;
+  description: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  relatedTo: string;
+  type: "comercial" | "juridica" | "operacional";
+  priority: TaskPriority;
+  status: TaskStatus;
+  dueDate: string;
+  owner: string;
+}
+
+export interface AgroUser {
+  id: string;
+  email: string;
+  name: string;
+  role: AgroRole;
+}
+
+export interface CrmStats {
+  activeLeads: number;
+  openOpportunities: number;
+  pipelineValue: number;
+  activeMatters: number;
+  overdueTasks: number;
+  upcomingTasks: number;
+  pipelineByStage: Array<{
+    id: OpportunityStage;
+    label: string;
+    count: number;
+    value: number;
+  }>;
+  priorityOpportunities: Opportunity[];
+  riskAlerts: Matter[];
+  upcomingMatters: Matter[];
+  upcomingContacts: Array<{
+    id: string;
+    entityType: "lead" | "oportunidade";
+    name: string;
+    accountOrLead: string;
+    date: string;
+    owner: string;
+    channel: string;
+  }>;
+  overdueTasksList: Task[];
+  upcomingTasksList: Task[];
+}

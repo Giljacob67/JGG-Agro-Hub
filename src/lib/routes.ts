@@ -3,10 +3,12 @@
 export const ROUTES = {
   home: "/agro/command-center",
   commandCenter: "/agro/command-center",
+  login: "/agro/login",
   institucional: "/institucional",
   crm: {
     root: "/agro/crm",
     leads: "/agro/crm/leads",
+    leadDetail: (id: string) => `/agro/crm/leads/${id}`,
     accounts: "/agro/crm/accounts",
     opportunities: "/agro/crm/opportunities",
     matters: "/agro/crm/matters",

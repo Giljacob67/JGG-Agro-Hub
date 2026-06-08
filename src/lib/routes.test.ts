@@ -1,0 +1,16 @@
+import { describe, expect, it } from "vitest";
+import { ROUTES, isCrmPath } from "./routes";
+
+describe("routes", () => {
+  it("define rotas canônicas /agro", () => {
+    expect(ROUTES.commandCenter).toBe("/agro/command-center");
+    expect(ROUTES.crm.leads).toBe("/agro/crm/leads");
+    expect(ROUTES.crm.leadDetail("LD-001")).toBe("/agro/crm/leads/LD-001");
+  });
+
+  it("detecta paths CRM legados e novos", () => {
+    expect(isCrmPath("/agro/crm/leads")).toBe(true);
+    expect(isCrmPath("/crm/leads")).toBe(true);
+    expect(isCrmPath("/institucional")).toBe(false);
+  });
+});

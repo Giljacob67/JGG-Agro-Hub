@@ -1,25 +1,27 @@
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { usePageTitle } from "@/hooks/use-page-title";
 import { CrmFilters } from "@/components/crm/crm-filters";
+import { CrmLoadingState } from "@/components/crm/loading-state";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
-import { MOCK_ACCOUNTS } from "@/lib/crm-mock-data";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { useAccounts } from "@/hooks/use-crm-queries";
 import { ACCOUNT_TYPE } from "@/lib/crm-labels";
 
 export default function CrmAccountsPage() {
   usePageTitle("Contas Agro");
+  const { data: accounts = [], isLoading } = useAccounts();
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return MOCK_ACCOUNTS.filter(
+    return accounts.filter(
       (a) =>
         !q ||
         a.name.toLowerCase().includes(q) ||
         a.region.toLowerCase().includes(q),
     );
-  }, [search]);
+  }, [accounts, search]);
 
   return (
     <AppShell>
@@ -31,18 +33,22 @@ export default function CrmAccountsPage() {
           </p>
         </header>
         <CrmFilters search={search} onSearchChange={setSearch} placeholder="Buscar conta ou região..." />
-        <EntityTable
-          data={filtered}
-          columns={[
-            { key: "name", header: "Conta", cell: (r) => <span className="font-medium">{r.name}</span> },
-            { key: "type", header: "Tipo", cell: (r) => <Badge variant="secondary">{ACCOUNT_TYPE[r.type]}</Badge> },
-            { key: "region", header: "Região", cell: (r) => r.region },
-            { key: "area", header: "Área (ha)", cell: (r) => (r.areaHa ? r.areaHa.toLocaleString("pt-BR") : "—") },
-            { key: "matters", header: "Demandas", cell: (r) => r.activeMatters },
-            { key: "opps", header: "Oportunidades", cell: (r) => r.activeOpportunities },
-            { key: "owner", header: "Responsável", cell: (r) => r.owner },
-          ]}
-        />
+        {isLoading ? (
+          <CrmLoadingState />
+        ) : (
+          <EntityTable
+            data={filtered}
+            columns={[
+              { key: "name", header: "Conta", cell: (r) => <span className="font-medium">{r.name}</span> },
+              { key: "type", header: "Tipo", cell: (r) => <Badge variant="secondary">{ACCOUNT_TYPE[r.type]}</Badge> },
+              { key: "region", header: "Região", cell: (r) => r.region },
+              { key: "area", header: "Área (ha)", cell: (r) => (r.areaHa ? r.areaHa.toLocaleString("pt-BR") : "—") },
+              { key: "matters", header: "Demandas", cell: (r) => r.activeMatters },
+              { key: "opps", header: "Oportunidades", cell: (r) => r.activeOpportunities },
+              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+            ]}
+          />
+        )}
       </div>
     </AppShell>
   );

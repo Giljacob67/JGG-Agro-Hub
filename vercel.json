@@ -3,5 +3,42 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "redirects": [
+    {
+      "source": "/command-center",
+      "destination": "/agro/command-center",
+      "permanent": true
+    },
+    {
+      "source": "/crm",
+      "destination": "/agro/crm",
+      "permanent": true
+    },
+    {
+      "source": "/crm/leads",
+      "destination": "/agro/crm/leads",
+      "permanent": true
+    },
+    {
+      "source": "/crm/accounts",
+      "destination": "/agro/crm/accounts",
+      "permanent": true
+    },
+    {
+      "source": "/crm/opportunities",
+      "destination": "/agro/crm/opportunities",
+      "permanent": true
+    },
+    {
+      "source": "/crm/matters",
+      "destination": "/agro/crm/matters",
+      "permanent": true
+    },
+    {
+      "source": "/crm/tasks",
+      "destination": "/agro/crm/tasks",
+      "permanent": true
+    }
+  ],
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
 }

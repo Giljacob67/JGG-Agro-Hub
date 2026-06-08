@@ -1,15 +1,29 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { MAIN_NAV, CRM_NAV } from "@/lib/navigation";
 import { ROUTES, isCrmPath } from "@/lib/routes";
+import { useAuth } from "@/contexts/auth-context";
 import { JGG_AGRO_HUB_NAME, JGG_AGRO_TAGLINE, JGG_GROUP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
+
+const CRM_RESOURCE: Record<string, string> = {
+  [ROUTES.crm.leads]: "leads",
+  [ROUTES.crm.accounts]: "accounts",
+  [ROUTES.crm.opportunities]: "opportunities",
+  [ROUTES.crm.matters]: "matters",
+  [ROUTES.crm.tasks]: "tasks",
+};
 
 export function AppSidebar() {
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, logout, canAccess } = useAuth();
   const inCrm = isCrmPath(location);
+
+  const visibleCrmNav = CRM_NAV.filter(
+    (item) => canAccess(CRM_RESOURCE[item.path] ?? "crm"),
+  );
 
   const nav = (
     <>
@@ -30,6 +44,11 @@ export function AppSidebar() {
         <p className="text-[11px] text-muted-foreground mt-3 leading-snug">
           {JGG_AGRO_TAGLINE}
         </p>
+        {user && (
+          <p className="text-[11px] text-muted-foreground mt-2">
+            {user.name} · {user.role}
+          </p>
+        )}
       </div>
 
       <nav className="px-3 py-4 space-y-1" aria-label="Navegação principal">
@@ -41,11 +60,7 @@ export function AppSidebar() {
           return (
             <Link
               key={item.path}
-              href={
-                item.path === ROUTES.crm.root
-                  ? ROUTES.crm.leads
-                  : item.path
-              }
+              href={item.path}
               onClick={() => setMobileOpen(false)}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
@@ -61,7 +76,7 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {inCrm && (
+      {inCrm && visibleCrmNav.length > 0 && (
         <nav
           className="px-3 pb-4 space-y-1 border-t border-border/40 pt-4 mx-3"
           aria-label="CRM Agro"
@@ -69,8 +84,9 @@ export function AppSidebar() {
           <p className="px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground mb-2">
             CRM Agro
           </p>
-          {CRM_NAV.map((item) => {
-            const active = location === item.path;
+          {visibleCrmNav.map((item) => {
+            const active =
+              location === item.path || location.startsWith(item.path + "/");
             return (
               <Link
                 key={item.path}
@@ -91,13 +107,23 @@ export function AppSidebar() {
         </nav>
       )}
 
-      <div className="mt-auto px-4 py-4 border-t border-border/50">
+      <div className="mt-auto px-4 py-4 border-t border-border/50 space-y-3">
         <Link
           href={ROUTES.institucional}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          className="block text-xs text-muted-foreground hover:text-foreground transition-colors"
         >
           Página institucional
         </Link>
+        {user && (
+          <button
+            type="button"
+            onClick={logout}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Sair
+          </button>
+        )}
       </div>
     </>
   );

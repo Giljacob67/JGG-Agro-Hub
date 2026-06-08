@@ -1,12 +1,31 @@
+import type { ComponentType } from "react";
 import { Route, Switch, Redirect } from "wouter";
 import CommandCenterPage from "./pages/command-center";
 import InstitucionalPage from "./pages/institucional";
+import AgroLoginPage from "./pages/agro/login";
+import CrmOverviewPage from "./pages/crm/overview";
 import CrmLeadsPage from "./pages/crm/leads";
+import CrmLeadDetailPage from "./pages/crm/lead-detail";
 import CrmAccountsPage from "./pages/crm/accounts";
 import CrmOpportunitiesPage from "./pages/crm/opportunities";
 import CrmMattersPage from "./pages/crm/matters";
 import CrmTasksPage from "./pages/crm/tasks";
+import { ProtectedRoute } from "./components/auth/protected-route";
 import { ROUTES } from "./lib/routes";
+
+function AgroRoute({
+  component: Component,
+  resource,
+}: {
+  component: ComponentType;
+  resource?: string;
+}) {
+  return (
+    <ProtectedRoute resource={resource}>
+      <Component />
+    </ProtectedRoute>
+  );
+}
 
 export default function App() {
   return (
@@ -18,23 +37,41 @@ export default function App() {
       <Route path="/agro">
         <Redirect to={ROUTES.commandCenter} />
       </Route>
-      <Route path={ROUTES.commandCenter} component={CommandCenterPage} />
+
+      <Route path={ROUTES.login} component={AgroLoginPage} />
+
+      <Route path={ROUTES.commandCenter}>
+        <AgroRoute component={CommandCenterPage} resource="stats" />
+      </Route>
 
       <Route path={ROUTES.crm.root}>
-        <Redirect to={ROUTES.crm.leads} />
+        <AgroRoute component={CrmOverviewPage} resource="crm" />
       </Route>
-      <Route path={ROUTES.crm.leads} component={CrmLeadsPage} />
-      <Route path={ROUTES.crm.accounts} component={CrmAccountsPage} />
-      <Route path={ROUTES.crm.opportunities} component={CrmOpportunitiesPage} />
-      <Route path={ROUTES.crm.matters} component={CrmMattersPage} />
-      <Route path={ROUTES.crm.tasks} component={CrmTasksPage} />
+      <Route path="/agro/crm/leads/:id">
+        <AgroRoute component={CrmLeadDetailPage} resource="leads" />
+      </Route>
+      <Route path={ROUTES.crm.leads}>
+        <AgroRoute component={CrmLeadsPage} resource="leads" />
+      </Route>
+      <Route path={ROUTES.crm.accounts}>
+        <AgroRoute component={CrmAccountsPage} resource="accounts" />
+      </Route>
+      <Route path={ROUTES.crm.opportunities}>
+        <AgroRoute component={CrmOpportunitiesPage} resource="opportunities" />
+      </Route>
+      <Route path={ROUTES.crm.matters}>
+        <AgroRoute component={CrmMattersPage} resource="matters" />
+      </Route>
+      <Route path={ROUTES.crm.tasks}>
+        <AgroRoute component={CrmTasksPage} resource="tasks" />
+      </Route>
 
-      {/* Redirects legados — compatibilidade com URLs anteriores */}
+      {/* Redirects legados */}
       <Route path="/command-center">
         <Redirect to={ROUTES.commandCenter} />
       </Route>
       <Route path="/crm">
-        <Redirect to={ROUTES.crm.leads} />
+        <Redirect to={ROUTES.crm.root} />
       </Route>
       <Route path="/crm/leads">
         <Redirect to={ROUTES.crm.leads} />

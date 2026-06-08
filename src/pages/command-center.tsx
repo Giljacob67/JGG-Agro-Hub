@@ -11,24 +11,12 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { KpiCard } from "@/components/crm/kpi-card";
+import { CrmLoadingState } from "@/components/crm/loading-state";
 import { Card, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { usePageTitle } from "@/hooks/use-page-title";
-import {
-  getActiveLeads,
-  getOpenOpportunities,
-  getActiveMatters,
-  getOverdueTasks,
-  getUpcomingTasks,
-  getPipelineValue,
-  getPipelineByStage,
-  getPriorityOpportunities,
-  getRiskAlerts,
-  getUpcomingMatters,
-  getUpcomingContacts,
-  formatPipelineValue,
-} from "@/lib/crm-stats";
+import { useCrmStats } from "@/hooks/use-crm-queries";
 import {
   formatBrl,
   formatDate,
@@ -41,20 +29,17 @@ import { JGG_AGRO_HUB_NAME, JGG_GROUP_NAME } from "@/lib/brand";
 
 export default function CommandCenterPage() {
   usePageTitle("Mesa de Operações");
+  const { data: stats, isLoading } = useCrmStats();
 
-  const activeLeads = getActiveLeads();
-  const openOpportunities = getOpenOpportunities();
-  const activeMatters = getActiveMatters();
-  const overdueTasks = getOverdueTasks();
-  const upcomingTasks = getUpcomingTasks(7);
-  const pipelineValue = getPipelineValue();
-  const pipeline = getPipelineByStage();
-  const priorityOpps = getPriorityOpportunities();
-  const riskAlerts = getRiskAlerts();
-  const upcomingMatters = getUpcomingMatters(14);
-  const upcomingContacts = getUpcomingContacts(14);
+  if (isLoading || !stats) {
+    return (
+      <AppShell>
+        <CrmLoadingState label="Carregando painel operacional…" />
+      </AppShell>
+    );
+  }
 
-  const alertCount = riskAlerts.length + overdueTasks.length;
+  const alertCount = stats.riskAlerts.length + stats.overdueTasks;
 
   return (
     <AppShell>
@@ -68,8 +53,7 @@ export default function CommandCenterPage() {
           </h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
             Painel operacional do {JGG_AGRO_HUB_NAME} — carteira comercial,
-            demandas jurídicas e tarefas do time Agro. Dados fictícios para uso
-            interno.
+            demandas jurídicas e tarefas do time Agro.
           </p>
         </header>
 
@@ -82,7 +66,7 @@ export default function CommandCenterPage() {
                   Alertas de risco e urgência ({alertCount})
                 </p>
                 <ul className="text-sm text-muted-foreground space-y-1.5">
-                  {riskAlerts.map((m) => (
+                  {stats.riskAlerts.map((m) => (
                     <li key={m.id}>
                       <span className="font-medium text-foreground">
                         {m.title}
@@ -91,7 +75,7 @@ export default function CommandCenterPage() {
                       {RISK_LEVEL[m.risk].toLowerCase()}
                     </li>
                   ))}
-                  {overdueTasks.map((t) => (
+                  {stats.overdueTasksList.map((t) => (
                     <li key={t.id}>
                       Tarefa vencida:{" "}
                       <span className="font-medium text-foreground">
@@ -114,19 +98,19 @@ export default function CommandCenterPage() {
         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <KpiCard
             label="Leads ativos"
-            value={activeLeads.length}
+            value={stats.activeLeads}
             icon={UserPlus}
             href={ROUTES.crm.leads}
           />
           <KpiCard
             label="Oportunidades abertas"
-            value={openOpportunities.length}
+            value={stats.openOpportunities}
             icon={Target}
             href={ROUTES.crm.opportunities}
           />
           <KpiCard
             label="Valor em pipeline"
-            value={formatPipelineValue(pipelineValue)}
+            value={formatBrl(stats.pipelineValue)}
             sublabel="Oportunidades em aberto"
             icon={DollarSign}
             href={ROUTES.crm.opportunities}
@@ -134,20 +118,20 @@ export default function CommandCenterPage() {
           />
           <KpiCard
             label="Demandas em andamento"
-            value={activeMatters.length}
+            value={stats.activeMatters}
             icon={Scale}
             href={ROUTES.crm.matters}
           />
           <KpiCard
             label="Tarefas vencidas"
-            value={overdueTasks.length}
+            value={stats.overdueTasks}
             icon={CheckSquare}
             href={ROUTES.crm.tasks}
-            highlight={overdueTasks.length > 0}
+            highlight={stats.overdueTasks > 0}
           />
           <KpiCard
             label="Tarefas — 7 dias"
-            value={upcomingTasks.length}
+            value={stats.upcomingTasks}
             sublabel="Próximas do vencimento"
             icon={CalendarClock}
             href={ROUTES.crm.tasks}
@@ -164,7 +148,7 @@ export default function CommandCenterPage() {
             </Button>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {pipeline.map((stage) => (
+            {stats.pipelineByStage.map((stage) => (
               <Card key={stage.id} className="p-4">
                 <p className="text-xs text-muted-foreground uppercase tracking-wide">
                   {stage.label}
@@ -184,10 +168,10 @@ export default function CommandCenterPage() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Oportunidades prioritárias</h2>
-              <Badge variant="muted">{priorityOpps.length}</Badge>
+              <Badge variant="muted">{stats.priorityOpportunities.length}</Badge>
             </div>
             <div className="space-y-3">
-              {priorityOpps.map((o) => (
+              {stats.priorityOpportunities.map((o) => (
                 <Card key={o.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -222,17 +206,17 @@ export default function CommandCenterPage() {
           <section>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Próximos contatos</h2>
-              <Badge variant="muted">{upcomingContacts.length}</Badge>
+              <Badge variant="muted">{stats.upcomingContacts.length}</Badge>
             </div>
             <div className="space-y-3">
-              {upcomingContacts.length === 0 ? (
+              {stats.upcomingContacts.length === 0 ? (
                 <Card className="p-4 border-dashed">
                   <p className="text-sm text-muted-foreground text-center">
                     Nenhum contato agendado nos próximos 14 dias.
                   </p>
                 </Card>
               ) : (
-                upcomingContacts.slice(0, 6).map((c) => (
+                stats.upcomingContacts.slice(0, 6).map((c) => (
                   <Card key={`${c.entityType}-${c.id}`} className="p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
@@ -256,7 +240,7 @@ export default function CommandCenterPage() {
               Demandas com prazo próximo
             </h2>
             <div className="space-y-3">
-              {upcomingMatters.slice(0, 5).map((m) => (
+              {stats.upcomingMatters.slice(0, 5).map((m) => (
                 <Card key={m.id} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -285,7 +269,7 @@ export default function CommandCenterPage() {
           <section>
             <h2 className="text-lg font-bold mb-4">Tarefas críticas</h2>
             <div className="space-y-3">
-              {[...overdueTasks, ...upcomingTasks]
+              {[...stats.overdueTasksList, ...stats.upcomingTasksList]
                 .slice(0, 6)
                 .map((t) => (
                   <Card key={t.id} className="p-4">
@@ -316,8 +300,8 @@ export default function CommandCenterPage() {
 
         <Card className="p-4 bg-muted/30 border-dashed">
           <CardDescription className="text-xs">
-            Dados fictícios para operação interna do JGG Group. Integração com
-            backend, autenticação e persistência em fase posterior.
+            Dados servidos via API Agro (store em memória). Integração PostgreSQL
+            e autenticação SSO em fase posterior.
           </CardDescription>
         </Card>
       </div>

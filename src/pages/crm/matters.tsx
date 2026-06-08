@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
-import { usePageTitle } from "@/hooks/use-page-title";
 import { CrmFilters } from "@/components/crm/crm-filters";
+import { CrmLoadingState } from "@/components/crm/loading-state";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
-import { MOCK_MATTERS } from "@/lib/crm-mock-data";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { useMatters } from "@/hooks/use-crm-queries";
 import {
   MATTER_STATUS,
   RISK_LEVEL,
@@ -15,12 +16,13 @@ import {
 
 export default function CrmMattersPage() {
   usePageTitle("Demandas jurídicas");
+  const { data: matters = [], isLoading } = useMatters();
   const [search, setSearch] = useState("");
   const [riskFilter, setRiskFilter] = useState<string>("all");
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase();
-    return MOCK_MATTERS.filter((m) => {
+    return matters.filter((m) => {
       const matchSearch =
         !q ||
         m.title.toLowerCase().includes(q) ||
@@ -29,7 +31,7 @@ export default function CrmMattersPage() {
       const matchRisk = riskFilter === "all" || m.risk === riskFilter;
       return matchSearch && matchRisk;
     });
-  }, [search, riskFilter]);
+  }, [matters, search, riskFilter]);
 
   return (
     <AppShell>
@@ -54,30 +56,34 @@ export default function CrmMattersPage() {
             <option value="baixo">Baixo</option>
           </select>
         </CrmFilters>
-        <EntityTable
-          data={filtered}
-          columns={[
-            { key: "title", header: "Demanda", cell: (r) => <span className="font-medium">{r.title}</span> },
-            { key: "account", header: "Conta", cell: (r) => r.accountName },
-            { key: "practice", header: "Área", cell: (r) => r.practice },
-            { key: "status", header: "Status", cell: (r) => <Badge variant="outline">{MATTER_STATUS[r.status]}</Badge> },
-            {
-              key: "risk",
-              header: "Risco",
-              cell: (r) => <Badge variant={riskBadgeVariant(r.risk)}>{RISK_LEVEL[r.risk]}</Badge>,
-            },
-            {
-              key: "deadline",
-              header: "Prazo",
-              cell: (r) => (
-                <span className={isOverdue(r.deadline) && r.status !== "concluida" ? "text-red-700 font-medium" : ""}>
-                  {formatDate(r.deadline)}
-                </span>
-              ),
-            },
-            { key: "owner", header: "Responsável", cell: (r) => r.owner },
-          ]}
-        />
+        {isLoading ? (
+          <CrmLoadingState />
+        ) : (
+          <EntityTable
+            data={filtered}
+            columns={[
+              { key: "title", header: "Demanda", cell: (r) => <span className="font-medium">{r.title}</span> },
+              { key: "account", header: "Conta", cell: (r) => r.accountName },
+              { key: "practice", header: "Área", cell: (r) => r.practice },
+              { key: "status", header: "Status", cell: (r) => <Badge variant="outline">{MATTER_STATUS[r.status]}</Badge> },
+              {
+                key: "risk",
+                header: "Risco",
+                cell: (r) => <Badge variant={riskBadgeVariant(r.risk)}>{RISK_LEVEL[r.risk]}</Badge>,
+              },
+              {
+                key: "deadline",
+                header: "Prazo",
+                cell: (r) => (
+                  <span className={isOverdue(r.deadline) && r.status !== "concluida" ? "text-red-700 font-medium" : ""}>
+                    {formatDate(r.deadline)}
+                  </span>
+                ),
+              },
+              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+            ]}
+          />
+        )}
       </div>
     </AppShell>
   );
