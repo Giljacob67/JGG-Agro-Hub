@@ -5,8 +5,8 @@ import {
   getTask,
   listTasks,
   updateTaskStatus,
-} from "../_lib/data-service";
-import { json, methodNotAllowed, requireAuth } from "../_lib/http";
+} from "../_lib/data-service.js";
+import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireAuth(req, res, "tasks")) return;

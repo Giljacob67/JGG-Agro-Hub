@@ -6,14 +6,14 @@ import type {
   Task,
   TaskStatus,
 } from "../../../shared/agro/types.js";
-import { getSql } from "./client";
+import { getSql } from "./client.js";
 import {
   mapAccount,
   mapLead,
   mapMatter,
   mapOpportunity,
   mapTask,
-} from "./mappers";
+} from "./mappers.js";
 
 export async function dbListLeads(): Promise<Lead[]> {
   const sql = getSql();

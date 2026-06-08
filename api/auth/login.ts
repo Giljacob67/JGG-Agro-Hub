@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { authenticate } from "../../shared/agro/auth.js";
-import { json, methodNotAllowed } from "../_lib/http";
+import { json, methodNotAllowed } from "../_lib/http.js";
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return methodNotAllowed(res);

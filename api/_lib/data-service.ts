@@ -12,8 +12,8 @@ import type {
   Task,
   TaskStatus,
 } from "../../shared/agro/types.js";
-import { isDbEnabled } from "./db/client";
-import * as db from "./db/repository";
+import { isDbEnabled } from "./db/client.js";
+import * as db from "./db/repository.js";
 
 export { isDbEnabled };
 
@@ -156,14 +156,14 @@ export async function loadCrmDataset() {
 }
 
 export async function setupDatabase() {
-  const { runMigrations } = await import("./db/migrate");
+  const { runMigrations } = await import("./db/migrate.js");
   const {
     SEED_ACCOUNTS,
     SEED_LEADS,
     SEED_MATTERS,
     SEED_OPPORTUNITIES,
     SEED_TASKS,
-  } = await import("../../shared/agro/seed");
+  } = await import("../../shared/agro/seed.js");
 
   await runMigrations();
   await db.dbUpsertSeed({

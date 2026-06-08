@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { isDbEnabled, setupDatabase } from "../_lib/data-service";
-import { json, methodNotAllowed } from "../_lib/http";
+import { isDbEnabled, setupDatabase } from "../_lib/data-service.js";
+import { json, methodNotAllowed } from "../_lib/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return methodNotAllowed(res);

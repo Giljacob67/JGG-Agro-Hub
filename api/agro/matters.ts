@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getMatter, listMatters, updateMatter } from "../_lib/data-service";
-import { json, methodNotAllowed, requireAuth } from "../_lib/http";
+import { getMatter, listMatters, updateMatter } from "../_lib/data-service.js";
+import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireAuth(req, res, "matters")) return;

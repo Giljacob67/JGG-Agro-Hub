@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { isDbEnabled } from "../_lib/data-service";
-import { getSql } from "../_lib/db/client";
-import { json } from "../_lib/http";
+import { isDbEnabled } from "../_lib/data-service.js";
+import { getSql } from "../_lib/db/client.js";
+import { json } from "../_lib/http.js";
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   if (!isDbEnabled()) {

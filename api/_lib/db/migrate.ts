@@ -1,5 +1,5 @@
 import { neon } from "@neondatabase/serverless";
-import { getSql } from "./client";
+import { getSql } from "./client.js";
 
 export async function runMigrations(
   sql: ReturnType<typeof neon> = getSql(),
