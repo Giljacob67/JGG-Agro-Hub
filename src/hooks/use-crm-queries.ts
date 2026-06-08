@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { agroApi } from "@/lib/api/client";
+import type { LeadStatus, TaskStatus } from "@shared/agro/types";
 
 export const crmKeys = {
   all: ["crm"] as const,
@@ -63,4 +64,40 @@ export function useRelatedTasks(entityId: string) {
 
 export function useCrmStats() {
   return useQuery({ queryKey: crmKeys.stats, queryFn: agroApi.stats });
+}
+
+export function useUpdateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: Partial<{
+        status: LeadStatus;
+        owner: string;
+        nextContact: string | null;
+        notes: string;
+        name: string;
+      }>;
+    }) => agroApi.updateLead(id, patch),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: crmKeys.leads });
+      qc.invalidateQueries({ queryKey: crmKeys.lead(id) });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
+export function useUpdateTaskStatus() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, status }: { id: string; status: TaskStatus }) =>
+      agroApi.updateTaskStatus(id, status),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.tasks });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
 }

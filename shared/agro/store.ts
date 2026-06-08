@@ -82,6 +82,24 @@ export function getAccountTimeline(accountId: string) {
   };
 }
 
+export function addLead(lead: Lead) {
+  store.leads.push(lead);
+}
+
+export function patchLead(id: string, patch: Partial<Lead>): Lead | undefined {
+  const lead = getLead(id);
+  if (!lead) return undefined;
+  Object.assign(lead, patch);
+  return lead;
+}
+
+export function patchTask(id: string, patch: Partial<Task>): Task | undefined {
+  const task = getTask(id);
+  if (!task) return undefined;
+  Object.assign(task, patch);
+  return task;
+}
+
 /** Apenas para testes — reinicia o store. */
 export function resetStore() {
   store.leads = structuredClone(SEED_LEADS);

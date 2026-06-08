@@ -6,42 +6,58 @@ import {
   listOpportunities,
   listTasks,
 } from "./store";
-import type { CrmStats, Matter, Opportunity, Task } from "./types";
+import type { CrmStats, Lead, Matter, Opportunity, Task } from "./types";
 
 const OPEN_STAGES = new Set(["qualificacao", "proposta", "negociacao"]);
 
-function getActiveLeads() {
-  return listLeads().filter((l) => l.status !== "descartado");
+export interface CrmDataset {
+  leads: Lead[];
+  opportunities: Opportunity[];
+  matters: Matter[];
+  tasks: Task[];
 }
 
-function getOpenOpportunities() {
-  return listOpportunities().filter(
+function resolveDataset(dataset?: CrmDataset): CrmDataset {
+  if (dataset) return dataset;
+  return {
+    leads: listLeads(),
+    opportunities: listOpportunities(),
+    matters: listMatters(),
+    tasks: listTasks(),
+  };
+}
+
+function getActiveLeads(leads: Lead[]) {
+  return leads.filter((l) => l.status !== "descartado");
+}
+
+function getOpenOpportunities(opportunities: Opportunity[]) {
+  return opportunities.filter(
     (o) => o.stage !== "perdido" && o.stage !== "contrato",
   );
 }
 
-function getActiveMatters() {
-  return listMatters().filter((m) => m.status !== "concluida");
+function getActiveMatters(matters: Matter[]) {
+  return matters.filter((m) => m.status !== "concluida");
 }
 
-function getOpenTasks() {
-  return listTasks().filter((t) => t.status !== "concluida");
+function getOpenTasks(tasks: Task[]) {
+  return tasks.filter((t) => t.status !== "concluida");
 }
 
-function getOverdueTasks() {
-  return getOpenTasks().filter(
+function getOverdueTasks(tasks: Task[]) {
+  return getOpenTasks(tasks).filter(
     (t) => t.status === "atrasada" || isOverdue(t.dueDate),
   );
 }
 
-function getUpcomingTasks(days = 7) {
-  return getOpenTasks().filter(
+function getUpcomingTasks(tasks: Task[], days = 7) {
+  return getOpenTasks(tasks).filter(
     (t) => !isOverdue(t.dueDate) && isWithinDays(t.dueDate, days),
   );
 }
 
-function getPipelineByStage() {
-  const opportunities = listOpportunities();
+function getPipelineByStage(opportunities: Opportunity[]) {
   return OPPORTUNITY_STAGES.filter((s) => s.id !== "perdido").map((stage) => {
     const items = opportunities.filter((o) => o.stage === stage.id);
     return {
@@ -52,15 +68,15 @@ function getPipelineByStage() {
   });
 }
 
-function getPriorityOpportunities(): Opportunity[] {
-  return getOpenOpportunities()
+function getPriorityOpportunities(opportunities: Opportunity[]) {
+  return getOpenOpportunities(opportunities)
     .filter((o) => o.priority === "alta" || OPEN_STAGES.has(o.stage))
     .sort((a, b) => b.valueBrl - a.valueBrl)
     .slice(0, 5);
 }
 
-function getRiskAlerts(): Matter[] {
-  return getActiveMatters()
+function getRiskAlerts(matters: Matter[]) {
+  return getActiveMatters(matters)
     .filter((m) => m.risk === "alto" || m.risk === "critico")
     .sort(
       (a, b) =>
@@ -68,8 +84,8 @@ function getRiskAlerts(): Matter[] {
     );
 }
 
-function getUpcomingMatters(days = 14): Matter[] {
-  return getActiveMatters()
+function getUpcomingMatters(matters: Matter[], days = 14) {
+  return getActiveMatters(matters)
     .filter((m) => isWithinDays(m.deadline, days) || isOverdue(m.deadline))
     .sort(
       (a, b) =>
@@ -77,8 +93,8 @@ function getUpcomingMatters(days = 14): Matter[] {
     );
 }
 
-function getUpcomingContacts(days = 14) {
-  const fromLeads = getActiveLeads()
+function getUpcomingContacts(leads: Lead[], opportunities: Opportunity[], days = 14) {
+  const fromLeads = getActiveLeads(leads)
     .filter((l) => l.nextContact && isWithinDays(l.nextContact, days))
     .map((l) => ({
       id: l.id,
@@ -90,7 +106,7 @@ function getUpcomingContacts(days = 14) {
       channel: "Reunião / call",
     }));
 
-  const fromOpps = getOpenOpportunities()
+  const fromOpps = getOpenOpportunities(opportunities)
     .filter((o) => o.nextContact && isWithinDays(o.nextContact, days))
     .map((o) => ({
       id: o.id,
@@ -107,28 +123,25 @@ function getUpcomingContacts(days = 14) {
   );
 }
 
-export function computeCrmStats(): CrmStats {
-  const openOpportunities = getOpenOpportunities();
-  const overdueTasks = getOverdueTasks();
-  const upcomingTasks = getUpcomingTasks(7);
+export function computeCrmStats(dataset?: CrmDataset): CrmStats {
+  const data = resolveDataset(dataset);
+  const openOpportunities = getOpenOpportunities(data.opportunities);
+  const overdueTasks = getOverdueTasks(data.tasks);
+  const upcomingTasks = getUpcomingTasks(data.tasks, 7);
 
   return {
-    activeLeads: getActiveLeads().length,
+    activeLeads: getActiveLeads(data.leads).length,
     openOpportunities: openOpportunities.length,
     pipelineValue: openOpportunities.reduce((s, o) => s + o.valueBrl, 0),
-    activeMatters: getActiveMatters().length,
+    activeMatters: getActiveMatters(data.matters).length,
     overdueTasks: overdueTasks.length,
     upcomingTasks: upcomingTasks.length,
-    pipelineByStage: getPipelineByStage(),
-    priorityOpportunities: getPriorityOpportunities(),
-    riskAlerts: getRiskAlerts(),
-    upcomingMatters: getUpcomingMatters(14),
-    upcomingContacts: getUpcomingContacts(14),
+    pipelineByStage: getPipelineByStage(data.opportunities),
+    priorityOpportunities: getPriorityOpportunities(data.opportunities),
+    riskAlerts: getRiskAlerts(data.matters),
+    upcomingMatters: getUpcomingMatters(data.matters, 14),
+    upcomingContacts: getUpcomingContacts(data.leads, data.opportunities, 14),
     overdueTasksList: overdueTasks,
     upcomingTasksList: upcomingTasks,
   };
-}
-
-export function getOverdueTasksList(): Task[] {
-  return getOverdueTasks();
 }

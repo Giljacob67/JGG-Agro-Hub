@@ -1,6 +1,7 @@
 import { authenticate, resolveSession } from "@shared/agro/auth";
 import { computeCrmStats } from "@shared/agro/stats";
 import {
+  addLead,
   getAccount,
   getAccountTimeline,
   getLead,
@@ -13,7 +14,10 @@ import {
   listMatters,
   listOpportunities,
   listTasks,
+  patchLead,
+  patchTask,
 } from "@shared/agro/store";
+import type { Lead, LeadStatus, TaskStatus } from "@shared/agro/types";
 
 function parseQuery(path: string) {
   const [pathname, search] = path.split("?");
@@ -47,6 +51,38 @@ export async function handleLocalApi(
   if (!user) return { status: 401, data: { error: "Não autenticado" } };
 
   if (pathname === "/api/agro/leads") {
+    if (init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      const today = new Date().toISOString().slice(0, 10);
+      const id = `LD-${String(listLeads().length + 1).padStart(3, "0")}`;
+      const lead: Lead = {
+        id,
+        name: body.name,
+        contact: body.contact ?? "",
+        region: body.region,
+        crop: body.crop ?? "",
+        source: body.source ?? "Manual",
+        status: (body.status as LeadStatus) ?? "novo",
+        owner: body.owner,
+        notes: body.notes ?? "",
+        nextContact: body.nextContact ?? null,
+        accountId: body.accountId ?? null,
+        createdAt: today,
+      };
+      addLead(lead);
+      return { status: 201, data: lead };
+    }
+
+    if (init?.method === "PATCH") {
+      const id = params.get("id");
+      if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+      const body = JSON.parse(String(init.body));
+      const lead = patchLead(id, body);
+      return lead
+        ? { status: 200, data: lead }
+        : { status: 404, data: { error: "Lead não encontrado" } };
+    }
+
     const id = params.get("id");
     if (id) {
       const lead = getLead(id);
@@ -93,6 +129,18 @@ export async function handleLocalApi(
   }
 
   if (pathname === "/api/agro/tasks") {
+    if (init?.method === "PATCH") {
+      const id = params.get("id");
+      const body = JSON.parse(String(init.body));
+      if (!id || !body.status) {
+        return { status: 400, data: { error: "id e status são obrigatórios" } };
+      }
+      const task = patchTask(id, { status: body.status as TaskStatus });
+      return task
+        ? { status: 200, data: task }
+        : { status: 404, data: { error: "Tarefa não encontrada" } };
+    }
+
     const relatedTo = params.get("relatedTo");
     if (relatedTo) return { status: 200, data: getRelatedTasks(relatedTo) };
     const id = params.get("id");

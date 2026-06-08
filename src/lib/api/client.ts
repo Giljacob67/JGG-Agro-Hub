@@ -92,4 +92,44 @@ export const agroApi = {
     ),
 
   stats: () => request<import("@shared/agro/types").CrmStats>("/api/agro/stats"),
+
+  updateLead: (
+    id: string,
+    patch: Partial<
+      Pick<
+        import("@shared/agro/types").Lead,
+        "status" | "owner" | "nextContact" | "notes" | "name"
+      >
+    >,
+  ) =>
+    request<import("@shared/agro/types").Lead>(`/api/agro/leads?id=${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  createLead: (input: {
+    name: string;
+    contact?: string;
+    region: string;
+    crop?: string;
+    source?: string;
+    owner: string;
+    notes?: string;
+    nextContact?: string | null;
+    accountId?: string | null;
+    status?: import("@shared/agro/types").LeadStatus;
+  }) =>
+    request<import("@shared/agro/types").Lead>("/api/agro/leads", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateTaskStatus: (id: string, status: import("@shared/agro/types").TaskStatus) =>
+    request<import("@shared/agro/types").Task>(`/api/agro/tasks?id=${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+
+  dbHealth: () =>
+    request<{ mode: string; connected: boolean }>("/api/health/db"),
 };

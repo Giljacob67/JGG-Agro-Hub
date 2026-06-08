@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { useLead, useRelatedTasks } from "@/hooks/use-crm-queries";
+import { useLead, useRelatedTasks, useUpdateLead } from "@/hooks/use-crm-queries";
 import { LEAD_STATUS, TASK_STATUS, formatDate } from "@/lib/crm-labels";
+import type { LeadStatus } from "@shared/agro/types";
 import { ROUTES } from "@/lib/routes";
 
 export default function CrmLeadDetailPage() {
@@ -14,6 +15,7 @@ export default function CrmLeadDetailPage() {
   const id = params?.id ?? "";
   const { data: lead, isLoading, error } = useLead(id);
   const { data: tasks } = useRelatedTasks(id);
+  const updateLead = useUpdateLead();
 
   usePageTitle(lead ? `Lead ${lead.id}` : "Lead");
 
@@ -63,6 +65,30 @@ export default function CrmLeadDetailPage() {
         </header>
 
         <Card className="p-5 space-y-4">
+          <div>
+            <label htmlFor="lead-status" className="text-xs text-muted-foreground">
+              Status comercial
+            </label>
+            <select
+              id="lead-status"
+              value={lead.status}
+              disabled={updateLead.isPending}
+              onChange={(e) =>
+                updateLead.mutate({
+                  id: lead.id,
+                  patch: { status: e.target.value as LeadStatus },
+                })
+              }
+              className="mt-1 h-9 w-full max-w-xs rounded-md border border-border bg-background px-3 text-sm"
+            >
+              {Object.entries(LEAD_STATUS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="grid sm:grid-cols-2 gap-4 text-sm">
             <div>
               <p className="text-xs text-muted-foreground">Responsável</p>
