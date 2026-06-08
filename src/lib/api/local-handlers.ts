@@ -19,7 +19,10 @@ import {
   parseOpportunityParams,
   parseTaskParams,
 } from "@shared/agro/list-params";
+import { resolveCopilotQuery } from "@shared/agro/copilot";
+import { getKnowledgePayload } from "@shared/agro/knowledge";
 import { computeCrmStats } from "@shared/agro/stats";
+import type { CopilotQueryRequest } from "@shared/agro/types";
 import {
   addLead,
   getAccount,
@@ -226,6 +229,26 @@ export async function handleLocalApi(
 
   if (pathname === "/api/agro/stats") {
     return { status: 200, data: computeCrmStats() };
+  }
+
+  if (pathname === "/api/agro/copilot/query" && init?.method === "POST") {
+    const body = JSON.parse(String(init.body)) as CopilotQueryRequest;
+    if (!body.query?.trim()) {
+      return { status: 400, data: { error: "query é obrigatório" } };
+    }
+    const stats = computeCrmStats();
+    return {
+      status: 200,
+      data: resolveCopilotQuery(
+        { query: body.query.trim(), contextEntity: body.contextEntity ?? null },
+        stats,
+      ),
+    };
+  }
+
+  if (pathname === "/api/agro/knowledge") {
+    const categoryId = params.get("categoryId") ?? undefined;
+    return { status: 200, data: getKnowledgePayload(categoryId || undefined) };
   }
 
   return { status: 404, data: { error: "Rota não encontrada" } };

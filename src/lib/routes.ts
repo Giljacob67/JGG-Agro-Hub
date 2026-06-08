@@ -4,6 +4,8 @@ export const ROUTES = {
   home: "/agro/command-center",
   commandCenter: "/agro/command-center",
   login: "/agro/login",
+  copilot: "/agro/copilot",
+  knowledge: "/agro/knowledge",
   institucional: "/institucional",
   crm: {
     root: "/agro/crm",

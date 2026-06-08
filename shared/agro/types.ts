@@ -165,3 +165,83 @@ export interface CrmStats {
   overdueTasksList: Task[];
   upcomingTasksList: Task[];
 }
+
+/** Base de Conhecimento Agro */
+export type KnowledgeDocType =
+  | "guia"
+  | "checklist"
+  | "nota_tecnica"
+  | "modelo"
+  | "faq";
+
+export type KnowledgeDocStatus = "publicado" | "rascunho" | "em_revisao";
+
+export interface KnowledgeCategory {
+  id: string;
+  label: string;
+  description: string;
+}
+
+export interface KnowledgeDocument {
+  id: string;
+  categoryId: string;
+  title: string;
+  summary: string;
+  tags: string[];
+  updatedAt: string;
+  type: KnowledgeDocType;
+  status: KnowledgeDocStatus;
+}
+
+/** Agro Copilot */
+export type CopilotEntityType = "conta" | "oportunidade" | "demanda" | "lead";
+
+export interface CopilotContextEntity {
+  type: CopilotEntityType;
+  id: string;
+  name: string;
+}
+
+export interface CopilotPrompt {
+  id: string;
+  label: string;
+  text: string;
+}
+
+export interface CopilotSource {
+  id: string;
+  documentId: string;
+  title: string;
+  excerpt: string;
+  categoryLabel: string;
+}
+
+export interface CopilotRelatedEntity {
+  id: string;
+  type: CopilotEntityType;
+  name: string;
+}
+
+export interface CopilotResponse {
+  id: string;
+  promptId: string | null;
+  query: string;
+  synthesis: string;
+  risks: string[];
+  nextSteps: string[];
+  sources: CopilotSource[];
+  relatedEntities: CopilotRelatedEntity[];
+  simulated: true;
+  disclaimer: string;
+  generatedAt: string;
+}
+
+export interface CopilotQueryRequest {
+  query: string;
+  contextEntity?: CopilotContextEntity | null;
+}
+
+export interface KnowledgeListResponse {
+  categories: KnowledgeCategory[];
+  documents: KnowledgeDocument[];
+}

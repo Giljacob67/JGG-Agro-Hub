@@ -1,6 +1,8 @@
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
+  Library,
+  Sparkles,
   Users,
   UserPlus,
   Building2,
@@ -30,6 +32,18 @@ export const INTELLIGENCE_NAV: NavItem[] = [
     icon: LayoutDashboard,
     resource: "stats",
   },
+  {
+    path: ROUTES.copilot,
+    label: "Agro Copilot",
+    icon: Sparkles,
+    resource: "copilot",
+  },
+  {
+    path: ROUTES.knowledge,
+    label: "Base de Conhecimento",
+    icon: Library,
+    resource: "knowledge",
+  },
 ];
 
 export const CRM_NAV: NavItem[] = [
@@ -50,7 +64,7 @@ export const OPERATION_NAV: NavItem[] = [
 ];
 
 export const NAV_GROUPS: NavGroup[] = [
-  { id: "intelligence", label: "Inteligência", items: INTELLIGENCE_NAV },
+  { id: "intelligence", label: "IA Agro", items: INTELLIGENCE_NAV },
   { id: "crm", label: "CRM Agro", items: CRM_NAV },
   { id: "operation", label: "Operação", items: OPERATION_NAV },
 ];

@@ -24,12 +24,25 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 function roleCanAccess(role: AgroRole, resource: string): boolean {
   if (role === "gestao") return true;
   if (role === "comercial") {
-    return ["leads", "accounts", "opportunities", "stats", "crm"].includes(
-      resource,
-    );
+    return [
+      "leads",
+      "accounts",
+      "opportunities",
+      "stats",
+      "crm",
+      "copilot",
+      "knowledge",
+    ].includes(resource);
   }
   if (role === "juridico") {
-    return ["matters", "tasks", "stats", "crm"].includes(resource);
+    return [
+      "matters",
+      "tasks",
+      "stats",
+      "crm",
+      "copilot",
+      "knowledge",
+    ].includes(resource);
   }
   return false;
 }

@@ -10,6 +10,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { AgroCopilotPanel } from "@/components/copilot/agro-copilot-panel";
 import { AgroIntelligenceCard } from "@/components/command-center/agro-intelligence-card";
 import { CommandCenterHero } from "@/components/command-center/command-center-hero";
 import { CommandCenterSubNav } from "@/components/command-center/command-center-subnav";
@@ -98,6 +99,8 @@ export default function CommandCenterPage() {
         />
 
         <ExecutiveSummaryPanel stats={stats} />
+
+        <AgroCopilotPanel />
 
         <CommandCenterSubNav />
 

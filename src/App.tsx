@@ -1,6 +1,8 @@
 import type { ComponentType } from "react";
 import { Route, Switch, Redirect } from "wouter";
 import CommandCenterPage from "./pages/command-center";
+import AgroCopilotPage from "./pages/agro/copilot";
+import KnowledgePage from "./pages/agro/knowledge";
 import InstitucionalPage from "./pages/institucional";
 import AgroLoginPage from "./pages/agro/login";
 import CrmOverviewPage from "./pages/crm/overview";
@@ -45,6 +47,14 @@ export default function App() {
 
       <Route path={ROUTES.commandCenter}>
         <AgroRoute component={CommandCenterPage} resource="stats" />
+      </Route>
+
+      <Route path={ROUTES.copilot}>
+        <AgroRoute component={AgroCopilotPage} resource="copilot" />
+      </Route>
+
+      <Route path={ROUTES.knowledge}>
+        <AgroRoute component={KnowledgePage} resource="knowledge" />
       </Route>
 
       <Route path={ROUTES.crm.root}>

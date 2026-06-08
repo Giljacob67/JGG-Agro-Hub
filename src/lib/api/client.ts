@@ -231,6 +231,17 @@ export const agroApi = {
       body: JSON.stringify(patch),
     }),
 
+  copilotQuery: (input: import("@shared/agro/types").CopilotQueryRequest) =>
+    request<import("@shared/agro/types").CopilotResponse>(
+      "/api/agro/copilot/query",
+      { method: "POST", body: JSON.stringify(input) },
+    ),
+
+  knowledge: (categoryId?: string) =>
+    request<import("@shared/agro/types").KnowledgeListResponse>(
+      `/api/agro/knowledge${categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : ""}`,
+    ),
+
   dbHealth: () =>
     request<{ mode: string; connected: boolean }>("/api/health/db"),
 };

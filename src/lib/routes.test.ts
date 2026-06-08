@@ -4,6 +4,8 @@ import { ROUTES, isCrmPath } from "./routes";
 describe("routes", () => {
   it("define rotas canônicas /agro", () => {
     expect(ROUTES.commandCenter).toBe("/agro/command-center");
+    expect(ROUTES.copilot).toBe("/agro/copilot");
+    expect(ROUTES.knowledge).toBe("/agro/knowledge");
     expect(ROUTES.crm.leads).toBe("/agro/crm/leads");
     expect(ROUTES.crm.leadDetail("LD-001")).toBe("/agro/crm/leads/LD-001");
     expect(ROUTES.crm.accountDetail("AC-101")).toBe("/agro/crm/accounts/AC-101");
