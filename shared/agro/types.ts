@@ -92,19 +92,37 @@ export interface AgroUser {
   role: AgroRole;
 }
 
+export interface PracticeBreakdown {
+  practice: string;
+  matters: number;
+  opportunities: number;
+  pipelineValue: number;
+}
+
+export interface RegionPortfolio {
+  region: string;
+  accounts: number;
+  pipelineValue: number;
+}
+
 export interface CrmStats {
   activeLeads: number;
+  activeAccounts: number;
   openOpportunities: number;
   pipelineValue: number;
+  closedValue: number;
   activeMatters: number;
   overdueTasks: number;
   upcomingTasks: number;
+  qualifiedLeads: number;
   pipelineByStage: Array<{
     id: OpportunityStage;
     label: string;
     count: number;
     value: number;
   }>;
+  practiceBreakdown: PracticeBreakdown[];
+  portfolioByRegion: RegionPortfolio[];
   priorityOpportunities: Opportunity[];
   riskAlerts: Matter[];
   upcomingMatters: Matter[];

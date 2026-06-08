@@ -1,17 +1,27 @@
 import { isOverdue, isWithinDays } from "./date-utils.js";
 import { OPPORTUNITY_STAGES } from "./seed.js";
 import {
+  listAccounts,
   listLeads,
   listMatters,
   listOpportunities,
   listTasks,
 } from "./store.js";
-import type { CrmStats, Lead, Matter, Opportunity, Task } from "./types.js";
+import type {
+  CrmStats,
+  Lead,
+  Matter,
+  Opportunity,
+  PracticeBreakdown,
+  RegionPortfolio,
+  Task,
+} from "./types.js";
 
 const OPEN_STAGES = new Set(["qualificacao", "proposta", "negociacao"]);
 
 export interface CrmDataset {
   leads: Lead[];
+  accounts: import("./types.js").Account[];
   opportunities: Opportunity[];
   matters: Matter[];
   tasks: Task[];
@@ -21,6 +31,7 @@ function resolveDataset(dataset?: CrmDataset): CrmDataset {
   if (dataset) return dataset;
   return {
     leads: listLeads(),
+    accounts: listAccounts(),
     opportunities: listOpportunities(),
     matters: listMatters(),
     tasks: listTasks(),
@@ -123,20 +134,87 @@ function getUpcomingContacts(leads: Lead[], opportunities: Opportunity[], days =
   );
 }
 
+function getPracticeBreakdown(
+  matters: Matter[],
+  opportunities: Opportunity[],
+): PracticeBreakdown[] {
+  const map = new Map<string, PracticeBreakdown>();
+
+  for (const m of getActiveMatters(matters)) {
+    const row = map.get(m.practice) ?? {
+      practice: m.practice,
+      matters: 0,
+      opportunities: 0,
+      pipelineValue: 0,
+    };
+    row.matters += 1;
+    map.set(m.practice, row);
+  }
+
+  for (const o of getOpenOpportunities(opportunities)) {
+    const row = map.get(o.practice) ?? {
+      practice: o.practice,
+      matters: 0,
+      opportunities: 0,
+      pipelineValue: 0,
+    };
+    row.opportunities += 1;
+    row.pipelineValue += o.valueBrl;
+    map.set(o.practice, row);
+  }
+
+  return [...map.values()].sort((a, b) => b.pipelineValue - a.pipelineValue);
+}
+
+function getPortfolioByRegion(
+  accounts: import("./types.js").Account[],
+  opportunities: Opportunity[],
+): RegionPortfolio[] {
+  const map = new Map<string, RegionPortfolio>();
+
+  for (const a of accounts) {
+    map.set(a.region, {
+      region: a.region,
+      accounts: (map.get(a.region)?.accounts ?? 0) + 1,
+      pipelineValue: map.get(a.region)?.pipelineValue ?? 0,
+    });
+  }
+
+  for (const o of getOpenOpportunities(opportunities)) {
+    const account = accounts.find((a) => a.id === o.accountId);
+    const region = account?.region ?? "Outros";
+    const row = map.get(region) ?? { region, accounts: 0, pipelineValue: 0 };
+    row.pipelineValue += o.valueBrl;
+    map.set(region, row);
+  }
+
+  return [...map.values()].sort((a, b) => b.pipelineValue - a.pipelineValue);
+}
+
 export function computeCrmStats(dataset?: CrmDataset): CrmStats {
   const data = resolveDataset(dataset);
   const openOpportunities = getOpenOpportunities(data.opportunities);
   const overdueTasks = getOverdueTasks(data.tasks);
   const upcomingTasks = getUpcomingTasks(data.tasks, 7);
 
+  const activeLeads = getActiveLeads(data.leads);
+  const closedValue = data.opportunities
+    .filter((o) => o.stage === "contrato")
+    .reduce((s, o) => s + o.valueBrl, 0);
+
   return {
-    activeLeads: getActiveLeads(data.leads).length,
+    activeLeads: activeLeads.length,
+    activeAccounts: data.accounts.length,
     openOpportunities: openOpportunities.length,
     pipelineValue: openOpportunities.reduce((s, o) => s + o.valueBrl, 0),
+    closedValue,
     activeMatters: getActiveMatters(data.matters).length,
     overdueTasks: overdueTasks.length,
     upcomingTasks: upcomingTasks.length,
+    qualifiedLeads: activeLeads.filter((l) => l.status === "qualificado").length,
     pipelineByStage: getPipelineByStage(data.opportunities),
+    practiceBreakdown: getPracticeBreakdown(data.matters, data.opportunities),
+    portfolioByRegion: getPortfolioByRegion(data.accounts, data.opportunities),
     priorityOpportunities: getPriorityOpportunities(data.opportunities),
     riskAlerts: getRiskAlerts(data.matters),
     upcomingMatters: getUpcomingMatters(data.matters, 14),

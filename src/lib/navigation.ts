@@ -19,7 +19,7 @@ export interface NavItem {
 export const MAIN_NAV: NavItem[] = [
   {
     path: ROUTES.commandCenter,
-    label: "Mesa de Operações",
+    label: "Dashboard Executivo",
     icon: LayoutDashboard,
   },
   { path: ROUTES.crm.root, label: "CRM Agro", icon: Users },
