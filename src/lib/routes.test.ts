@@ -6,6 +6,11 @@ describe("routes", () => {
     expect(ROUTES.commandCenter).toBe("/agro/command-center");
     expect(ROUTES.crm.leads).toBe("/agro/crm/leads");
     expect(ROUTES.crm.leadDetail("LD-001")).toBe("/agro/crm/leads/LD-001");
+    expect(ROUTES.crm.accountDetail("AC-101")).toBe("/agro/crm/accounts/AC-101");
+    expect(ROUTES.crm.opportunityDetail("OP-201")).toBe(
+      "/agro/crm/opportunities/OP-201",
+    );
+    expect(ROUTES.crm.matterDetail("MT-301")).toBe("/agro/crm/matters/MT-301");
   });
 
   it("detecta paths CRM legados e novos", () => {

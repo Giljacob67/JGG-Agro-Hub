@@ -130,6 +130,29 @@ export const agroApi = {
       body: JSON.stringify({ status }),
     }),
 
+  updateOpportunity: (
+    id: string,
+    patch: Partial<
+      Pick<
+        import("@shared/agro/types").Opportunity,
+        "stage" | "priority" | "nextContact"
+      >
+    >,
+  ) =>
+    request<import("@shared/agro/types").Opportunity>(
+      `/api/agro/opportunities?id=${id}`,
+      { method: "PATCH", body: JSON.stringify(patch) },
+    ),
+
+  updateMatter: (
+    id: string,
+    patch: Partial<Pick<import("@shared/agro/types").Matter, "status" | "risk">>,
+  ) =>
+    request<import("@shared/agro/types").Matter>(`/api/agro/matters?id=${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
   dbHealth: () =>
     request<{ mode: string; connected: boolean }>("/api/health/db"),
 };

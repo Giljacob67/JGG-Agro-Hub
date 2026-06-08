@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { agroApi } from "@/lib/api/client";
-import type { LeadStatus, TaskStatus } from "@shared/agro/types";
+import type {
+  LeadStatus,
+  MatterStatus,
+  OpportunityPriority,
+  OpportunityStage,
+  RiskLevel,
+  TaskStatus,
+} from "@shared/agro/types";
 
 export const crmKeys = {
   all: ["crm"] as const,
@@ -9,7 +16,9 @@ export const crmKeys = {
   accounts: ["crm", "accounts"] as const,
   account: (id: string) => ["crm", "accounts", id] as const,
   opportunities: ["crm", "opportunities"] as const,
+  opportunity: (id: string) => ["crm", "opportunities", id] as const,
   matters: ["crm", "matters"] as const,
+  matter: (id: string) => ["crm", "matters", id] as const,
   tasks: ["crm", "tasks"] as const,
   stats: ["crm", "stats"] as const,
   relatedTasks: (id: string) => ["crm", "tasks", "related", id] as const,
@@ -24,6 +33,17 @@ export function useLead(id: string) {
     queryKey: crmKeys.lead(id),
     queryFn: () => agroApi.lead(id),
     enabled: !!id,
+  });
+}
+
+export function useCreateLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: agroApi.createLead,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.leads });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
   });
 }
 
@@ -46,8 +66,24 @@ export function useOpportunities() {
   });
 }
 
+export function useOpportunity(id: string) {
+  return useQuery({
+    queryKey: crmKeys.opportunity(id),
+    queryFn: () => agroApi.opportunity(id),
+    enabled: !!id,
+  });
+}
+
 export function useMatters() {
   return useQuery({ queryKey: crmKeys.matters, queryFn: agroApi.matters });
+}
+
+export function useMatter(id: string) {
+  return useQuery({
+    queryKey: crmKeys.matter(id),
+    queryFn: () => agroApi.matter(id),
+    enabled: !!id,
+  });
 }
 
 export function useTasks() {
@@ -85,6 +121,46 @@ export function useUpdateLead() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: crmKeys.leads });
       qc.invalidateQueries({ queryKey: crmKeys.lead(id) });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
+export function useUpdateOpportunity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: Partial<{
+        stage: OpportunityStage;
+        priority: OpportunityPriority;
+        nextContact: string | null;
+      }>;
+    }) => agroApi.updateOpportunity(id, patch),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: crmKeys.opportunities });
+      qc.invalidateQueries({ queryKey: crmKeys.opportunity(id) });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
+export function useUpdateMatter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: Partial<{ status: MatterStatus; risk: RiskLevel }>;
+    }) => agroApi.updateMatter(id, patch),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: crmKeys.matters });
+      qc.invalidateQueries({ queryKey: crmKeys.matter(id) });
       qc.invalidateQueries({ queryKey: crmKeys.stats });
     },
   });

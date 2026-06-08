@@ -7,6 +7,7 @@ import { CrmLoadingState } from "@/components/crm/loading-state";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CreateLeadForm } from "@/components/crm/create-lead-form";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useLeads } from "@/hooks/use-crm-queries";
 import { LEAD_STATUS, formatDate, isWithinDays } from "@/lib/crm-labels";
@@ -62,6 +63,7 @@ export default function CrmLeadsPage() {
             <Download className="w-3.5 h-3.5" /> Exportar CSV
           </Button>
         </header>
+        <CreateLeadForm />
         <CrmFilters
           search={search}
           onSearchChange={setSearch}

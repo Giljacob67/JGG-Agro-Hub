@@ -100,6 +100,23 @@ export function patchTask(id: string, patch: Partial<Task>): Task | undefined {
   return task;
 }
 
+export function patchOpportunity(
+  id: string,
+  patch: Partial<Opportunity>,
+): Opportunity | undefined {
+  const opp = getOpportunity(id);
+  if (!opp) return undefined;
+  Object.assign(opp, patch);
+  return opp;
+}
+
+export function patchMatter(id: string, patch: Partial<Matter>): Matter | undefined {
+  const matter = getMatter(id);
+  if (!matter) return undefined;
+  Object.assign(matter, patch);
+  return matter;
+}
+
 /** Apenas para testes — reinicia o store. */
 export function resetStore() {
   store.leads = structuredClone(SEED_LEADS);

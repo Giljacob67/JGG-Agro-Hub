@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { CrmLoadingState } from "@/components/crm/loading-state";
@@ -7,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAccounts } from "@/hooks/use-crm-queries";
 import { ACCOUNT_TYPE } from "@/lib/crm-labels";
+import { ROUTES } from "@/lib/routes";
 
 export default function CrmAccountsPage() {
   usePageTitle("Contas Agro");
@@ -39,7 +41,18 @@ export default function CrmAccountsPage() {
           <EntityTable
             data={filtered}
             columns={[
-              { key: "name", header: "Conta", cell: (r) => <span className="font-medium">{r.name}</span> },
+              {
+                key: "name",
+                header: "Conta",
+                cell: (r) => (
+                  <Link
+                    href={ROUTES.crm.accountDetail(r.id)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {r.name}
+                  </Link>
+                ),
+              },
               { key: "type", header: "Tipo", cell: (r) => <Badge variant="secondary">{ACCOUNT_TYPE[r.type]}</Badge> },
               { key: "region", header: "Região", cell: (r) => r.region },
               { key: "area", header: "Área (ha)", cell: (r) => (r.areaHa ? r.areaHa.toLocaleString("pt-BR") : "—") },

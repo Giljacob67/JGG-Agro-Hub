@@ -4,10 +4,18 @@ import type {
   Lead,
   LeadStatus,
   Matter,
+  MatterStatus,
   Opportunity,
+  OpportunityStage,
+  OpportunityPriority,
+  RiskLevel,
   Task,
   TaskStatus,
 } from "../../shared/agro/types";
+import { isDbEnabled } from "./db/client";
+import * as db from "./db/repository";
+
+export { isDbEnabled };
 
 export type CreateLeadInput = {
   name: string;
@@ -21,10 +29,6 @@ export type CreateLeadInput = {
   nextContact?: string | null;
   accountId?: string | null;
 };
-import { isDbEnabled } from "./db/client";
-import * as db from "./db/repository";
-
-export { isDbEnabled };
 
 export async function listLeads(): Promise<Lead[]> {
   if (isDbEnabled()) return db.dbListLeads();
@@ -91,6 +95,14 @@ export async function getOpportunity(id: string): Promise<Opportunity | undefine
   return memory.getOpportunity(id);
 }
 
+export async function updateOpportunity(
+  id: string,
+  patch: Partial<Pick<Opportunity, "stage" | "priority" | "nextContact">>,
+): Promise<Opportunity | null | undefined> {
+  if (isDbEnabled()) return db.dbUpdateOpportunity(id, patch);
+  return memory.patchOpportunity(id, patch) ?? undefined;
+}
+
 export async function listMatters(): Promise<Matter[]> {
   if (isDbEnabled()) return db.dbListMatters();
   return memory.listMatters();
@@ -99,6 +111,14 @@ export async function listMatters(): Promise<Matter[]> {
 export async function getMatter(id: string): Promise<Matter | undefined | null> {
   if (isDbEnabled()) return db.dbGetMatter(id);
   return memory.getMatter(id);
+}
+
+export async function updateMatter(
+  id: string,
+  patch: Partial<Pick<Matter, "status" | "risk">>,
+): Promise<Matter | null | undefined> {
+  if (isDbEnabled()) return db.dbUpdateMatter(id, patch);
+  return memory.patchMatter(id, patch) ?? undefined;
 }
 
 export async function listTasks(): Promise<Task[]> {
@@ -133,4 +153,27 @@ export async function loadCrmDataset() {
     matters: memory.listMatters(),
     tasks: memory.listTasks(),
   };
+}
+
+export async function setupDatabase() {
+  const { runMigrations } = await import("./db/migrate");
+  const {
+    SEED_ACCOUNTS,
+    SEED_LEADS,
+    SEED_MATTERS,
+    SEED_OPPORTUNITIES,
+    SEED_TASKS,
+  } = await import("../../shared/agro/seed");
+
+  await runMigrations();
+  await db.dbUpsertSeed({
+    accounts: SEED_ACCOUNTS,
+    leads: SEED_LEADS,
+    opportunities: SEED_OPPORTUNITIES,
+    matters: SEED_MATTERS,
+    tasks: SEED_TASKS,
+  });
+
+  const leads = await listLeads();
+  return { leadsCount: leads.length };
 }

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { CrmLoadingState } from "@/components/crm/loading-state";
@@ -12,6 +13,7 @@ import {
   formatDate,
   OPPORTUNITY_PRIORITY,
 } from "@/lib/crm-labels";
+import { ROUTES } from "@/lib/routes";
 
 export default function CrmOpportunitiesPage() {
   usePageTitle("Oportunidades");
@@ -92,9 +94,12 @@ export default function CrmOpportunitiesPage() {
                     {items.map((o) => (
                       <Card key={o.id} className="p-4">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm font-semibold leading-snug">
-                            {o.title}
-                          </p>
+                        <Link
+                          href={ROUTES.crm.opportunityDetail(o.id)}
+                          className="text-sm font-semibold leading-snug text-primary hover:underline"
+                        >
+                          {o.title}
+                        </Link>
                           {o.priority === "alta" && (
                             <Badge variant="warning" className="shrink-0">
                               {OPPORTUNITY_PRIORITY.alta}

@@ -15,6 +15,8 @@ import {
   listOpportunities,
   listTasks,
   patchLead,
+  patchMatter,
+  patchOpportunity,
   patchTask,
 } from "@shared/agro/store";
 import type { Lead, LeadStatus, TaskStatus } from "@shared/agro/types";
@@ -107,6 +109,16 @@ export async function handleLocalApi(
   }
 
   if (pathname === "/api/agro/opportunities") {
+    if (init?.method === "PATCH") {
+      const id = params.get("id");
+      if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+      const body = JSON.parse(String(init.body));
+      const opp = patchOpportunity(id, body);
+      return opp
+        ? { status: 200, data: opp }
+        : { status: 404, data: { error: "Oportunidade não encontrada" } };
+    }
+
     const id = params.get("id");
     if (id) {
       const opp = getOpportunity(id);
@@ -118,6 +130,16 @@ export async function handleLocalApi(
   }
 
   if (pathname === "/api/agro/matters") {
+    if (init?.method === "PATCH") {
+      const id = params.get("id");
+      if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+      const body = JSON.parse(String(init.body));
+      const matter = patchMatter(id, body);
+      return matter
+        ? { status: 200, data: matter }
+        : { status: 404, data: { error: "Demanda não encontrada" } };
+    }
+
     const id = params.get("id");
     if (id) {
       const matter = getMatter(id);

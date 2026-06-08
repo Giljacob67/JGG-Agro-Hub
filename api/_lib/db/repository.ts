@@ -173,6 +173,43 @@ export async function dbGetRelatedTasks(entityId: string): Promise<Task[]> {
   return rows.map((r) => mapTask(r as Record<string, unknown>));
 }
 
+export async function dbUpdateOpportunity(
+  id: string,
+  patch: Partial<Pick<Opportunity, "stage" | "priority" | "nextContact">>,
+): Promise<Opportunity | null> {
+  const sql = getSql();
+  const existing = await dbGetOpportunity(id);
+  if (!existing) return null;
+
+  await sql`
+    UPDATE agro.opportunities SET
+      stage = ${patch.stage ?? existing.stage},
+      priority = ${patch.priority ?? existing.priority},
+      next_contact = ${patch.nextContact !== undefined ? patch.nextContact : existing.nextContact},
+      updated_at = now()
+    WHERE id = ${id}
+  `;
+  return dbGetOpportunity(id);
+}
+
+export async function dbUpdateMatter(
+  id: string,
+  patch: Partial<Pick<Matter, "status" | "risk">>,
+): Promise<Matter | null> {
+  const sql = getSql();
+  const existing = await dbGetMatter(id);
+  if (!existing) return null;
+
+  await sql`
+    UPDATE agro.matters SET
+      status = ${patch.status ?? existing.status},
+      risk = ${patch.risk ?? existing.risk},
+      updated_at = now()
+    WHERE id = ${id}
+  `;
+  return dbGetMatter(id);
+}
+
 export async function dbUpdateTaskStatus(
   id: string,
   status: TaskStatus,

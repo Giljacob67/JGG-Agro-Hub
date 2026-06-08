@@ -7,8 +7,11 @@ import CrmOverviewPage from "./pages/crm/overview";
 import CrmLeadsPage from "./pages/crm/leads";
 import CrmLeadDetailPage from "./pages/crm/lead-detail";
 import CrmAccountsPage from "./pages/crm/accounts";
+import CrmAccountDetailPage from "./pages/crm/account-detail";
 import CrmOpportunitiesPage from "./pages/crm/opportunities";
+import CrmOpportunityDetailPage from "./pages/crm/opportunity-detail";
 import CrmMattersPage from "./pages/crm/matters";
+import CrmMatterDetailPage from "./pages/crm/matter-detail";
 import CrmTasksPage from "./pages/crm/tasks";
 import { ProtectedRoute } from "./components/auth/protected-route";
 import { ROUTES } from "./lib/routes";
@@ -47,21 +50,35 @@ export default function App() {
       <Route path={ROUTES.crm.root}>
         <AgroRoute component={CrmOverviewPage} resource="crm" />
       </Route>
+
       <Route path="/agro/crm/leads/:id">
         <AgroRoute component={CrmLeadDetailPage} resource="leads" />
       </Route>
       <Route path={ROUTES.crm.leads}>
         <AgroRoute component={CrmLeadsPage} resource="leads" />
       </Route>
+
+      <Route path="/agro/crm/accounts/:id">
+        <AgroRoute component={CrmAccountDetailPage} resource="accounts" />
+      </Route>
       <Route path={ROUTES.crm.accounts}>
         <AgroRoute component={CrmAccountsPage} resource="accounts" />
+      </Route>
+
+      <Route path="/agro/crm/opportunities/:id">
+        <AgroRoute component={CrmOpportunityDetailPage} resource="opportunities" />
       </Route>
       <Route path={ROUTES.crm.opportunities}>
         <AgroRoute component={CrmOpportunitiesPage} resource="opportunities" />
       </Route>
+
+      <Route path="/agro/crm/matters/:id">
+        <AgroRoute component={CrmMatterDetailPage} resource="matters" />
+      </Route>
       <Route path={ROUTES.crm.matters}>
         <AgroRoute component={CrmMattersPage} resource="matters" />
       </Route>
+
       <Route path={ROUTES.crm.tasks}>
         <AgroRoute component={CrmTasksPage} resource="tasks" />
       </Route>

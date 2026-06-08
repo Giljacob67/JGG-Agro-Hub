@@ -5,18 +5,19 @@ import { CrmLoadingState } from "@/components/crm/loading-state";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { useTasks } from "@/hooks/use-crm-queries";
+import { useTasks, useUpdateTaskStatus } from "@/hooks/use-crm-queries";
 import {
   TASK_STATUS,
   TASK_PRIORITY,
   formatDate,
-  taskBadgeVariant,
   priorityBadgeVariant,
 } from "@/lib/crm-labels";
+import type { TaskStatus } from "@shared/agro/types";
 
 export default function CrmTasksPage() {
   usePageTitle("Tarefas");
   const { data: tasks = [], isLoading } = useTasks();
+  const updateStatus = useUpdateTaskStatus();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("all");
 
@@ -64,7 +65,30 @@ export default function CrmTasksPage() {
               { key: "related", header: "Vínculo", cell: (r) => <span className="font-mono text-xs">{r.relatedTo}</span> },
               { key: "type", header: "Tipo", cell: (r) => <Badge variant="secondary">{r.type}</Badge> },
               { key: "priority", header: "Prioridade", cell: (r) => <Badge variant={priorityBadgeVariant(r.priority)}>{TASK_PRIORITY[r.priority]}</Badge> },
-              { key: "status", header: "Status", cell: (r) => <Badge variant={taskBadgeVariant(r.status)}>{TASK_STATUS[r.status]}</Badge> },
+              {
+                key: "status",
+                header: "Status",
+                cell: (r) => (
+                  <select
+                    value={r.status}
+                    disabled={updateStatus.isPending}
+                    onChange={(e) =>
+                      updateStatus.mutate({
+                        id: r.id,
+                        status: e.target.value as TaskStatus,
+                      })
+                    }
+                    className="h-8 rounded-md border border-border bg-background px-2 text-xs"
+                    aria-label={`Status da tarefa ${r.title}`}
+                  >
+                    {Object.entries(TASK_STATUS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                ),
+              },
               { key: "due", header: "Prazo", cell: (r) => formatDate(r.dueDate) },
               { key: "owner", header: "Responsável", cell: (r) => r.owner },
             ]}

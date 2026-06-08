@@ -10,8 +10,11 @@ export const ROUTES = {
     leads: "/agro/crm/leads",
     leadDetail: (id: string) => `/agro/crm/leads/${id}`,
     accounts: "/agro/crm/accounts",
+    accountDetail: (id: string) => `/agro/crm/accounts/${id}`,
     opportunities: "/agro/crm/opportunities",
+    opportunityDetail: (id: string) => `/agro/crm/opportunities/${id}`,
     matters: "/agro/crm/matters",
+    matterDetail: (id: string) => `/agro/crm/matters/${id}`,
     tasks: "/agro/crm/tasks",
   },
 } as const;

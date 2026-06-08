@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { CrmLoadingState } from "@/components/crm/loading-state";
@@ -13,6 +14,7 @@ import {
   isOverdue,
   riskBadgeVariant,
 } from "@/lib/crm-labels";
+import { ROUTES } from "@/lib/routes";
 
 export default function CrmMattersPage() {
   usePageTitle("Demandas jurídicas");
@@ -62,7 +64,18 @@ export default function CrmMattersPage() {
           <EntityTable
             data={filtered}
             columns={[
-              { key: "title", header: "Demanda", cell: (r) => <span className="font-medium">{r.title}</span> },
+              {
+                key: "title",
+                header: "Demanda",
+                cell: (r) => (
+                  <Link
+                    href={ROUTES.crm.matterDetail(r.id)}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {r.title}
+                  </Link>
+                ),
+              },
               { key: "account", header: "Conta", cell: (r) => r.accountName },
               { key: "practice", header: "Área", cell: (r) => r.practice },
               { key: "status", header: "Status", cell: (r) => <Badge variant="outline">{MATTER_STATUS[r.status]}</Badge> },
