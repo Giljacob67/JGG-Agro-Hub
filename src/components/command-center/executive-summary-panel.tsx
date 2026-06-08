@@ -16,6 +16,7 @@ import {
   riskBadgeVariant,
 } from "@/lib/crm-labels";
 import { ROUTES } from "@/lib/routes";
+import { cn } from "@/lib/utils";
 
 interface ExecutiveSummaryPanelProps {
   stats: CrmStats;
@@ -27,21 +28,23 @@ function SummaryColumn({
   href,
   icon: Icon,
   children,
+  className,
 }: {
   title: string;
   count: number;
   href: string;
   icon: ComponentType<{ className?: string }>;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="min-w-0 flex flex-col">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-7 h-7 rounded-md border border-border/80 bg-muted/30 flex items-center justify-center shrink-0">
+    <div className={cn("min-w-[11rem] flex flex-col", className)}>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div className="flex items-start gap-2 min-w-0">
+          <div className="w-7 h-7 rounded-md border border-border/80 bg-muted/30 flex items-center justify-center shrink-0 mt-0.5">
             <Icon className="w-3.5 h-3.5 text-primary" />
           </div>
-          <p className="text-xs font-semibold text-foreground truncate">{title}</p>
+          <p className="text-xs font-semibold text-foreground leading-snug">{title}</p>
         </div>
         <Badge variant="muted" className="tabular-nums shrink-0">
           {count}
@@ -109,8 +112,9 @@ export function ExecutiveSummaryPanel({ stats }: ExecutiveSummaryPanelProps) {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-5 xl:gap-4">
+      <div className="grid md:grid-cols-2 xl:grid-cols-6 gap-5 xl:gap-6">
         <SummaryColumn
+          className="xl:col-span-2"
           title="Prazos críticos"
           count={stats.riskAlerts.length + stats.overdueTasks}
           href={ROUTES.crm.tasks}
@@ -147,6 +151,7 @@ export function ExecutiveSummaryPanel({ stats }: ExecutiveSummaryPanelProps) {
         </SummaryColumn>
 
         <SummaryColumn
+          className="xl:col-span-2"
           title="Pipeline aberto"
           count={stats.openOpportunities}
           href={ROUTES.crm.opportunities}
@@ -165,6 +170,7 @@ export function ExecutiveSummaryPanel({ stats }: ExecutiveSummaryPanelProps) {
         </SummaryColumn>
 
         <SummaryColumn
+          className="xl:col-span-2"
           title="Oportunidades prioritárias"
           count={stats.priorityOpportunities.length}
           href={ROUTES.crm.opportunities}
@@ -181,6 +187,7 @@ export function ExecutiveSummaryPanel({ stats }: ExecutiveSummaryPanelProps) {
         </SummaryColumn>
 
         <SummaryColumn
+          className="xl:col-span-3"
           title="Demandas de alto risco"
           count={stats.riskAlerts.length}
           href={ROUTES.crm.matters}
@@ -206,6 +213,7 @@ export function ExecutiveSummaryPanel({ stats }: ExecutiveSummaryPanelProps) {
         </SummaryColumn>
 
         <SummaryColumn
+          className="xl:col-span-3"
           title="Próximos contatos"
           count={stats.upcomingContacts.length}
           href={ROUTES.crm.leads}

@@ -1,5 +1,5 @@
 import { Link } from "wouter";
-import { ArrowRight, Radio } from "lucide-react";
+import { ArrowRight, ChevronDown, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -21,11 +21,11 @@ interface CommandCenterHeroProps {
 
 const statusConfig: Record<
   OperationalStatus,
-  { label: string; variant: "success" | "warning" | "danger" }
+  { label: string; variant: "success" | "warning" | "executive" }
 > = {
   estavel: { label: "Operação estável", variant: "success" },
   atencao: { label: "Atenção operacional", variant: "warning" },
-  critico: { label: "Operação crítica", variant: "danger" },
+  critico: { label: "Operação crítica", variant: "executive" },
 };
 
 const insightBorder: Record<ExecutiveInsight["severity"], string> = {
@@ -109,6 +109,16 @@ export function CommandCenterHero({
             ))}
           </div>
         )}
+
+        <div className="flex justify-center pt-2">
+          <a
+            href="#cc-kpis"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            Explorar indicadores
+            <ChevronDown className="w-3.5 h-3.5 opacity-70" aria-hidden />
+          </a>
+        </div>
       </div>
     </section>
   );

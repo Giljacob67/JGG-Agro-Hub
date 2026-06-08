@@ -12,6 +12,7 @@ import {
 import { AppShell } from "@/components/layout/app-shell";
 import { AgroIntelligenceCard } from "@/components/command-center/agro-intelligence-card";
 import { CommandCenterHero } from "@/components/command-center/command-center-hero";
+import { CommandCenterSubNav } from "@/components/command-center/command-center-subnav";
 import { ExecutiveSummaryPanel } from "@/components/command-center/executive-summary-panel";
 import { PipelineHealthBoard } from "@/components/command-center/pipeline-health-board";
 import { RiskCommandPanel } from "@/components/command-center/risk-command-panel";
@@ -98,7 +99,9 @@ export default function CommandCenterPage() {
 
         <ExecutiveSummaryPanel stats={stats} />
 
-        <section>
+        <CommandCenterSubNav />
+
+        <section id="cc-kpis">
           <div className="mb-4">
             <p className="text-label-caps">Indicadores estratégicos</p>
             <h2 className="text-lg font-semibold tracking-tight mt-1">
@@ -122,7 +125,7 @@ export default function CommandCenterPage() {
           </div>
         </section>
 
-        <section>
+        <section id="cc-intelligence">
           <div className="mb-4">
             <p className="text-label-caps">Camada analítica</p>
             <h2 className="text-lg font-semibold tracking-tight mt-1">
@@ -140,7 +143,9 @@ export default function CommandCenterPage() {
           </div>
         </section>
 
-        <PipelineHealthBoard stages={stats.pipelineByStage} />
+        <div id="cc-pipeline">
+          <PipelineHealthBoard stages={stats.pipelineByStage} />
+        </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <StrategicKpiCard
@@ -177,7 +182,7 @@ export default function CommandCenterPage() {
           />
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div id="cc-portfolio" className="grid lg:grid-cols-2 gap-6">
           <DashboardSection
             title="Carteira por área de atuação"
             count={stats.practiceBreakdown.length}
@@ -276,7 +281,7 @@ export default function CommandCenterPage() {
           </DashboardSection>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-6">
+        <div id="cc-risks" className="grid lg:grid-cols-2 gap-6">
           <DashboardSection title="Demandas com prazo próximo" href={ROUTES.crm.matters}>
             <div className="space-y-3">
               {stats.upcomingMatters.slice(0, 5).map((m) => (

@@ -18,7 +18,7 @@ test.describe("JGG Agro Hub — smoke", () => {
     await page.getByRole("button", { name: "Entrar" }).click();
     await expect(page).toHaveURL(/\/agro\/command-center/);
     await expect(
-      page.getByRole("heading", { name: "Dashboard Executivo" }),
+      page.getByRole("heading", { name: "JGG Agro Command Center" }),
     ).toBeVisible();
   });
 
