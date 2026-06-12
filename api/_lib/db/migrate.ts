@@ -1,8 +1,8 @@
-import { neon } from "@neondatabase/serverless";
+import type { NeonQueryFunction } from "@neondatabase/serverless";
 import { getSql } from "./client.js";
 
 export async function runMigrations(
-  sql: ReturnType<typeof neon> = getSql(),
+  sql: NeonQueryFunction<false, false> = getSql(),
 ) {
   await sql`CREATE SCHEMA IF NOT EXISTS agro`;
 
@@ -136,7 +136,7 @@ export async function runMigrations(
 }
 
 async function runEnrichedFieldMigrations(
-  sql: ReturnType<typeof neon>,
+  sql: NeonQueryFunction<false, false>,
 ) {
   await sql`
     DO $$ BEGIN

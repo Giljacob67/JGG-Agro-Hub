@@ -32,9 +32,22 @@ Aplicação em `http://localhost:5173`. Rotas canônicas sob `/agro/*`.
 
 ### Produção (obrigatório)
 
-Defina `AUTH_SECRET` (mín. 32 caracteres) nas variáveis de ambiente da Vercel.
+1. Defina `AUTH_SECRET` (mín. 32 caracteres) nas variáveis de ambiente da Vercel.
+   Com `AUTH_SECRET` ativo, **somente** tokens assinados com ele são aceitos —
+   os caminhos de desenvolvimento (chave `dev-insecure` e token legado) ficam
+   desabilitados. Em `VERCEL_ENV=production` sem `AUTH_SECRET`, a emissão de
+   tokens é recusada.
+2. Configure senhas individuais por usuário:
 
-Sem `AUTH_SECRET`, a API ainda emite tokens com chave insegura — **não use em produção**.
+```bash
+npx tsx scripts/hash-password.ts "<senha-forte>"
+```
+
+Defina o salt e os hashes na Vercel: `AUTH_PASSWORD_SALT`,
+`AUTH_PASSWORD_HASH_GESTAO`, `AUTH_PASSWORD_HASH_COMERCIAL`,
+`AUTH_PASSWORD_HASH_JURIDICO`. Com `AUTH_SECRET` ativo e sem hash configurado,
+o login por senha do usuário fica desabilitado (resta o SSO). A senha de
+desenvolvimento (`jgg-agro-dev`) só é aceita quando `AUTH_SECRET` está ausente.
 
 ### SSO corporativo (OIDC / Azure AD)
 

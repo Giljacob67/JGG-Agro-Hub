@@ -19,18 +19,14 @@ import type {
   PaginatedResult,
   TaskListParams,
 } from "../../shared/agro/list-types.js";
-import { paginate } from "../../shared/agro/list-types.js";
+import { paginate, type PaginationParams } from "../../shared/agro/list-types.js";
 import type {
   Account,
   Lead,
   LeadPriority,
   LeadStatus,
   Matter,
-  MatterStatus,
   Opportunity,
-  OpportunityStage,
-  OpportunityPriority,
-  RiskLevel,
   Task,
   TaskStatus,
 } from "../../shared/agro/types.js";
@@ -56,7 +52,7 @@ export type CreateLeadInput = {
   priority?: LeadPriority;
 };
 
-function withFacets<T, P extends { facets?: boolean }>(
+function withFacets<T, P extends PaginationParams & { facets?: boolean }>(
   all: T[],
   params: P,
   filterFn: (items: T[], params: P) => T[],

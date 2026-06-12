@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc -p tsconfig.json --noEmit && vite build",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint src shared",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.api.json --noEmit",
+    "lint": "eslint src shared api scripts",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",

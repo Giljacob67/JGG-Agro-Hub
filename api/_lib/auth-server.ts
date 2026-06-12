@@ -3,17 +3,19 @@ import {
   resolveSession as resolveDevSession,
   roleCanAccess,
 } from "../../shared/agro/auth.js";
-import type { AgroRole, AgroUser } from "../../shared/agro/types.js";
+import type { AgroUser } from "../../shared/agro/types.js";
 
 export { roleCanAccess };
 
-const PASSWORD_SALT = "agro-jgg-salt-v1";
+const LEGACY_PASSWORD_SALT = "agro-jgg-salt-v1";
+/** Hash de "jgg-agro-dev" — aceito SOMENTE quando AUTH_SECRET está ausente (dev local). */
 const DEV_PASSWORD_HASH =
   "8c34565dfb4fdcfc07a85e0a36b7edd6b7c521f5bb2d1da3231b18065a4e9e0e";
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface UserRecord extends AgroUser {
-  passwordHash: string;
+  /** Env var com o hash scrypt (hex) da senha do usuário em produção. */
+  passwordHashEnv: string;
 }
 
 const USERS: UserRecord[] = [
@@ -22,21 +24,21 @@ const USERS: UserRecord[] = [
     email: "agro@jgggroup.com.br",
     name: "Ana Ribeiro",
     role: "gestao",
-    passwordHash: DEV_PASSWORD_HASH,
+    passwordHashEnv: "AUTH_PASSWORD_HASH_GESTAO",
   },
   {
     id: "usr-2",
     email: "comercial@jgggroup.com.br",
     name: "Carlos Mendes",
     role: "comercial",
-    passwordHash: DEV_PASSWORD_HASH,
+    passwordHashEnv: "AUTH_PASSWORD_HASH_COMERCIAL",
   },
   {
     id: "usr-3",
     email: "juridico@jgggroup.com.br",
     name: "Equipe Jurídica Agro",
     role: "juridico",
-    passwordHash: DEV_PASSWORD_HASH,
+    passwordHashEnv: "AUTH_PASSWORD_HASH_JURIDICO",
   },
 ];
 
@@ -48,8 +50,30 @@ function getAuthSecret(): string | undefined {
   return process.env.AUTH_SECRET?.trim() || undefined;
 }
 
-function verifyPassword(password: string, hashHex: string): boolean {
-  const derived = scryptSync(password, PASSWORD_SALT, 32);
+function getPasswordSalt(): string {
+  return process.env.AUTH_PASSWORD_SALT?.trim() || LEGACY_PASSWORD_SALT;
+}
+
+/**
+ * Resolve o hash de senha do usuário:
+ * - Produção (AUTH_SECRET definido): exige hash individual via env var;
+ *   sem hash configurado, login por senha fica DESABILITADO para o usuário
+ *   (resta o SSO).
+ * - Dev local (sem AUTH_SECRET): aceita a senha de desenvolvimento.
+ */
+function resolvePasswordHash(record: UserRecord): string | null {
+  const fromEnv = process.env[record.passwordHashEnv]?.trim();
+  if (fromEnv) return fromEnv;
+  if (!isSecureAuthEnabled()) return DEV_PASSWORD_HASH;
+  return null;
+}
+
+function verifyPassword(
+  password: string,
+  hashHex: string,
+  salt = getPasswordSalt(),
+): boolean {
+  const derived = scryptSync(password, salt, 32);
   const expected = Buffer.from(hashHex, "hex");
   if (derived.length !== expected.length) return false;
   return timingSafeEqual(derived, expected);
@@ -107,7 +131,13 @@ export function authenticate(
   const record = USERS.find(
     (u) => u.email.toLowerCase() === email.toLowerCase(),
   );
-  if (!record || !verifyPassword(password, record.passwordHash)) return null;
+  if (!record) return null;
+
+  const hash = resolvePasswordHash(record);
+  if (!hash) return null;
+
+  const salt = hash === DEV_PASSWORD_HASH ? LEGACY_PASSWORD_SALT : getPasswordSalt();
+  if (!verifyPassword(password, hash, salt)) return null;
 
   const user: AgroUser = {
     id: record.id,
@@ -117,21 +147,34 @@ export function authenticate(
   };
 
   const secret = getAuthSecret();
+  if (!secret && isProduction()) return null;
   const token = secret ? signToken(user, secret) : signToken(user, "dev-insecure");
   return { token, user };
 }
 
+function isProduction(): boolean {
+  return process.env.VERCEL_ENV === "production";
+}
+
 export function issueSessionForUser(user: AgroUser): string {
   const secret = getAuthSecret();
-  return secret ? signToken(user, secret) : signToken(user, "dev-insecure");
+  if (!secret) {
+    if (isProduction()) {
+      throw new Error("AUTH_SECRET é obrigatório em produção");
+    }
+    return signToken(user, "dev-insecure");
+  }
+  return signToken(user, secret);
 }
 
 export function resolveSession(token: string | undefined): AgroUser | null {
   if (!token) return null;
   const secret = getAuthSecret();
   if (secret) {
-    const user = verifySignedToken(token, secret);
-    if (user) return user;
+    // Com AUTH_SECRET definido, SOMENTE tokens assinados com ele são válidos.
+    // Nunca cair nos caminhos de desenvolvimento ("dev-insecure" / token legado),
+    // que são forjáveis por qualquer cliente.
+    return verifySignedToken(token, secret);
   }
   const devUser = verifySignedToken(token, "dev-insecure");
   if (devUser) return devUser;
