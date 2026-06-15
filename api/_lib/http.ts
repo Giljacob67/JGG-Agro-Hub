@@ -4,6 +4,8 @@ import type { AgroUser } from "../../shared/agro/types.js";
 
 const DEV_SESSION_COOKIE = "agro_session";
 const PROD_SESSION_COOKIE = "__Host-agro_session";
+const OAUTH_STATE_COOKIE = "agro_oauth_state";
+const OAUTH_PKCE_COOKIE = "agro_oauth_pkce";
 
 function parseCookies(header: string | undefined): Record<string, string> {
   if (!header) return {};
@@ -49,6 +51,30 @@ export function clearSessionCookie(res: VercelResponse) {
     "Set-Cookie",
     `${name}=; Max-Age=0; ${cookieBase()}`,
   );
+}
+
+export function setOAuthStateCookie(res: VercelResponse, state: string, pkceVerifier: string) {
+  const base = cookieBase();
+  res.setHeader("Set-Cookie", [
+    `${OAUTH_STATE_COOKIE}=${encodeURIComponent(state)}; Max-Age=${10 * 60}; ${base}`,
+    `${OAUTH_PKCE_COOKIE}=${encodeURIComponent(pkceVerifier)}; Max-Age=${10 * 60}; ${base}`,
+  ]);
+}
+
+export function clearOAuthCookies(res: VercelResponse) {
+  const base = cookieBase();
+  res.setHeader("Set-Cookie", [
+    `${OAUTH_STATE_COOKIE}=; Max-Age=0; ${base}`,
+    `${OAUTH_PKCE_COOKIE}=; Max-Age=0; ${base}`,
+  ]);
+}
+
+export function readOAuthCookies(req: VercelRequest) {
+  const cookies = parseCookies(req.headers.cookie);
+  return {
+    state: cookies[OAUTH_STATE_COOKIE],
+    pkceVerifier: cookies[OAUTH_PKCE_COOKIE],
+  };
 }
 
 export function requireAuth(
