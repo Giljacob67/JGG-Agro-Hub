@@ -1,4 +1,6 @@
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { findUserByEmail, issueSessionForUser } from "./auth-server.js";
+import type { AgroUser } from "../../shared/agro/types.js";
 
 export interface SsoConfig {
   issuer: string;
@@ -6,6 +8,26 @@ export interface SsoConfig {
   clientSecret: string;
   redirectUri: string;
 }
+
+interface OidcMetadata {
+  authorization_endpoint: string;
+  token_endpoint: string;
+  jwks_uri?: string;
+  userinfo_endpoint?: string;
+}
+
+interface IdTokenClaims {
+  iss?: string;
+  aud?: string | string[];
+  exp?: number;
+  iat?: number;
+  nonce?: string;
+  email?: string;
+  email_verified?: boolean;
+}
+
+const OIDC_META_CACHE = new Map<string, { meta: OidcMetadata; expiresAt: number }>();
+const OIDC_META_TTL_MS = 10 * 60 * 1000;
 
 export function getSsoConfig(): SsoConfig | null {
   const issuer = process.env.SSO_ISSUER?.replace(/\/$/, "");
@@ -16,26 +38,68 @@ export function getSsoConfig(): SsoConfig | null {
   return { issuer, clientId, clientSecret, redirectUri };
 }
 
-export function buildSsoAuthorizeUrl(state: string): string | null {
+async function fetchOidcMetadata(issuer: string): Promise<OidcMetadata | null> {
+  const cached = OIDC_META_CACHE.get(issuer);
+  if (cached && cached.expiresAt > Date.now()) return cached.meta;
+  try {
+    const res = await fetch(`${issuer}/.well-known/openid-configuration`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) return null;
+    const meta = (await res.json()) as OidcMetadata;
+    OIDC_META_CACHE.set(issuer, { meta, expiresAt: Date.now() + OIDC_META_TTL_MS });
+    return meta;
+  } catch {
+    return null;
+  }
+}
+
+function base64UrlDecode(value: string): string {
+  const padding = "=".repeat((4 - (value.length % 4)) % 4);
+  return Buffer.from(value.replace(/-/g, "+").replace(/_/g, "/") + padding, "base64").toString("utf8");
+}
+
+export function generatePkcePair() {
+  const verifier = randomBytes(32).toString("base64url");
+  const challenge = createHmac("sha256", verifier).update("").digest("base64url");
+  return { verifier, challenge };
+}
+
+export async function buildSsoAuthorizeUrl(
+  state: string,
+  codeChallenge: string,
+): Promise<string | null> {
   const cfg = getSsoConfig();
   if (!cfg) return null;
-  const url = new URL(`${cfg.issuer}/oauth2/v2.0/authorize`);
+  const meta = await fetchOidcMetadata(cfg.issuer);
+  const endpoint = meta?.authorization_endpoint ?? `${cfg.issuer}/oauth2/v2.0/authorize`;
+  const url = new URL(endpoint);
   url.searchParams.set("client_id", cfg.clientId);
   url.searchParams.set("response_type", "code");
   url.searchParams.set("redirect_uri", cfg.redirectUri);
   url.searchParams.set("scope", "openid profile email");
   url.searchParams.set("state", state);
+  url.searchParams.set("code_challenge", codeChallenge);
+  url.searchParams.set("code_challenge_method", "S256");
+  url.searchParams.set("response_mode", "query");
   return url.toString();
 }
 
-export async function exchangeSsoCode(code: string): Promise<{
+export async function exchangeSsoCode(
+  code: string,
+  codeVerifier: string,
+  expectedNonce?: string,
+): Promise<{
   token: string;
-  user: import("../../shared/agro/types.js").AgroUser;
+  user: AgroUser;
 } | null> {
   const cfg = getSsoConfig();
   if (!cfg) return null;
 
-  const tokenRes = await fetch(`${cfg.issuer}/oauth2/v2.0/token`, {
+  const meta = await fetchOidcMetadata(cfg.issuer);
+  const tokenEndpoint = meta?.token_endpoint ?? `${cfg.issuer}/oauth2/v2.0/token`;
+
+  const tokenRes = await fetch(tokenEndpoint, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -44,7 +108,9 @@ export async function exchangeSsoCode(code: string): Promise<{
       grant_type: "authorization_code",
       code,
       redirect_uri: cfg.redirectUri,
+      code_verifier: codeVerifier,
     }),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!tokenRes.ok) return null;
@@ -53,19 +119,70 @@ export async function exchangeSsoCode(code: string): Promise<{
     id_token?: string;
   };
 
-  const accessToken = tokenJson.access_token;
-  if (!accessToken) return null;
+  const idToken = tokenJson.id_token;
+  if (!idToken) return null;
 
-  const profileRes = await fetch(`${cfg.issuer}/oauth2/v2.0/userinfo`, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!profileRes.ok) return null;
+  const claims = await validateIdToken(idToken, cfg, expectedNonce);
+  if (!claims?.email) return null;
+  if (!claims.email_verified) return null;
 
-  const profile = (await profileRes.json()) as { email?: string };
-  if (!profile.email) return null;
-
-  const user = findUserByEmail(profile.email);
+  const user = findUserByEmail(claims.email);
   if (!user) return null;
 
   return { token: issueSessionForUser(user), user };
+}
+
+async function validateIdToken(
+  idToken: string,
+  cfg: SsoConfig,
+  expectedNonce?: string,
+): Promise<IdTokenClaims | null> {
+  const [headerB64, payloadB64, signatureB64] = idToken.split(".");
+  if (!headerB64 || !payloadB64 || !signatureB64) return null;
+
+  try {
+    const payload = JSON.parse(base64UrlDecode(payloadB64)) as IdTokenClaims;
+    if (payload.iss !== cfg.issuer) return null;
+    const audOk = Array.isArray(payload.aud)
+      ? payload.aud.includes(cfg.clientId)
+      : payload.aud === cfg.clientId;
+    if (!audOk) return null;
+    if (!payload.exp || payload.exp * 1000 < Date.now()) return null;
+    if (expectedNonce && payload.nonce !== expectedNonce) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+export function generateOAuthState(): string {
+  return randomBytes(32).toString("base64url");
+}
+
+export function encodeStateWithNonce(state: string, nonce: string, from: string): string {
+  const payload = Buffer.from(JSON.stringify({ state, nonce, from })).toString("base64url");
+  const sig = createHmac("sha256", authSecretOrDev()).update(payload).digest("base64url");
+  return `${payload}.${sig}`;
+}
+
+export function decodeStateWithNonce(encoded: string): {
+  state?: string;
+  nonce?: string;
+  from?: string;
+} | null {
+  const [payload, signature] = encoded.split(".");
+  if (!payload || !signature) return null;
+  const expected = createHmac("sha256", authSecretOrDev()).update(payload).digest("base64url");
+  const sigBuf = Buffer.from(signature);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) return null;
+  try {
+    return JSON.parse(base64UrlDecode(payload)) as { state?: string; nonce?: string; from?: string };
+  } catch {
+    return null;
+  }
+}
+
+function authSecretOrDev(): string {
+  return process.env.AUTH_SECRET?.trim() || "dev-insecure";
 }

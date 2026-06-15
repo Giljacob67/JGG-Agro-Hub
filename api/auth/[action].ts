@@ -1,12 +1,22 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { authenticate, resolveSession } from "../_lib/auth-server.js";
-import { buildSsoAuthorizeUrl, exchangeSsoCode, getSsoConfig } from "../_lib/sso.js";
 import {
+  buildSsoAuthorizeUrl,
+  decodeStateWithNonce,
+  encodeStateWithNonce,
+  exchangeSsoCode,
+  generateOAuthState,
+  generatePkcePair,
+  getSsoConfig,
+} from "../_lib/sso.js";
+import {
+  clearOAuthCookies,
   clearSessionCookie,
   getToken,
   json,
   methodNotAllowed,
+  readOAuthCookies,
+  setOAuthStateCookie,
   setSessionCookie,
 } from "../_lib/http.js";
 import { checkLoginRateLimit, clearLoginRateLimit } from "../_lib/rate-limit.js";
@@ -28,7 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     case "logout":
       return logout(req, res);
     case "sso":
-      return sso(req, res);
+      return await sso(req, res);
     case "callback":
       return await callback(req, res);
     default:
@@ -71,6 +81,7 @@ function me(req: VercelRequest, res: VercelResponse) {
 function logout(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") return methodNotAllowed(res);
   clearSessionCookie(res);
+  clearOAuthCookies(res);
   return json(res, { ok: true });
 }
 
@@ -81,36 +92,7 @@ function sanitizeFrom(raw: unknown): string {
   return "/agro/command-center";
 }
 
-function stateSecret() {
-  return process.env.AUTH_SECRET?.trim() || "dev-insecure";
-}
-
-function signStatePayload(payload: string) {
-  return createHmac("sha256", stateSecret()).update(payload).digest("base64url");
-}
-
-function encodeState(data: { from: string }) {
-  const payload = Buffer.from(JSON.stringify(data)).toString("base64url");
-  return `${payload}.${signStatePayload(payload)}`;
-}
-
-function decodeState(state: string): { from?: string } | null {
-  const [payload, signature] = state.split(".");
-  if (!payload || !signature) return null;
-  const expected = signStatePayload(payload);
-  const sig = Buffer.from(signature);
-  const exp = Buffer.from(expected);
-  if (sig.length !== exp.length || !timingSafeEqual(sig, exp)) return null;
-  try {
-    return JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as {
-      from?: string;
-    };
-  } catch {
-    return null;
-  }
-}
-
-function sso(req: VercelRequest, res: VercelResponse) {
+async function sso(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") return methodNotAllowed(res);
 
   const cfg = getSsoConfig();
@@ -119,10 +101,15 @@ function sso(req: VercelRequest, res: VercelResponse) {
   }
 
   const from = sanitizeFrom(req.query.from);
-  const state = encodeState({ from });
-  const url = buildSsoAuthorizeUrl(state);
+  const state = generateOAuthState();
+  const nonce = generateOAuthState();
+  const { verifier, challenge } = generatePkcePair();
+  const encodedState = encodeStateWithNonce(state, nonce, from);
+
+  const url = await buildSsoAuthorizeUrl(encodedState, challenge);
   if (!url) return json(res, { error: "SSO indisponível" }, 503);
 
+  setOAuthStateCookie(res, state, verifier);
   res.redirect(302, url);
 }
 
@@ -131,27 +118,46 @@ async function callback(req: VercelRequest, res: VercelResponse) {
 
   const code = String(req.query.code ?? "");
   if (!code) {
+    clearOAuthCookies(res);
     res.redirect(302, "/agro/login?error=sso");
     return;
   }
 
-  const result = await exchangeSsoCode(code);
+  const queryState = String(req.query.state ?? "");
+  if (!queryState) {
+    clearOAuthCookies(res);
+    res.redirect(302, "/agro/login?error=sso_state");
+    return;
+  }
+
+  const parsed = decodeStateWithNonce(queryState);
+  if (!parsed?.state || !parsed.nonce) {
+    clearOAuthCookies(res);
+    res.redirect(302, "/agro/login?error=sso_state");
+    return;
+  }
+
+  const cookies = readOAuthCookies(req);
+  if (cookies.state !== parsed.state) {
+    clearOAuthCookies(res);
+    res.redirect(302, "/agro/login?error=sso_state");
+    return;
+  }
+
+  if (!cookies.pkceVerifier) {
+    clearOAuthCookies(res);
+    res.redirect(302, "/agro/login?error=sso_pkce");
+    return;
+  }
+
+  const result = await exchangeSsoCode(code, cookies.pkceVerifier, parsed.nonce);
+  clearOAuthCookies(res);
   if (!result) {
     res.redirect(302, "/agro/login?error=sso");
     return;
   }
 
-  let from = "/agro/command-center";
-  const state = String(req.query.state ?? "");
-  if (state) {
-    const parsed = decodeState(state);
-    if (!parsed) {
-      res.redirect(302, "/agro/login?error=sso_state");
-      return;
-    }
-    if (parsed.from) from = sanitizeFrom(parsed.from);
-  }
-
+  const from = sanitizeFrom(parsed.from);
   const redirect = new URL(from, process.env.APP_URL ?? "http://localhost:5173");
   setSessionCookie(res, result.token);
   res.redirect(302, redirect.toString());

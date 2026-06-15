@@ -18,7 +18,7 @@ Aplicação em `http://localhost:5173`. Rotas canônicas sob `/agro/*`.
 | `npm run dev` | Servidor de desenvolvimento |
 | `npm run build` | Typecheck + build de produção |
 | `npm run typecheck` | Verificação TypeScript |
-| `npm run lint` | ESLint (`src`, `shared`) |
+| `npm run lint` | ESLint (`src`, `shared`, `api`, `scripts`) |
 | `npm run test` | Testes unitários (Vitest) |
 | `npm run test:e2e` | Testes E2E (Playwright) |
 
@@ -49,7 +49,9 @@ Defina o salt e os hashes na Vercel: `AUTH_PASSWORD_SALT`,
 o login por senha do usuário fica desabilitado (resta o SSO). A senha de
 desenvolvimento (`jgg-agro-dev`) só é aceita quando `AUTH_SECRET` está ausente.
 
-### SSO corporativo (OIDC / Azure AD)
+### SSO corporativo (OIDC)
+
+Suporte a qualquer provedor OIDC (Azure AD, Okta, Keycloak etc.) com discovery em `/.well-known/openid-configuration`, PKCE S256 e validação do `id_token` (`iss`, `aud`, `exp`, `nonce`, `email_verified`).
 
 Variáveis:
 
@@ -57,7 +59,7 @@ Variáveis:
 |----------|-----------|
 | `SSO_ENABLED` | `true` na Vercel |
 | `VITE_SSO_ENABLED` | `true` no build do frontend |
-| `SSO_ISSUER` | URL do tenant OIDC |
+| `SSO_ISSUER` | URL base do tenant OIDC |
 | `SSO_CLIENT_ID` | Client ID |
 | `SSO_CLIENT_SECRET` | Client secret |
 | `SSO_REDIRECT_URI` | Ex.: `https://seu-app.vercel.app/api/auth/callback` |
@@ -65,7 +67,7 @@ Variáveis:
 
 Rotas: `GET /api/auth/sso` (redirect) e `GET /api/auth/callback` (troca code por sessão).
 
-O usuário SSO deve existir na lista interna (`auth-server.ts`) com o mesmo e-mail.
+O fluxo armazena `state` e `code_verifier` em cookies `HttpOnly` com binding de sessão para mitigar CSRF e interception do authorization code. O usuário SSO deve existir na lista interna (`auth-server.ts`) com o mesmo e-mail.
 
 ## Dados
 
@@ -93,6 +95,6 @@ Campos opcionais em arrays (propriedades, contatos, documentos pendentes) são p
 ## Arquitetura
 
 - **Frontend:** React 19, Vite, wouter, TanStack Query, Tailwind
-- **API:** Vercel serverless (`api/`) com store em memória ou PostgreSQL (Neon)
+- **API:** Vercel serverless (`api/`) com PostgreSQL (Neon); memória apenas em dev local quando `DATABASE_URL` está ausente
 - **Domínio compartilhado:** `shared/agro/` (tipos, seed, stats, store)
 - **Redirect legado:** `/command-center` → `/agro/command-center`
