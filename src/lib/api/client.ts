@@ -11,13 +11,20 @@ import type {
 
 const TOKEN_KEY = "agro_auth_token";
 
+/** @deprecated tokens agora são gerenciados pelo backend via cookie HttpOnly. */
 export function getAuthToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
 
+/** @deprecated tokens agora são gerenciados pelo backend via cookie HttpOnly. */
 export function setAuthToken(token: string | null) {
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
+}
+
+/** Limpa qualquer token legado do localStorage. */
+export function clearLegacyAuthToken() {
+  localStorage.removeItem(TOKEN_KEY);
 }
 
 function shouldUseLocalApi() {
@@ -29,10 +36,10 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     "Content-Type": "application/json",
     ...(init?.headers as Record<string, string>),
   };
-  const token = getAuthToken();
-  if (token) headers.Authorization = `Bearer ${token}`;
 
   if (shouldUseLocalApi()) {
+    const token = getAuthToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
     const { status, data } = await handleLocalApi(path, { ...init, headers });
     if (status >= 400) {
       throw new ApiError(status, (data as { error?: string }).error ?? "Erro na API");
@@ -40,7 +47,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     return data as T;
   }
 
-  const res = await fetch(path, { ...init, headers });
+  const res = await fetch(path, { ...init, headers, credentials: "include" });
   const data = await res.json();
   if (!res.ok) {
     throw new ApiError(res.status, data.error ?? "Erro na API");
@@ -59,12 +66,23 @@ export class ApiError extends Error {
 
 export const agroApi = {
   login: (email: string, password: string) =>
-    request<{ token: string; user: import("@shared/agro/types").AgroUser }>(
+    request<{ token?: string; user: import("@shared/agro/types").AgroUser }>(
       "/api/auth/login",
       { method: "POST", body: JSON.stringify({ email, password }) },
-    ),
+    ).then((res) => {
+      clearLegacyAuthToken();
+      return res;
+    }),
 
   me: () => request<import("@shared/agro/types").AgroUser>("/api/auth/me"),
+
+  logout: () =>
+    request<{ ok: true }>("/api/auth/logout", {
+      method: "POST",
+    }).then((res) => {
+      clearLegacyAuthToken();
+      return res;
+    }),
 
   leads: (params: LeadListParams = {}) =>
     request<PaginatedResult<import("@shared/agro/types").Lead>>(

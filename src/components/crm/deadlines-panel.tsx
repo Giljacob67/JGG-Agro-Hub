@@ -10,11 +10,8 @@ import {
   useUpdateDeadline,
 } from "@/hooks/use-crm-queries";
 import { DEADLINE_STATUS, DEADLINE_TYPE, formatDate } from "@/lib/crm-labels";
+import { todayIso } from "@/lib/utils";
 import type { Deadline, DeadlineType } from "@/lib/crm-types";
-
-function todayIso() {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function isOverdue(d: Deadline) {
   return d.status === "pendente" && d.dueDate < todayIso();

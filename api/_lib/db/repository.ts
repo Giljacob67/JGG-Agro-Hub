@@ -23,6 +23,7 @@ import type {
   Account,
   Activity,
   Deadline,
+  AgroUser,
   Lead,
   Matter,
   Opportunity,
@@ -481,6 +482,26 @@ export async function dbLoadAll(): Promise<CrmDataset> {
     deadlines,
     activities,
   };
+}
+
+export async function dbCreateAuditLog(input: {
+  actor: AgroUser;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  const sql = getSql();
+  await sql`
+    INSERT INTO agro.audit_logs (
+      actor_id, actor_email, action, entity_type, entity_id, metadata
+    )
+    VALUES (
+      ${input.actor.id}, ${input.actor.email}, ${input.action},
+      ${input.entityType}, ${input.entityId ?? null},
+      ${JSON.stringify(input.metadata ?? {})}::jsonb
+    )
+  `;
 }
 
 export async function dbSeedEmpty(): Promise<boolean> {
