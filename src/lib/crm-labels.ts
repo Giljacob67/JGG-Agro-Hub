@@ -1,6 +1,10 @@
 import type {
+  ActivityType,
+  DeadlineStatus,
+  DeadlineType,
   LeadStatus,
   LeadPriority,
+  MatterPhase,
   MatterStatus,
   MatterUrgency,
   OpportunityStage,
@@ -85,6 +89,36 @@ export const RELATIONSHIP_STATUS: Record<RelationshipStatus, string> = {
   em_expansao: "Em expansão",
   em_risco: "Em risco",
   inativo: "Inativo",
+};
+
+export const MATTER_PHASE: Record<MatterPhase, string> = {
+  consultivo: "Consultivo",
+  extrajudicial: "Extrajudicial",
+  conhecimento: "Conhecimento",
+  recursal: "Recursal",
+  execucao: "Execução",
+  cumprimento_sentenca: "Cumprimento de sentença",
+};
+
+export const DEADLINE_TYPE: Record<DeadlineType, string> = {
+  fatal: "Fatal",
+  ordinatorio: "Ordinatório",
+};
+
+export const DEADLINE_STATUS: Record<DeadlineStatus, string> = {
+  pendente: "Pendente",
+  cumprido: "Cumprido",
+  cancelado: "Cancelado",
+};
+
+export const ACTIVITY_TYPE: Record<ActivityType, string> = {
+  ligacao: "Ligação",
+  reuniao: "Reunião",
+  email: "E-mail",
+  whatsapp: "WhatsApp",
+  visita: "Visita",
+  nota: "Nota",
+  sistema: "Sistema",
 };
 
 export function riskBadgeVariant(risk: RiskLevel): BadgeProps["variant"] {

@@ -36,7 +36,7 @@ test.describe("JGG Agro Hub — smoke", () => {
     const leadName = `E2E Lead ${Date.now()}`;
     await page.getByRole("button", { name: "Novo lead" }).click();
     await page.getByLabel("Nome / razão social").fill(leadName);
-    await page.getByLabel("Região").fill("MT — Sorriso");
+    await page.getByRole("textbox", { name: "Região" }).fill("MT — Sorriso");
     await page.getByRole("button", { name: "Criar lead" }).click();
 
     await expect(page).toHaveURL(/\/agro\/crm\/leads\//);

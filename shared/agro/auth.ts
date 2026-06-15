@@ -96,6 +96,7 @@ export function roleCanAccess(role: AgroRole, resource: string): boolean {
       "leads",
       "accounts",
       "opportunities",
+      "activities",
       "stats",
       "crm",
       "copilot",
@@ -106,6 +107,8 @@ export function roleCanAccess(role: AgroRole, resource: string): boolean {
     return [
       "matters",
       "tasks",
+      "deadlines",
+      "activities",
       "stats",
       "crm",
       "copilot",

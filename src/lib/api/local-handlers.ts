@@ -24,7 +24,10 @@ import { getKnowledgePayload } from "@shared/agro/knowledge";
 import { computeCrmStats } from "@shared/agro/stats";
 import type { CopilotQueryRequest } from "@shared/agro/types";
 import {
+  addActivity,
+  addDeadline,
   addLead,
+  addOpportunity,
   getAccount,
   getAccountTimeline,
   getLead,
@@ -33,16 +36,36 @@ import {
   getRelatedTasks,
   getTask,
   listAccounts,
+  listActivities,
+  listDeadlines,
   listLeads,
   listMatters,
+  listMattersByOpportunity,
   listOpportunities,
   listTasks,
+  nextActivityId,
+  nextDeadlineId,
+  nextOpportunityId,
+  patchDeadline,
   patchLead,
   patchMatter,
   patchOpportunity,
   patchTask,
 } from "@shared/agro/store";
-import type { Lead, LeadStatus, TaskStatus } from "@shared/agro/types";
+import {
+  buildOpportunityFromLead,
+  conversionActivitySummary,
+  conversionBlockReason,
+  todayIso,
+} from "@shared/agro/convert";
+import type {
+  Activity,
+  ActivityEntityType,
+  Deadline,
+  Lead,
+  LeadStatus,
+  TaskStatus,
+} from "@shared/agro/types";
 
 function parseQuery(path: string) {
   const [pathname, search] = path.split("?");
@@ -78,6 +101,61 @@ export async function handleLocalApi(
   if (pathname === "/api/agro/leads") {
     if (init?.method === "POST") {
       const body = JSON.parse(String(init.body));
+
+      if (params.get("action") === "convert" || body.action === "convert") {
+        const id = params.get("id") ?? body.id;
+        if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+        const lead = getLead(id);
+        const blocked = conversionBlockReason(lead);
+        if (blocked === "not_found") {
+          return { status: 404, data: { error: "Lead não encontrado", reason: blocked } };
+        }
+        if (blocked) {
+          const message =
+            blocked === "already_converted"
+              ? "Lead já convertido em oportunidade"
+              : "Lead descartado não pode ser convertido";
+          return { status: 409, data: { error: message, reason: blocked } };
+        }
+        const safeLead = lead as Lead;
+        const opportunity = buildOpportunityFromLead(safeLead, nextOpportunityId(), {
+          title: body.title,
+          valueBrl: body.valueBrl != null ? Number(body.valueBrl) : undefined,
+          practice: body.practice,
+          owner: body.owner,
+          expectedClose: body.expectedClose,
+        });
+        addOpportunity(opportunity);
+        patchLead(safeLead.id, {
+          status: "qualificado",
+          convertedOpportunityId: opportunity.id,
+        });
+        addActivity({
+          id: nextActivityId(),
+          entityType: "lead",
+          entityId: safeLead.id,
+          type: "sistema",
+          summary: conversionActivitySummary(opportunity.id),
+          date: todayIso(),
+          owner: opportunity.owner,
+          createdAt: new Date().toISOString(),
+        });
+        addActivity({
+          id: nextActivityId(),
+          entityType: "opportunity",
+          entityId: opportunity.id,
+          type: "sistema",
+          summary: `Oportunidade criada a partir do lead ${safeLead.id} (${safeLead.name}).`,
+          date: todayIso(),
+          owner: opportunity.owner,
+          createdAt: new Date().toISOString(),
+        });
+        return {
+          status: 201,
+          data: { ok: true, lead: getLead(safeLead.id), opportunity },
+        };
+      }
+
       const today = new Date().toISOString().slice(0, 10);
       const id = `LD-${String(listLeads().length + 1).padStart(3, "0")}`;
       const lead: Lead = {
@@ -190,6 +268,11 @@ export async function handleLocalApi(
         : { status: 404, data: { error: "Demanda não encontrada" } };
     }
 
+    const opportunityId = params.get("opportunityId");
+    if (opportunityId) {
+      return { status: 200, data: listMattersByOpportunity(opportunityId) };
+    }
+
     const query = parseMatterParams(params);
     const all = listMatters();
     const result = paginate(filterMatters(all, query), query);
@@ -225,6 +308,76 @@ export async function handleLocalApi(
     const result = paginate(filterTasks(all, query), query);
     if (query.facets) result.facets = buildTaskFacets(all);
     return { status: 200, data: result };
+  }
+
+  if (pathname === "/api/agro/deadlines") {
+    if (init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      if (!body.matterId || !body.title || !body.type || !body.dueDate || !body.owner) {
+        return {
+          status: 400,
+          data: { error: "matterId, title, type, dueDate e owner são obrigatórios" },
+        };
+      }
+      if (!getMatter(body.matterId)) {
+        return { status: 404, data: { error: "Demanda não encontrada" } };
+      }
+      const deadline: Deadline = {
+        id: nextDeadlineId(),
+        matterId: body.matterId,
+        title: body.title,
+        type: body.type,
+        status: "pendente",
+        dueDate: body.dueDate,
+        owner: body.owner,
+        completedAt: null,
+        ...(body.notes ? { notes: body.notes } : {}),
+      };
+      addDeadline(deadline);
+      return { status: 201, data: deadline };
+    }
+
+    if (init?.method === "PATCH") {
+      const id = params.get("id");
+      if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+      const body = JSON.parse(String(init.body));
+      const deadline = patchDeadline(id, body);
+      return deadline
+        ? { status: 200, data: deadline }
+        : { status: 404, data: { error: "Prazo não encontrado" } };
+    }
+
+    const matterId = params.get("matterId") ?? undefined;
+    return { status: 200, data: listDeadlines(matterId) };
+  }
+
+  if (pathname === "/api/agro/activities") {
+    if (init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      if (!body.entityType || !body.entityId || !body.type || !body.summary || !body.owner) {
+        return {
+          status: 400,
+          data: { error: "entityType, entityId, type, summary e owner são obrigatórios" },
+        };
+      }
+      const activity: Activity = {
+        id: nextActivityId(),
+        entityType: body.entityType,
+        entityId: body.entityId,
+        type: body.type,
+        summary: body.summary,
+        date: body.date ?? todayIso(),
+        owner: body.owner,
+        createdAt: new Date().toISOString(),
+      };
+      addActivity(activity);
+      return { status: 201, data: activity };
+    }
+
+    const entityId = params.get("entityId") ?? undefined;
+    const entityType =
+      (params.get("entityType") as ActivityEntityType | null) ?? undefined;
+    return { status: 200, data: listActivities(entityId, entityType) };
   }
 
   if (pathname === "/api/agro/stats") {

@@ -6,6 +6,7 @@ import {
 } from "../_lib/data-service.js";
 import { parseOpportunityListQuery } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
+import { getBody, parseOpportunityPatch } from "../_lib/validation.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireAuth(req, res, "opportunities")) return;
@@ -23,7 +24,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === "PATCH") {
     const id = req.query.id as string | undefined;
     if (!id) return json(res, { error: "id é obrigatório" }, 400);
-    const opp = await updateOpportunity(id, req.body ?? {});
+    const patch = parseOpportunityPatch(getBody(req.body));
+    if (!patch.ok) return json(res, { error: patch.error }, 400);
+    const opp = await updateOpportunity(id, patch.data);
     if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
     return json(res, opp);
   }

@@ -5,6 +5,7 @@ export type {
   OpportunityStage,
   MatterStatus,
   MatterUrgency,
+  MatterPhase,
   RiskLevel,
   TaskPriority,
   TaskStatus,
@@ -19,4 +20,10 @@ export type {
   Task,
   AgroUser,
   CrmStats,
+  Deadline,
+  DeadlineType,
+  DeadlineStatus,
+  Activity,
+  ActivityEntityType,
+  ActivityType,
 } from "@shared/agro/types";

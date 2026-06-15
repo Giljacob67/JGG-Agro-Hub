@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/use-auth";
 import { useCreateLead } from "@/hooks/use-crm-queries";
 import { ROUTES } from "@/lib/routes";
 

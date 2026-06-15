@@ -140,6 +140,62 @@ ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS urgency agro.matter_urgency;
 ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS pending_documents JSONB DEFAULT '[]'::jsonb;
 ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS next_steps TEXT;
 
+-- Fase 1: identidade processual, rastreabilidade, prazos e timeline
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS cnj_number TEXT;
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS court TEXT;
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS phase TEXT
+  CHECK (
+    phase IN (
+      'consultivo',
+      'extrajudicial',
+      'conhecimento',
+      'recursal',
+      'execucao',
+      'cumprimento_sentenca'
+    )
+  );
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS opposing_party TEXT;
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS claim_value_brl NUMERIC(14, 2);
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS opportunity_id TEXT
+  REFERENCES agro.opportunities(id) ON DELETE SET NULL;
+ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS lead_id TEXT
+  REFERENCES agro.leads(id) ON DELETE SET NULL;
+ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS converted_opportunity_id TEXT;
+
+CREATE TABLE IF NOT EXISTS agro.deadlines (
+  id TEXT PRIMARY KEY,
+  matter_id TEXT NOT NULL REFERENCES agro.matters(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('fatal', 'ordinatorio')),
+  status TEXT NOT NULL DEFAULT 'pendente'
+    CHECK (status IN ('pendente', 'cumprido', 'cancelado')),
+  due_date DATE NOT NULL,
+  owner TEXT NOT NULL,
+  completed_at DATE,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS agro.activities (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL
+    CHECK (entity_type IN ('lead', 'account', 'opportunity', 'matter')),
+  entity_id TEXT NOT NULL,
+  type TEXT NOT NULL
+    CHECK (type IN ('ligacao','reuniao','email','whatsapp','visita','nota','sistema')),
+  summary TEXT NOT NULL,
+  date DATE NOT NULL,
+  owner TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_deadlines_matter ON agro.deadlines(matter_id);
+CREATE INDEX IF NOT EXISTS idx_deadlines_due ON agro.deadlines(due_date) WHERE status = 'pendente';
+CREATE INDEX IF NOT EXISTS idx_activities_entity ON agro.activities(entity_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_matters_opportunity ON agro.matters(opportunity_id);
+CREATE INDEX IF NOT EXISTS idx_opportunities_lead ON agro.opportunities(lead_id);
+
 -- Normaliza stages legados
 UPDATE agro.opportunities SET stage = 'proposta_elaboracao' WHERE stage::text = 'proposta';
 UPDATE agro.opportunities SET stage = 'diagnostico_agendado' WHERE stage::text = 'qualificacao';

@@ -89,6 +89,7 @@ CREATE TABLE agro.leads (
   legal_pain TEXT,
   interest_area TEXT,
   priority agro.lead_priority,
+  converted_opportunity_id TEXT,
   created_at DATE NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -107,6 +108,7 @@ CREATE TABLE agro.opportunities (
   practice TEXT,
   probability SMALLINT CHECK (probability IS NULL OR (probability >= 0 AND probability <= 100)),
   next_step TEXT,
+  lead_id TEXT REFERENCES agro.leads(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -125,8 +127,51 @@ CREATE TABLE agro.matters (
   urgency agro.matter_urgency,
   pending_documents JSONB DEFAULT '[]'::jsonb,
   next_steps TEXT,
+  cnj_number TEXT,
+  court TEXT,
+  phase TEXT CHECK (
+    phase IN (
+      'consultivo',
+      'extrajudicial',
+      'conhecimento',
+      'recursal',
+      'execucao',
+      'cumprimento_sentenca'
+    )
+  ),
+  opposing_party TEXT,
+  claim_value_brl NUMERIC(14, 2),
+  opportunity_id TEXT REFERENCES agro.opportunities(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE agro.deadlines (
+  id TEXT PRIMARY KEY,
+  matter_id TEXT NOT NULL REFERENCES agro.matters(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('fatal', 'ordinatorio')),
+  status TEXT NOT NULL DEFAULT 'pendente'
+    CHECK (status IN ('pendente', 'cumprido', 'cancelado')),
+  due_date DATE NOT NULL,
+  owner TEXT NOT NULL,
+  completed_at DATE,
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE agro.activities (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL
+    CHECK (entity_type IN ('lead', 'account', 'opportunity', 'matter')),
+  entity_id TEXT NOT NULL,
+  type TEXT NOT NULL
+    CHECK (type IN ('ligacao','reuniao','email','whatsapp','visita','nota','sistema')),
+  summary TEXT NOT NULL,
+  date DATE NOT NULL,
+  owner TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE agro.tasks (
@@ -148,3 +193,8 @@ CREATE INDEX idx_matters_account ON agro.matters(account_id);
 CREATE INDEX idx_tasks_related ON agro.tasks(related_to);
 CREATE INDEX idx_matters_deadline ON agro.matters(deadline);
 CREATE INDEX idx_tasks_due ON agro.tasks(due_date);
+CREATE INDEX idx_deadlines_matter ON agro.deadlines(matter_id);
+CREATE INDEX idx_deadlines_due ON agro.deadlines(due_date) WHERE status = 'pendente';
+CREATE INDEX idx_activities_entity ON agro.activities(entity_id, date DESC);
+CREATE INDEX idx_matters_opportunity ON agro.matters(opportunity_id);
+CREATE INDEX idx_opportunities_lead ON agro.opportunities(lead_id);

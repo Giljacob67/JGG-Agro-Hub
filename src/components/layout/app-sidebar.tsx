@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Database, LogOut, Menu, X } from "lucide-react";
 import { NAV_GROUPS } from "@/lib/navigation";
 import { ROUTES, isCrmPath } from "@/lib/routes";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/use-auth";
 import { useCrmStats } from "@/hooks/use-crm-queries";
 import { OperationCriticalPanel } from "@/components/command-center/operation-critical-panel";
 import { getCriticalOperationCount } from "@/lib/command-intelligence";

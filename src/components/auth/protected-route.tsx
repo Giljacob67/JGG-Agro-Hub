@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Redirect, useLocation } from "wouter";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/use-auth";
 import { ROUTES } from "@/lib/routes";
 
 interface ProtectedRouteProps {

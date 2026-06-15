@@ -22,6 +22,8 @@ import type {
 import { paginate, type PaginationParams } from "../../shared/agro/list-types.js";
 import type {
   Account,
+  Activity,
+  Deadline,
   Lead,
   LeadPriority,
   LeadStatus,
@@ -30,10 +32,20 @@ import type {
   Task,
   TaskStatus,
 } from "../../shared/agro/types.js";
+import {
+  buildOpportunityFromLead,
+  conversionActivitySummary,
+  conversionBlockReason,
+  todayIso,
+  type ConvertLeadInput,
+  type ConvertLeadResult,
+} from "../../shared/agro/convert.js";
 import { isDbEnabled } from "./db/client.js";
 import * as db from "./db/repository.js";
+import type { MatterPatch } from "./db/repository.js";
 
 export { isDbEnabled };
+export type { ConvertLeadInput, ConvertLeadResult, MatterPatch };
 
 export type CreateLeadInput = {
   name: string;
@@ -171,10 +183,17 @@ export async function getMatter(id: string): Promise<Matter | undefined | null> 
 
 export async function updateMatter(
   id: string,
-  patch: Partial<Pick<Matter, "status" | "risk">>,
+  patch: MatterPatch,
 ): Promise<Matter | null | undefined> {
   if (isDbEnabled()) return db.dbUpdateMatter(id, patch);
   return memory.patchMatter(id, patch) ?? undefined;
+}
+
+export async function getMattersByOpportunity(
+  opportunityId: string,
+): Promise<Matter[]> {
+  if (isDbEnabled()) return db.dbGetMattersByOpportunity(opportunityId);
+  return memory.listMattersByOpportunity(opportunityId);
 }
 
 export async function listTasks(
@@ -202,6 +221,141 @@ export async function updateTaskStatus(
   return memory.patchTask(id, { status }) ?? undefined;
 }
 
+/* ---------------------------------------------------------------- Prazos */
+
+export type CreateDeadlineInput = {
+  matterId: string;
+  title: string;
+  type: Deadline["type"];
+  dueDate: string;
+  owner: string;
+  notes?: string;
+};
+
+export async function listDeadlines(matterId?: string): Promise<Deadline[]> {
+  if (isDbEnabled()) return db.dbListDeadlines(matterId);
+  return memory.listDeadlines(matterId);
+}
+
+export async function createDeadline(
+  input: CreateDeadlineInput,
+): Promise<Deadline> {
+  const payload = {
+    matterId: input.matterId,
+    title: input.title,
+    type: input.type,
+    status: "pendente" as const,
+    dueDate: input.dueDate,
+    owner: input.owner,
+    completedAt: null,
+    ...(input.notes ? { notes: input.notes } : {}),
+  };
+  if (isDbEnabled()) return db.dbCreateDeadline(payload);
+  const deadline: Deadline = { id: memory.nextDeadlineId(), ...payload };
+  memory.addDeadline(deadline);
+  return deadline;
+}
+
+export async function updateDeadline(
+  id: string,
+  patch: Partial<
+    Pick<Deadline, "status" | "dueDate" | "completedAt" | "owner"> & {
+      notes: string | null;
+    }
+  >,
+): Promise<Deadline | null | undefined> {
+  if (isDbEnabled()) return db.dbUpdateDeadline(id, patch);
+  return memory.patchDeadline(id, patch) ?? undefined;
+}
+
+/* ------------------------------------------------------------ Interações */
+
+export type CreateActivityInput = {
+  entityType: Activity["entityType"];
+  entityId: string;
+  type: Activity["type"];
+  summary: string;
+  date?: string;
+  owner: string;
+};
+
+export async function listActivities(
+  entityId?: string,
+  entityType?: Activity["entityType"],
+): Promise<Activity[]> {
+  if (isDbEnabled()) return db.dbListActivities(entityId, entityType);
+  return memory.listActivities(entityId, entityType);
+}
+
+export async function createActivity(
+  input: CreateActivityInput,
+): Promise<Activity> {
+  const payload = {
+    entityType: input.entityType,
+    entityId: input.entityId,
+    type: input.type,
+    summary: input.summary,
+    date: input.date ?? todayIso(),
+    owner: input.owner,
+  };
+  if (isDbEnabled()) return db.dbCreateActivity(payload);
+  const activity: Activity = {
+    id: memory.nextActivityId(),
+    ...payload,
+    createdAt: new Date().toISOString(),
+  };
+  memory.addActivity(activity);
+  return activity;
+}
+
+/* -------------------------------------------------- Conversão de lead */
+
+export async function convertLead(
+  leadId: string,
+  input: ConvertLeadInput = {},
+): Promise<ConvertLeadResult> {
+  const lead = await getLead(leadId);
+  const blocked = conversionBlockReason(lead);
+  if (blocked) return { ok: false, reason: blocked };
+
+  const safeLead = lead as Lead;
+  const oppId = isDbEnabled()
+    ? await db.dbNextOpportunityId()
+    : memory.nextOpportunityId();
+  const opportunity = buildOpportunityFromLead(safeLead, oppId, input);
+
+  let created: Opportunity;
+  if (isDbEnabled()) {
+    created = await db.dbConvertLead(safeLead, opportunity);
+  } else {
+    memory.addOpportunity(opportunity);
+    memory.patchLead(safeLead.id, {
+      status: "qualificado",
+      convertedOpportunityId: opportunity.id,
+    });
+    created = opportunity;
+  }
+
+  const summary = conversionActivitySummary(created.id);
+  await createActivity({
+    entityType: "lead",
+    entityId: safeLead.id,
+    type: "sistema",
+    summary,
+    owner: created.owner,
+  });
+  await createActivity({
+    entityType: "opportunity",
+    entityId: created.id,
+    type: "sistema",
+    summary: `Oportunidade criada a partir do lead ${safeLead.id} (${safeLead.name}).`,
+    owner: created.owner,
+  });
+
+  const updatedLead = await getLead(safeLead.id);
+  return { ok: true, lead: updatedLead as Lead, opportunity: created };
+}
+
 export async function loadCrmDataset() {
   if (isDbEnabled()) return db.dbLoadAll();
   return {
@@ -217,6 +371,8 @@ export async function setupDatabase(options?: { force?: boolean }) {
   const { runMigrations } = await import("./db/migrate.js");
   const {
     SEED_ACCOUNTS,
+    SEED_ACTIVITIES,
+    SEED_DEADLINES,
     SEED_LEADS,
     SEED_MATTERS,
     SEED_OPPORTUNITIES,
@@ -240,6 +396,8 @@ export async function setupDatabase(options?: { force?: boolean }) {
     opportunities: SEED_OPPORTUNITIES,
     matters: SEED_MATTERS,
     tasks: SEED_TASKS,
+    deadlines: SEED_DEADLINES,
+    activities: SEED_ACTIVITIES,
   });
 
   const leads = await listLeads();

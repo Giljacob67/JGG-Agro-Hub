@@ -3,7 +3,7 @@ import { Redirect, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/use-auth";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { ROUTES } from "@/lib/routes";
 import { ThemeToggle } from "@/components/ui/theme-toggle";

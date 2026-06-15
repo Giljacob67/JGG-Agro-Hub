@@ -145,6 +145,83 @@ export const agroApi = {
   matter: (id: string) =>
     request<import("@shared/agro/types").Matter>(`/api/agro/matters?id=${id}`),
 
+  mattersByOpportunity: (opportunityId: string) =>
+    request<import("@shared/agro/types").Matter[]>(
+      `/api/agro/matters?opportunityId=${opportunityId}`,
+    ),
+
+  deadlines: (matterId?: string) =>
+    request<import("@shared/agro/types").Deadline[]>(
+      `/api/agro/deadlines${matterId ? `?matterId=${matterId}` : ""}`,
+    ),
+
+  createDeadline: (input: {
+    matterId: string;
+    title: string;
+    type: import("@shared/agro/types").DeadlineType;
+    dueDate: string;
+    owner: string;
+    notes?: string;
+  }) =>
+    request<import("@shared/agro/types").Deadline>("/api/agro/deadlines", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateDeadline: (
+    id: string,
+    patch: Partial<
+      Pick<
+        import("@shared/agro/types").Deadline,
+        "status" | "dueDate" | "completedAt" | "owner" | "notes"
+      >
+    >,
+  ) =>
+    request<import("@shared/agro/types").Deadline>(
+      `/api/agro/deadlines?id=${id}`,
+      { method: "PATCH", body: JSON.stringify(patch) },
+    ),
+
+  activities: (
+    entityId?: string,
+    entityType?: import("@shared/agro/types").ActivityEntityType,
+  ) =>
+    request<import("@shared/agro/types").Activity[]>(
+      `/api/agro/activities${buildQuery({ entityId, entityType })}`,
+    ),
+
+  createActivity: (input: {
+    entityType: import("@shared/agro/types").ActivityEntityType;
+    entityId: string;
+    type: import("@shared/agro/types").ActivityType;
+    summary: string;
+    date?: string;
+    owner: string;
+  }) =>
+    request<import("@shared/agro/types").Activity>("/api/agro/activities", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  convertLead: (
+    id: string,
+    input: {
+      title?: string;
+      valueBrl?: number;
+      practice?: string;
+      owner?: string;
+      expectedClose?: string;
+    } = {},
+  ) =>
+    request<{
+      ok: true;
+      lead: import("@shared/agro/types").Lead;
+      opportunity: import("@shared/agro/types").Opportunity;
+    }>(`/api/agro/leads?id=${id}&action=convert`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
   tasks: (params: TaskListParams = {}) =>
     request<PaginatedResult<import("@shared/agro/types").Task>>(
       `/api/agro/tasks${buildQuery({
@@ -224,7 +301,17 @@ export const agroApi = {
 
   updateMatter: (
     id: string,
-    patch: Partial<Pick<import("@shared/agro/types").Matter, "status" | "risk">>,
+    patch: Partial<{
+      status: import("@shared/agro/types").MatterStatus;
+      risk: import("@shared/agro/types").RiskLevel;
+      cnjNumber: string | null;
+      court: string | null;
+      phase: import("@shared/agro/types").MatterPhase | null;
+      opposingParty: string | null;
+      claimValueBrl: number | null;
+      opportunityId: string | null;
+      nextSteps: string | null;
+    }>,
   ) =>
     request<import("@shared/agro/types").Matter>(`/api/agro/matters?id=${id}`, {
       method: "PATCH",

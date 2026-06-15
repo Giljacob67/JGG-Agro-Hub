@@ -1,7 +1,12 @@
-import { useRoute } from "wouter";
+import { useState } from "react";
+import { Link, useRoute } from "wouter";
+import { ArrowRight } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { ActivityTimeline } from "@/components/crm/activity-timeline";
+import { DeadlinesPanel } from "@/components/crm/deadlines-panel";
 import { DetailBackLink } from "@/components/crm/detail-back-link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
@@ -10,15 +15,167 @@ import {
   useUpdateMatter,
 } from "@/hooks/use-crm-queries";
 import {
+  MATTER_PHASE,
   MATTER_STATUS,
   MATTER_URGENCY,
   RISK_LEVEL,
+  formatBrl,
   formatDate,
   isCriticalDeadline,
   riskBadgeVariant,
 } from "@/lib/crm-labels";
-import type { MatterStatus, RiskLevel } from "@shared/agro/types";
+import type { Matter, MatterPhase, MatterStatus, RiskLevel } from "@shared/agro/types";
 import { ROUTES } from "@/lib/routes";
+
+function ProceduralDataCard({ matter }: { matter: Matter }) {
+  const updateMatter = useUpdateMatter();
+  const [editing, setEditing] = useState(false);
+  const [cnjNumber, setCnjNumber] = useState(matter.cnjNumber ?? "");
+  const [court, setCourt] = useState(matter.court ?? "");
+  const [phase, setPhase] = useState<MatterPhase | "">(matter.phase ?? "");
+  const [opposingParty, setOpposingParty] = useState(matter.opposingParty ?? "");
+  const [claimValue, setClaimValue] = useState(
+    matter.claimValueBrl != null ? String(matter.claimValueBrl) : "",
+  );
+
+  function save() {
+    updateMatter.mutate(
+      {
+        id: matter.id,
+        patch: {
+          cnjNumber: cnjNumber.trim() || null,
+          court: court.trim() || null,
+          phase: phase || null,
+          opposingParty: opposingParty.trim() || null,
+          claimValueBrl: claimValue ? Number(claimValue) : null,
+        },
+      },
+      { onSuccess: () => setEditing(false) },
+    );
+  }
+
+  return (
+    <Card className="p-5 space-y-4">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+          Dados processuais
+        </h2>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setEditing((v) => !v)}
+        >
+          {editing ? "Cancelar" : "Editar"}
+        </Button>
+      </div>
+
+      {editing ? (
+        <div className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="mt-cnj" className="text-xs text-muted-foreground">
+                Número CNJ
+              </label>
+              <input
+                id="mt-cnj"
+                value={cnjNumber}
+                onChange={(e) => setCnjNumber(e.target.value)}
+                placeholder="0000000-00.0000.0.00.0000"
+                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm font-mono"
+              />
+            </div>
+            <div>
+              <label htmlFor="mt-phase" className="text-xs text-muted-foreground">
+                Fase
+              </label>
+              <select
+                id="mt-phase"
+                value={phase}
+                onChange={(e) => setPhase(e.target.value as MatterPhase | "")}
+                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              >
+                <option value="">—</option>
+                {Object.entries(MATTER_PHASE).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label htmlFor="mt-court" className="text-xs text-muted-foreground">
+              Juízo / órgão
+            </label>
+            <input
+              id="mt-court"
+              value={court}
+              onChange={(e) => setCourt(e.target.value)}
+              placeholder="Ex.: 2ª Vara Cível de Sorriso/MT"
+              className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+            />
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="mt-opposing" className="text-xs text-muted-foreground">
+                Parte contrária
+              </label>
+              <input
+                id="mt-opposing"
+                value={opposingParty}
+                onChange={(e) => setOpposingParty(e.target.value)}
+                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="mt-claim" className="text-xs text-muted-foreground">
+                Valor da causa (R$)
+              </label>
+              <input
+                id="mt-claim"
+                type="number"
+                min="0"
+                value={claimValue}
+                onChange={(e) => setClaimValue(e.target.value)}
+                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button size="sm" onClick={save} disabled={updateMatter.isPending}>
+              {updateMatter.isPending ? "Salvando…" : "Salvar"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid sm:grid-cols-2 gap-4 text-sm">
+          <div>
+            <p className="text-xs text-muted-foreground">Número CNJ</p>
+            <p className="font-mono">{matter.cnjNumber || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Fase</p>
+            <p>{matter.phase ? MATTER_PHASE[matter.phase] : "—"}</p>
+          </div>
+          <div className="sm:col-span-2">
+            <p className="text-xs text-muted-foreground">Juízo / órgão</p>
+            <p>{matter.court || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Parte contrária</p>
+            <p>{matter.opposingParty || "—"}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground">Valor da causa</p>
+            <p>
+              {matter.claimValueBrl != null ? formatBrl(matter.claimValueBrl) : "—"}
+            </p>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 export default function CrmMatterDetailPage() {
   const [, params] = useRoute("/agro/crm/matters/:id");
@@ -151,7 +308,24 @@ export default function CrmMatterDetailPage() {
               </ul>
             </div>
           )}
+
+          {matter.opportunityId && (
+            <div className="pt-1">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={ROUTES.crm.opportunityDetail(matter.opportunityId)}>
+                  Oportunidade de origem ({matter.opportunityId}){" "}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </Button>
+            </div>
+          )}
         </Card>
+
+        <ProceduralDataCard matter={matter} key={`pd-${matter.id}`} />
+
+        <DeadlinesPanel matterId={matter.id} />
+
+        <ActivityTimeline entityType="matter" entityId={matter.id} />
 
         {tasks && tasks.length > 0 && (
           <section>

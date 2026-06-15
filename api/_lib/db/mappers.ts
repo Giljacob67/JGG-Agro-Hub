@@ -1,5 +1,7 @@
 import type {
   Account,
+  Activity,
+  Deadline,
   Lead,
   Matter,
   Opportunity,
@@ -40,6 +42,9 @@ export function mapLead(row: Record<string, unknown>): Lead {
   if (row.legal_pain) lead.legalPain = String(row.legal_pain);
   if (row.interest_area) lead.interestArea = String(row.interest_area);
   if (row.priority) lead.priority = row.priority as Lead["priority"];
+  if (row.converted_opportunity_id) {
+    lead.convertedOpportunityId = String(row.converted_opportunity_id);
+  }
 
   return lead;
 }
@@ -92,6 +97,7 @@ export function mapOpportunity(row: Record<string, unknown>): Opportunity {
 
   if (row.probability != null) opp.probability = Number(row.probability);
   if (row.next_step) opp.nextStep = String(row.next_step);
+  if (row.lead_id) opp.leadId = String(row.lead_id);
 
   return opp;
 }
@@ -116,7 +122,47 @@ export function mapMatter(row: Record<string, unknown>): Matter {
   const pendingDocuments = parseStringArray(row.pending_documents);
   if (pendingDocuments?.length) matter.pendingDocuments = pendingDocuments;
 
+  if (row.cnj_number) matter.cnjNumber = String(row.cnj_number);
+  if (row.court) matter.court = String(row.court);
+  if (row.phase) matter.phase = row.phase as Matter["phase"];
+  if (row.opposing_party) matter.opposingParty = String(row.opposing_party);
+  if (row.claim_value_brl != null) {
+    matter.claimValueBrl = Number(row.claim_value_brl);
+  }
+  if (row.opportunity_id) matter.opportunityId = String(row.opportunity_id);
+
   return matter;
+}
+
+export function mapDeadline(row: Record<string, unknown>): Deadline {
+  const deadline: Deadline = {
+    id: String(row.id),
+    matterId: String(row.matter_id),
+    title: String(row.title),
+    type: row.type as Deadline["type"],
+    status: row.status as Deadline["status"],
+    dueDate: toDateStr(row.due_date),
+    owner: String(row.owner),
+    completedAt: row.completed_at ? toDateStr(row.completed_at) : null,
+  };
+  if (row.notes) deadline.notes = String(row.notes);
+  return deadline;
+}
+
+export function mapActivity(row: Record<string, unknown>): Activity {
+  return {
+    id: String(row.id),
+    entityType: row.entity_type as Activity["entityType"],
+    entityId: String(row.entity_id),
+    type: row.type as Activity["type"],
+    summary: String(row.summary),
+    date: toDateStr(row.date),
+    owner: String(row.owner),
+    createdAt:
+      row.created_at instanceof Date
+        ? row.created_at.toISOString()
+        : String(row.created_at ?? ""),
+  };
 }
 
 export function mapTask(row: Record<string, unknown>): Task {

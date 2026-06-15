@@ -12,7 +12,7 @@ import { DashboardSection } from "@/components/crm/dashboard-section";
 import { KpiCard } from "@/components/crm/kpi-card";
 import { PracticeBreakdownTable } from "@/components/crm/practice-breakdown";
 import { QuickActions } from "@/components/crm/quick-actions";
-import { useAuth } from "@/contexts/auth-context";
+import { useAuth } from "@/contexts/use-auth";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmStats } from "@/hooks/use-crm-queries";
 import { formatBrl } from "@/lib/crm-labels";

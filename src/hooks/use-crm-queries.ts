@@ -8,6 +8,10 @@ import type {
   TaskListParams,
 } from "@shared/agro/list-types";
 import type {
+  ActivityEntityType,
+  ActivityType,
+  DeadlineType,
+  MatterPhase,
   LeadStatus,
   MatterStatus,
   OpportunityPriority,
@@ -29,6 +33,16 @@ export const crmKeys = {
   tasks: ["crm", "tasks"] as const,
   stats: ["crm", "stats"] as const,
   relatedTasks: (id: string) => ["crm", "tasks", "related", id] as const,
+  deadlines: (matterId?: string) =>
+    matterId
+      ? (["crm", "deadlines", matterId] as const)
+      : (["crm", "deadlines"] as const),
+  activities: (entityId?: string) =>
+    entityId
+      ? (["crm", "activities", entityId] as const)
+      : (["crm", "activities"] as const),
+  mattersByOpportunity: (opportunityId: string) =>
+    ["crm", "matters", "by-opportunity", opportunityId] as const,
 };
 
 export function useLeads(params: LeadListParams = { facets: true }) {
@@ -175,7 +189,17 @@ export function useUpdateMatter() {
       patch,
     }: {
       id: string;
-      patch: Partial<{ status: MatterStatus; risk: RiskLevel }>;
+      patch: Partial<{
+        status: MatterStatus;
+        risk: RiskLevel;
+        cnjNumber: string | null;
+        court: string | null;
+        phase: MatterPhase | null;
+        opposingParty: string | null;
+        claimValueBrl: number | null;
+        opportunityId: string | null;
+        nextSteps: string | null;
+      }>;
     }) => agroApi.updateMatter(id, patch),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: crmKeys.matters });
@@ -194,5 +218,118 @@ export function useUpdateTaskStatus() {
       qc.invalidateQueries({ queryKey: crmKeys.tasks });
       qc.invalidateQueries({ queryKey: crmKeys.stats });
     },
+  });
+}
+
+/* ---------------------------------------------------------------- Prazos */
+
+export function useDeadlines(matterId?: string) {
+  return useQuery({
+    queryKey: crmKeys.deadlines(matterId),
+    queryFn: () => agroApi.deadlines(matterId),
+  });
+}
+
+export function useCreateDeadline() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      matterId: string;
+      title: string;
+      type: DeadlineType;
+      dueDate: string;
+      owner: string;
+      notes?: string;
+    }) => agroApi.createDeadline(input),
+    onSuccess: (_, { matterId }) => {
+      qc.invalidateQueries({ queryKey: crmKeys.deadlines(matterId) });
+      qc.invalidateQueries({ queryKey: crmKeys.deadlines() });
+    },
+  });
+}
+
+export function useUpdateDeadline(matterId?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: Partial<{
+        status: "pendente" | "cumprido" | "cancelado";
+        dueDate: string;
+        completedAt: string | null;
+        owner: string;
+        notes: string;
+      }>;
+    }) => agroApi.updateDeadline(id, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.deadlines(matterId) });
+      qc.invalidateQueries({ queryKey: crmKeys.deadlines() });
+    },
+  });
+}
+
+/* ------------------------------------------------------------ Interações */
+
+export function useActivities(entityId?: string, entityType?: ActivityEntityType) {
+  return useQuery({
+    queryKey: [...crmKeys.activities(entityId), entityType ?? "any"],
+    queryFn: () => agroApi.activities(entityId, entityType),
+  });
+}
+
+export function useCreateActivity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      entityType: ActivityEntityType;
+      entityId: string;
+      type: ActivityType;
+      summary: string;
+      date?: string;
+      owner: string;
+    }) => agroApi.createActivity(input),
+    onSuccess: (_, { entityId }) => {
+      qc.invalidateQueries({ queryKey: crmKeys.activities(entityId) });
+      qc.invalidateQueries({ queryKey: crmKeys.activities() });
+    },
+  });
+}
+
+/* -------------------------------------------------- Conversão e vínculos */
+
+export function useConvertLead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      input,
+    }: {
+      id: string;
+      input?: {
+        title?: string;
+        valueBrl?: number;
+        practice?: string;
+        owner?: string;
+        expectedClose?: string;
+      };
+    }) => agroApi.convertLead(id, input),
+    onSuccess: (_, { id }) => {
+      qc.invalidateQueries({ queryKey: crmKeys.leads });
+      qc.invalidateQueries({ queryKey: crmKeys.lead(id) });
+      qc.invalidateQueries({ queryKey: crmKeys.opportunities });
+      qc.invalidateQueries({ queryKey: crmKeys.activities() });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
+export function useMattersByOpportunity(opportunityId: string) {
+  return useQuery({
+    queryKey: crmKeys.mattersByOpportunity(opportunityId),
+    queryFn: () => agroApi.mattersByOpportunity(opportunityId),
+    enabled: !!opportunityId,
   });
 }

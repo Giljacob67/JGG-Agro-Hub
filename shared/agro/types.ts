@@ -30,6 +30,30 @@ export type RelationshipStatus =
 export type OpportunityPriority = "normal" | "alta";
 export type AgroRole = "gestao" | "comercial" | "juridico";
 
+/** Fase processual da demanda jurídica. */
+export type MatterPhase =
+  | "consultivo"
+  | "extrajudicial"
+  | "conhecimento"
+  | "recursal"
+  | "execucao"
+  | "cumprimento_sentenca";
+
+/** Prazo processual — fatal não admite prorrogação. */
+export type DeadlineType = "fatal" | "ordinatorio";
+export type DeadlineStatus = "pendente" | "cumprido" | "cancelado";
+
+/** Interação registrada na timeline de qualquer entidade do CRM. */
+export type ActivityEntityType = "lead" | "account" | "opportunity" | "matter";
+export type ActivityType =
+  | "ligacao"
+  | "reuniao"
+  | "email"
+  | "whatsapp"
+  | "visita"
+  | "nota"
+  | "sistema";
+
 export interface Lead {
   id: string;
   name: string;
@@ -47,6 +71,8 @@ export interface Lead {
   legalPain?: string;
   interestArea?: string;
   priority?: LeadPriority;
+  /** Oportunidade gerada na conversão deste lead. */
+  convertedOpportunityId?: string | null;
 }
 
 export interface Account {
@@ -81,6 +107,8 @@ export interface Opportunity {
   practice: string;
   probability?: number;
   nextStep?: string;
+  /** Lead que originou esta oportunidade (rastreabilidade de origem). */
+  leadId?: string | null;
 }
 
 export interface Matter {
@@ -97,6 +125,39 @@ export interface Matter {
   urgency?: MatterUrgency;
   pendingDocuments?: string[];
   nextSteps?: string;
+  /** Identidade processual */
+  cnjNumber?: string;
+  court?: string;
+  phase?: MatterPhase;
+  opposingParty?: string;
+  claimValueBrl?: number;
+  /** Oportunidade comercial que originou (ou está ligada a) esta demanda. */
+  opportunityId?: string | null;
+}
+
+/** Prazo processual vinculado a uma demanda. Uma demanda tem N prazos. */
+export interface Deadline {
+  id: string;
+  matterId: string;
+  title: string;
+  type: DeadlineType;
+  status: DeadlineStatus;
+  dueDate: string;
+  owner: string;
+  completedAt: string | null;
+  notes?: string;
+}
+
+/** Interação (ligação, reunião, e-mail, WhatsApp…) vinculada a uma entidade. */
+export interface Activity {
+  id: string;
+  entityType: ActivityEntityType;
+  entityId: string;
+  type: ActivityType;
+  summary: string;
+  date: string;
+  owner: string;
+  createdAt: string;
 }
 
 export interface Task {

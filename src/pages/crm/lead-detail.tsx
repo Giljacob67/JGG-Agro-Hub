@@ -1,6 +1,8 @@
 import { Link, useRoute } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
+import { ActivityTimeline } from "@/components/crm/activity-timeline";
+import { ConvertLeadCard } from "@/components/crm/convert-lead-card";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -63,6 +65,8 @@ export default function CrmLeadDetailPage() {
             <Badge variant="outline">{LEAD_STATUS[lead.status]}</Badge>
           </div>
         </header>
+
+        <ConvertLeadCard lead={lead} key={`convert-${lead.id}-${lead.convertedOpportunityId ?? ""}`} />
 
         <Card className="p-5 space-y-4">
           <div>
@@ -136,6 +140,8 @@ export default function CrmLeadDetailPage() {
             <p className="text-sm leading-relaxed">{lead.notes}</p>
           </div>
         </Card>
+
+        <ActivityTimeline entityType="lead" entityId={lead.id} />
 
         {tasks && tasks.length > 0 && (
           <section>

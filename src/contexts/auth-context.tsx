@@ -1,51 +1,14 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from "react";
-import type { AgroRole, AgroUser } from "@shared/agro/types";
+import type { AgroUser } from "@shared/agro/types";
+import { roleCanAccess } from "@shared/agro/auth";
 import { agroApi, getAuthToken, setAuthToken } from "@/lib/api/client";
-
-interface AuthContextValue {
-  user: AgroUser | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  acceptToken: (token: string) => Promise<void>;
-  logout: () => void;
-  canAccess: (resource: string) => boolean;
-}
-
-const AuthContext = createContext<AuthContextValue | null>(null);
-
-function roleCanAccess(role: AgroRole, resource: string): boolean {
-  if (role === "gestao") return true;
-  if (role === "comercial") {
-    return [
-      "leads",
-      "accounts",
-      "opportunities",
-      "stats",
-      "crm",
-      "copilot",
-      "knowledge",
-    ].includes(resource);
-  }
-  if (role === "juridico") {
-    return [
-      "matters",
-      "tasks",
-      "stats",
-      "crm",
-      "copilot",
-      "knowledge",
-    ].includes(resource);
-  }
-  return false;
-}
+import { AuthContext } from "./auth-context-value";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AgroUser | null>(null);
@@ -110,10 +73,4 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth deve ser usado dentro de AuthProvider");
-  return ctx;
 }

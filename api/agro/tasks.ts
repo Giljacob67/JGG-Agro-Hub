@@ -1,5 +1,4 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import type { TaskStatus } from "../../shared/agro/types.js";
 import {
   getRelatedTasks,
   getTask,
@@ -8,6 +7,7 @@ import {
 } from "../_lib/data-service.js";
 import { parseTaskListQuery } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
+import { getBody, parseTaskStatusPatch } from "../_lib/validation.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!requireAuth(req, res, "tasks")) return;
@@ -28,11 +28,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === "PATCH") {
     const id = req.query.id as string | undefined;
-    const { status } = req.body ?? {};
-    if (!id || !status) {
-      return json(res, { error: "id e status são obrigatórios" }, 400);
-    }
-    const task = await updateTaskStatus(id, status as TaskStatus);
+    if (!id) return json(res, { error: "id é obrigatório" }, 400);
+    const status = parseTaskStatusPatch(getBody(req.body));
+    if (!status.ok) return json(res, { error: status.error }, 400);
+    const task = await updateTaskStatus(id, status.data);
     if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
     return json(res, task);
   }
