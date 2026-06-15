@@ -46,6 +46,11 @@ export const KNOWLEDGE_CATEGORIES: KnowledgeCategory[] = [
     description: "Reorganizações, incorporações, quotistas e due diligence.",
   },
   {
+    id: "contencioso-bancario-rural",
+    label: "Contencioso bancário-rural",
+    description: "Defesa do produtor rural e reestruturação de dívidas agro.",
+  },
+  {
     id: "modelos",
     label: "Modelos e checklists",
     description: "Templates internos, roteiros de reunião e listas de documentos.",
@@ -239,6 +244,61 @@ export const KNOWLEDGE_DOCUMENTS: KnowledgeDocument[] = [
     updatedAt: "2026-02-14",
     type: "nota_tecnica",
     status: "rascunho",
+  },
+  {
+    id: "KB-019",
+    categoryId: "contencioso-bancario-rural",
+    title: "Checklist de defesa em execução de CCB com alienação fiduciária",
+    summary:
+      "Roteiro de análise de coisa julgada, liquidez, garantia, citação e impugnações em execução de Cédula de Crédito Bancário com alienação fiduciária.",
+    tags: ["CCB", "alienação fiduciária", "execução"],
+    updatedAt: "2026-06-15",
+    type: "checklist",
+    status: "publicado",
+  },
+  {
+    id: "KB-020",
+    categoryId: "contencioso-bancario-rural",
+    title: "Embargos à execução de CPR: prazos, competência e argumentos essenciais",
+    summary:
+      "Guia para levantamento de nulidades, excesso de execução, duplicidade e defesa em execução de CPR.",
+    tags: ["CPR", "embargos", "execução"],
+    updatedAt: "2026-06-12",
+    type: "guia",
+    status: "publicado",
+  },
+  {
+    id: "KB-021",
+    categoryId: "contencioso-bancario-rural",
+    title: "Impenhorabilidade da pequena propriedade rural pós-REsp 2.233.886",
+    summary:
+      "Análise dos requisitos de pequena propriedade, renda familiar predominante e limites de impenhorabilidade após entendimento do STJ.",
+    tags: ["impenhorabilidade", "pequena propriedade", "REsp 2.233.886"],
+    updatedAt: "2026-06-10",
+    type: "nota_tecnica",
+    status: "publicado",
+  },
+  {
+    id: "KB-022",
+    categoryId: "contencioso-bancario-rural",
+    title: "Recuperação judicial do produtor rural: elegibilidade, plano e viabilidade",
+    summary:
+      "Critérios de elegibilidade, estruturação de plano e cautelas para produtor rural em recuperação judicial.",
+    tags: ["recuperação judicial", "produtor rural", "reestruturação"],
+    updatedAt: "2026-06-08",
+    type: "guia",
+    status: "publicado",
+  },
+  {
+    id: "KB-023",
+    categoryId: "contencioso-bancario-rural",
+    title: "Revisional de contrato de crédito rural: cláusulas abusivas e correção monetária",
+    summary:
+      "Mapeamento de cláusulas abusivas, juros, indexadores e correção monetária em contratos de crédito rural.",
+    tags: ["revisional", "crédito rural", "correção monetária"],
+    updatedAt: "2026-06-05",
+    type: "guia",
+    status: "publicado",
   },
 ];
 
