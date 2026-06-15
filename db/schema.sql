@@ -174,6 +174,17 @@ CREATE TABLE agro.activities (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+CREATE TABLE agro.audit_logs (
+  id BIGSERIAL PRIMARY KEY,
+  actor_id TEXT,
+  actor_email TEXT,
+  action TEXT NOT NULL,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE TABLE agro.tasks (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
@@ -198,3 +209,5 @@ CREATE INDEX idx_deadlines_due ON agro.deadlines(due_date) WHERE status = 'pende
 CREATE INDEX idx_activities_entity ON agro.activities(entity_id, date DESC);
 CREATE INDEX idx_matters_opportunity ON agro.matters(opportunity_id);
 CREATE INDEX idx_opportunities_lead ON agro.opportunities(lead_id);
+CREATE INDEX idx_audit_logs_entity ON agro.audit_logs(entity_type, entity_id, created_at DESC);
+CREATE INDEX idx_audit_logs_actor ON agro.audit_logs(actor_email, created_at DESC);

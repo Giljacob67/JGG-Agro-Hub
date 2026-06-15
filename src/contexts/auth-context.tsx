@@ -7,7 +7,7 @@ import {
 } from "react";
 import type { AgroUser } from "@shared/agro/types";
 import { roleCanAccess } from "@shared/agro/auth";
-import { agroApi, getAuthToken, setAuthToken } from "@/lib/api/client";
+import { agroApi, clearLegacyAuthToken } from "@/lib/api/client";
 import { AuthContext } from "./auth-context-value";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -18,17 +18,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function restoreSession() {
-      const token = getAuthToken();
-      if (!token) {
-        if (!cancelled) setLoading(false);
-        return;
-      }
       try {
         const me = await agroApi.me();
         if (!cancelled) setUser(me);
       } catch {
         if (!cancelled) {
-          setAuthToken(null);
+          clearLegacyAuthToken();
           setUser(null);
         }
       } finally {
@@ -43,19 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { token, user: loggedUser } = await agroApi.login(email, password);
-    setAuthToken(token);
+    const { user: loggedUser } = await agroApi.login(email, password);
     setUser(loggedUser);
   }, []);
 
-  const acceptToken = useCallback(async (token: string) => {
-    setAuthToken(token);
-    const me = await agroApi.me();
-    setUser(me);
-  }, []);
-
   const logout = useCallback(() => {
-    setAuthToken(null);
+    void agroApi.logout().catch(() => undefined);
+    clearLegacyAuthToken();
     setUser(null);
   }, []);
 
@@ -64,12 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
-      acceptToken,
+      acceptToken: async () => {
+        // SSO já configura cookie HttpOnly no callback; só confirmamos sessão.
+        const me = await agroApi.me();
+        setUser(me);
+      },
       logout,
       canAccess: (resource: string) =>
         user ? roleCanAccess(user.role, resource) : false,
     }),
-    [user, loading, login, acceptToken, logout],
+    [user, loading, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -95,6 +95,10 @@ export async function handleLocalApi(
     return { status: 200, data: user };
   }
 
+  if (pathname === "/api/auth/logout" && init?.method === "POST") {
+    return { status: 200, data: { ok: true } };
+  }
+
   const user = resolveSession(token);
   if (!user) return { status: 401, data: { error: "Não autenticado" } };
 

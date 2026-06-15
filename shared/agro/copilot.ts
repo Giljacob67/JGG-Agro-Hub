@@ -53,6 +53,36 @@ export const COPILOT_PROMPTS: CopilotPrompt[] = [
     label: "Demandas ambientais",
     text: "Quais demandas ambientais precisam de atenção?",
   },
+  {
+    id: "execucao-ccb",
+    label: "Defesa em execução de CCB",
+    text: "Como defender produtor rural em execução de CCB com alienação fiduciária?",
+  },
+  {
+    id: "embargos-cpr",
+    label: "Embargos à execução de CPR",
+    text: "Quais argumentos usar em embargos à execução de CPR?",
+  },
+  {
+    id: "impenhorabilidade",
+    label: "Impenhorabilidade da pequena propriedade",
+    text: "A pequena propriedade rural é impenhorável após o REsp 2.233.886?",
+  },
+  {
+    id: "recuperacao-rural",
+    label: "Recuperação judicial do produtor rural",
+    text: "Produtor rural pode ingressar em recuperação judicial?",
+  },
+  {
+    id: "revisional-credito",
+    label: "Revisional de contrato de crédito rural",
+    text: "Como analisar revisional de contrato de crédito rural?",
+  },
+  {
+    id: "penhor-prioridade",
+    label: "Penhor rural e conflitos de prioridade",
+    text: "Como resolver conflito de prioridade entre penhor rural e CPR?",
+  },
 ];
 
 function normalizeQuery(query: string) {
@@ -78,6 +108,45 @@ function matchPromptId(query: string): string | null {
   }
   if (q.includes("sucess")) return "succession-meeting";
   if (q.includes("ambiental") || q.includes("licenciamento")) return "environmental";
+  if (
+    q.includes("ccb") ||
+    (q.includes("execuca") && q.includes("bancar")) ||
+    (q.includes("cedula") && q.includes("bancar"))
+  ) {
+    return "execucao-ccb";
+  }
+  if (
+    q.includes("cpr") &&
+    (q.includes("embarg") || q.includes("execuca") || q.includes("argumento"))
+  ) {
+    return "embargos-cpr";
+  }
+  if (
+    q.includes("impenhorab") ||
+    q.includes("pequena propriedade") ||
+    q.includes("resp 2.233.886")
+  ) {
+    return "impenhorabilidade";
+  }
+  if (
+    (q.includes("recuperacao") || q.includes("recuperação")) &&
+    (q.includes("judicial") || q.includes("produtor rural"))
+  ) {
+    return "recuperacao-rural";
+  }
+  if (
+    q.includes("revisional") &&
+    (q.includes("credito") || q.includes("crédito") || q.includes("rural"))
+  ) {
+    return "revisional-credito";
+  }
+  if (
+    q.includes("penhor") ||
+    (q.includes("cpr") && q.includes("prioridade")) ||
+    q.includes("conflito de prioridade")
+  ) {
+    return "penhor-prioridade";
+  }
   return null;
 }
 
@@ -298,6 +367,132 @@ export function resolveCopilotQuery(
       ],
       ["KB-007", "KB-008", "KB-009"],
       matterEntities(envMatters.length ? envMatters : s.riskAlerts),
+      contextEntity,
+    );
+  }
+
+  if (promptId === "execucao-ccb") {
+    return buildResponse(
+      query,
+      promptId,
+      "A defesa em execução de CCB com alienação fiduciária exige verificação da validade da cédula, regularidade da garantia, citação, possíveis vícios de liquidez e exequibilidade do título. A análise deve ser caso a caso, considerando a documentação contratual e os precedentes aplicáveis.",
+      [
+        "Título sem constituição formal regular pode ser impugnado",
+        "Bem alienado fiduciariamente pode acelerar busca e apreensão",
+        "Prazos processuais são fatais na execução",
+      ],
+      [
+        "Reunir CCB, contrato de crédito e registro de garantia",
+        "Verificar existência de coisa julgada ou preclusão",
+        "Submeter análise a responsável jurídico antes de protocolar impugnação",
+      ],
+      ["KB-019", "KB-023"],
+      [],
+      contextEntity,
+    );
+  }
+
+  if (promptId === "embargos-cpr") {
+    return buildResponse(
+      query,
+      promptId,
+      "Os embargos à execução de CPR podem versar sobre nulidade do título, excesso de execução, duplicidade de cobrança, falta de registro e vícios na constituição da obrigação. O prazo e a competência devem ser observados conforme o caso concreto.",
+      [
+        "Perda de prazo para embargos pode gerar irreversibilidade",
+        "Falta de registro ou irregularidade na CPR reduz defesa",
+        "Cobrança sobre valor não efetivamente liberado é passível de impugnação",
+      ],
+      [
+        "Verificar data da citação e prazo de embargos",
+        "Conferir valor executado com contrato e liquidação",
+        "Elaborar impugnação com base em KB-020",
+      ],
+      ["KB-020", "KB-001", "KB-002"],
+      [],
+      contextEntity,
+    );
+  }
+
+  if (promptId === "impenhorabilidade") {
+    return buildResponse(
+      query,
+      promptId,
+      "A impenhorabilidade da pequena propriedade rural depende do atendimento a requisitos objetivos e subjetivos, especialmente área, renda familiar predominante e função social, conforme entendimento consolidado no STJ. Cada caso exige análise dos documentos e da situação familiar do produtor.",
+      [
+        "Não atendimento dos requisitos legais afasta a impenhorabilidade",
+        "Interpretação local pode variar até trânsito em julgado",
+        "Levantamento incompleto da renda familiar compromete a alegação",
+      ],
+      [
+        "Levantar documentos de área, renda e composição familiar",
+        "Analisar aplicabilidade do entendimento do REsp 2.233.886",
+        "Preparar sustentação com respaldo em KB-021",
+      ],
+      ["KB-021"],
+      [],
+      contextEntity,
+    );
+  }
+
+  if (promptId === "recuperacao-rural") {
+    return buildResponse(
+      query,
+      promptId,
+      "O produtor rural pode ser elegível à recuperação judicial se preencher os requisitos do regime, em especial a regularidade do empresário rural, o número de credores e o montante do passivo. O plano deve considerar a sazonalidade da atividade e a viabilidade econômica da propriedade.",
+      [
+        "Fraude à execução ou dissociação patrimonial pode indeferir o pedido",
+        "Inadimplência recorrente pode afetar viabilidade do plano",
+        "Prazo de apresentação do plano é crítico",
+      ],
+      [
+        "Avaliar elegibilidade e passivo consolidado",
+        "Estruturar plano compatível com calendário agrícola",
+        "Submeter proposta à equipe especializada antes do protocolo",
+      ],
+      ["KB-022"],
+      [],
+      contextEntity,
+    );
+  }
+
+  if (promptId === "revisional-credito") {
+    return buildResponse(
+      query,
+      promptId,
+      "A análise revisional de contrato de crédito rural examina cláusulas de juros, indexadores, correção monetária, amortização e eventuais abusividades, considerando as regras do CDC e do crédito rural. A viabilidade e o impacto dependem de cada contrato.",
+      [
+        "Indexadores incompatíveis com a legislação podem gerar restituição",
+        "Cláusulas de penalidade podem comprometer fluxo de caixa",
+        "Prazo prescricional é um fator limitador",
+      ],
+      [
+        "Revisar contrato, extratos e histórico de amortização",
+        "Mapear cláusulas potencialmente abusivas",
+        "Submeter parecer a responsável jurídico para definição de estratégia",
+      ],
+      ["KB-023", "KB-002"],
+      [],
+      contextEntity,
+    );
+  }
+
+  if (promptId === "penhor-prioridade") {
+    return buildResponse(
+      query,
+      promptId,
+      "Conflitos de prioridade entre penhor rural e CPR exigem análise cronológica das garantias, registro em cartório, publicidade e boa-fé. A solução depende da verificação documental e da ordem de constituição das garantias, com atenção às hipóteses de preferência legal.",
+      [
+        "Registro posterior ou defeituoso pode perder prioridade",
+        "Conflitos com garantias anteriores reduzem segurança do crédito",
+        "Ausência de busca de ônus anteriores gera surpresa",
+      ],
+      [
+        "Levantar registros e data de constituição das garantias",
+        "Conferir publicidade e ordem cronológica",
+        "Consultar KB-001 e KB-002 para estruturação",
+      ],
+      ["KB-001", "KB-002", "KB-020"],
+      [],
       contextEntity,
     );
   }

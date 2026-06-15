@@ -23,6 +23,7 @@ import { paginate, type PaginationParams } from "../../shared/agro/list-types.js
 import type {
   Account,
   Activity,
+  AgroUser,
   Deadline,
   Lead,
   LeadPriority,
@@ -402,4 +403,15 @@ export async function setupDatabase(options?: { force?: boolean }) {
 
   const leads = await listLeads();
   return { leadsCount: leads.total, reseeded: true };
+}
+
+export async function recordAudit(input: {
+  actor: AgroUser;
+  action: string;
+  entityType: string;
+  entityId?: string | null;
+  metadata?: Record<string, unknown>;
+}) {
+  if (!isDbEnabled()) return;
+  await db.dbCreateAuditLog(input);
 }

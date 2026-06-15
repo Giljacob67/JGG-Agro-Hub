@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/use-auth";
 import { useActivities, useCreateActivity } from "@/hooks/use-crm-queries";
 import { ACTIVITY_TYPE, formatDate } from "@/lib/crm-labels";
+import { todayIso } from "@/lib/utils";
 import type { ActivityEntityType, ActivityType } from "@/lib/crm-types";
 
 const TYPE_ICONS: Record<ActivityType, typeof Phone> = {
@@ -40,7 +41,7 @@ export function ActivityTimeline({ entityType, entityId }: ActivityTimelineProps
   const [showForm, setShowForm] = useState(false);
   const [type, setType] = useState<ActivityType>("ligacao");
   const [summary, setSummary] = useState("");
-  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => todayIso());
 
   function submit() {
     if (!summary.trim()) return;

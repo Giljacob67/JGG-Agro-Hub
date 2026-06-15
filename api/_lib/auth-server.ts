@@ -7,11 +7,6 @@ import type { AgroUser } from "../../shared/agro/types.js";
 
 export { roleCanAccess };
 
-const LEGACY_PASSWORD_SALT = "agro-jgg-salt-v1";
-/** Hash de "jgg-agro-dev" — aceito SOMENTE quando AUTH_SECRET está ausente (dev local). */
-const DEV_PASSWORD_HASH =
-  "8c34565dfb4fdcfc07a85e0a36b7edd6b7c521f5bb2d1da3231b18065a4e9e0e";
-const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 interface UserRecord extends AgroUser {
   /** Env var com o hash scrypt (hex) da senha do usuário em produção. */
@@ -50,8 +45,12 @@ function getAuthSecret(): string | undefined {
   return process.env.AUTH_SECRET?.trim() || undefined;
 }
 
-function getPasswordSalt(): string {
-  return process.env.AUTH_PASSWORD_SALT?.trim() || LEGACY_PASSWORD_SALT;
+function getPasswordSalt(): string | null {
+  const salt = process.env.AUTH_PASSWORD_SALT?.trim();
+  if (salt) return salt;
+  if (isSecureAuthEnabled()) return null;
+  // Dev local sem AUTH_SECRET pode usar salt fixo para DX.
+  return "agro-jgg-salt-v1";
 }
 
 /**
@@ -61,17 +60,26 @@ function getPasswordSalt(): string {
  *   (resta o SSO).
  * - Dev local (sem AUTH_SECRET): aceita a senha de desenvolvimento.
  */
-function resolvePasswordHash(record: UserRecord): string | null {
+function resolvePasswordHash(record: UserRecord): {
+  hash: string | null;
+  salt: string | null;
+} {
   const fromEnv = process.env[record.passwordHashEnv]?.trim();
-  if (fromEnv) return fromEnv;
-  if (!isSecureAuthEnabled()) return DEV_PASSWORD_HASH;
-  return null;
+  const salt = getPasswordSalt();
+  if (fromEnv) return { hash: fromEnv, salt };
+  if (!isSecureAuthEnabled()) return { hash: DEV_PASSWORD_HASH, salt: "agro-jgg-salt-v1" };
+  return { hash: null, salt };
 }
+
+/** Hash de "jgg-agro-dev" — aceito SOMENTE quando AUTH_SECRET está ausente (dev local). */
+const DEV_PASSWORD_HASH =
+  "8c34565dfb4fdcfc07a85e0a36b7edd6b7c521f5bb2d1da3231b18065a4e9e0e";
+const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 function verifyPassword(
   password: string,
   hashHex: string,
-  salt = getPasswordSalt(),
+  salt: string,
 ): boolean {
   const derived = scryptSync(password, salt, 32);
   const expected = Buffer.from(hashHex, "hex");
@@ -133,10 +141,9 @@ export function authenticate(
   );
   if (!record) return null;
 
-  const hash = resolvePasswordHash(record);
-  if (!hash) return null;
+  const { hash, salt } = resolvePasswordHash(record);
+  if (!hash || !salt) return null;
 
-  const salt = hash === DEV_PASSWORD_HASH ? LEGACY_PASSWORD_SALT : getPasswordSalt();
   if (!verifyPassword(password, hash, salt)) return null;
 
   const user: AgroUser = {

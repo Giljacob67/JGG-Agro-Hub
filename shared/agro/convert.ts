@@ -13,13 +13,20 @@ export type ConvertLeadResult =
   | { ok: false; reason: "not_found" | "already_converted" | "discarded" };
 
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return localDateStr(new Date());
 }
 
 function defaultExpectedClose(): string {
   const d = new Date();
   d.setDate(d.getDate() + 60);
-  return d.toISOString().slice(0, 10);
+  return localDateStr(d);
+}
+
+function localDateStr(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }
 
 /**

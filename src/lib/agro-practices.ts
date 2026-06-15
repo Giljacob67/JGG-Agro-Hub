@@ -37,6 +37,11 @@ export const AGRO_PRACTICE_AREAS = [
     short: "Contencioso rural",
   },
   {
+    id: "contencioso-bancario-rural",
+    label: "Contencioso bancário-rural e reestruturação de dívidas",
+    short: "Contencioso bancário-rural",
+  },
+  {
     id: "societario",
     label: "Operações societárias e reorganizações",
     short: "Societário",

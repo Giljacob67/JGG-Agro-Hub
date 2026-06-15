@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Network,
   Link2,
+  Banknote,
 } from "lucide-react";
 
 export const AGRO_CONTACT_EMAIL = "agro@jgggroup.com.br";
@@ -95,6 +96,12 @@ export const SERVICE_AREAS: ServiceArea[] = [
     description:
       "Constituição, reorganização e estruturação societária de empresas rurais, holdings e grupos agroindustriais.",
     icon: Building2,
+  },
+  {
+    title: "Contencioso bancário-rural e reestruturação de dívidas",
+    description:
+      "Defesa do produtor rural em execuções de CCB, CPR e cédulas rurais; impenhorabilidade da pequena propriedade; recuperação judicial do produtor rural; revisional de contratos de crédito rural.",
+    icon: Banknote,
   },
 ];
 
