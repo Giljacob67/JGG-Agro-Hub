@@ -42,7 +42,7 @@
   ],
   "functions": {
     "api/admin/db-setup.ts": { "includeFiles": "{shared/**,api/_lib/**}" },
-    "api/agro/*.ts": { "includeFiles": "{shared/**,api/_lib/**}" },
+    "api/agro/[resource].ts": { "includeFiles": "{shared/**,api/_lib/**}" },
     "api/auth/[action].ts": { "includeFiles": "{shared/**,api/_lib/**}" },
     "api/health/db.ts": { "includeFiles": "{shared/**,api/_lib/**}" }
   },
