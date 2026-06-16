@@ -4,11 +4,6 @@ import {
   buildMatterFacets,
   buildOpportunityFacets,
   buildTaskFacets,
-  filterAccounts,
-  filterLeads,
-  filterMatters,
-  filterOpportunities,
-  filterTasks,
 } from "../../../shared/agro/filters.js";
 import type {
   AccountListParams,
@@ -18,7 +13,6 @@ import type {
   PaginatedResult,
   TaskListParams,
 } from "../../../shared/agro/list-types.js";
-import { paginate } from "../../../shared/agro/list-types.js";
 import type {
   Account,
   Activity,

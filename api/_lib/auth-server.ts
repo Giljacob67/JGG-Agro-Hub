@@ -183,6 +183,7 @@ export function resolveSession(token: string | undefined): AgroUser | null {
     // que são forjáveis por qualquer cliente.
     return verifySignedToken(token, secret);
   }
+  // Dev local (sem AUTH_SECRET): aceita token dev-insecure e token legado
   const devUser = verifySignedToken(token, "dev-insecure");
   if (devUser) return devUser;
   return resolveDevSession(token);
