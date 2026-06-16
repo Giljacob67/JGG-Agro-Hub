@@ -381,7 +381,7 @@ export const agroApi = {
   auditStats: () =>
     request<{
       totalLogs: number;
-      byEntity: Record<string, number>;
+      byEntityType: Record<string, number>;
       byAction: Record<string, number>;
     }>("/api/agro/audit?action=stats"),
 

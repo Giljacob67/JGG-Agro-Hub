@@ -523,7 +523,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         limit: typeof req.query.limit === "string" ? Number(req.query.limit) : undefined,
         offset: typeof req.query.offset === "string" ? Number(req.query.offset) : undefined,
       };
-      return json(res, queryAuditLogs(filters));
+      const { logs, total } = queryAuditLogs(filters);
+      return json(res, { items: logs, total, limit: filters.limit ?? 50, offset: filters.offset ?? 0 });
     }
 
     return methodNotAllowed(res);

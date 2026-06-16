@@ -158,7 +158,7 @@ export default function AuditLogsPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-1">
-                  {Object.entries(stats.byEntity).map(([entity, count]) => (
+                  {Object.entries(stats.byEntityType).map(([entity, count]) => (
                     <Badge key={entity} variant="secondary" className="text-xs">
                       {ENTITY_LABELS[entity] ?? entity}: {count}
                     </Badge>
