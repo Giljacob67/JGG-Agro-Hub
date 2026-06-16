@@ -478,5 +478,152 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return methodNotAllowed(res);
   }
 
+  // ── Audit Logs ─────────────────────────────────────────────────────
+  if (resource === "audit") {
+    if (!requireAuth(req, res, "audit")) return;
+
+    if (req.method === "GET") {
+      const {
+        queryAuditLogs,
+        exportAuditLogsCsv,
+        getAuditStats,
+      } = await import("../_lib/audit.js");
+
+      const action = typeof req.query.action === "string" ? req.query.action : "list";
+
+      if (action === "stats") {
+        return json(res, getAuditStats());
+      }
+
+      if (action === "export") {
+        const filters = {
+          entityType: typeof req.query.entityType === "string" ? req.query.entityType as import("../_lib/audit.js").AuditEntityType : undefined,
+          entityId: typeof req.query.entityId === "string" ? req.query.entityId : undefined,
+          userId: typeof req.query.userId === "string" ? req.query.userId : undefined,
+          action: typeof req.query.action === "string" && req.query.action !== "export" ? req.query.action as import("../_lib/audit.js").AuditAction : undefined,
+          from: typeof req.query.from === "string" ? req.query.from : undefined,
+          to: typeof req.query.to === "string" ? req.query.to : undefined,
+          limit: typeof req.query.limit === "string" ? Number(req.query.limit) : undefined,
+        };
+        const { logs } = queryAuditLogs(filters);
+        const csv = exportAuditLogsCsv(logs);
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="audit-${new Date().toISOString().slice(0, 10)}.csv"`);
+        return res.send(csv);
+      }
+
+      // Default: list with filters
+      const filters = {
+        entityType: typeof req.query.entityType === "string" ? req.query.entityType as import("../_lib/audit.js").AuditEntityType : undefined,
+        entityId: typeof req.query.entityId === "string" ? req.query.entityId : undefined,
+        userId: typeof req.query.userId === "string" ? req.query.userId : undefined,
+        action: typeof req.query.action === "string" ? req.query.action as import("../_lib/audit.js").AuditAction : undefined,
+        from: typeof req.query.from === "string" ? req.query.from : undefined,
+        to: typeof req.query.to === "string" ? req.query.to : undefined,
+        limit: typeof req.query.limit === "string" ? Number(req.query.limit) : undefined,
+        offset: typeof req.query.offset === "string" ? Number(req.query.offset) : undefined,
+      };
+      return json(res, queryAuditLogs(filters));
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Email ──────────────────────────────────────────────────────────
+  if (resource === "email") {
+    if (!requireAuth(req, res, "email")) return;
+
+    const { sendEmail, fetchEmails, getEmailFolders, getEmailStatus } =
+      await import("../_lib/email.js");
+
+    if (req.method === "GET") {
+      const action = typeof req.query.action === "string" ? req.query.action : "status";
+
+      if (action === "status") {
+        return json(res, getEmailStatus());
+      }
+
+      if (action === "folders") {
+        return json(res, { folders: await getEmailFolders() });
+      }
+
+      if (action === "list") {
+        const folder = typeof req.query.folder === "string" ? req.query.folder : undefined;
+        const limit = typeof req.query.limit === "string" ? Number(req.query.limit) : 50;
+        const since = typeof req.query.since === "string" ? req.query.since : undefined;
+        return json(res, { emails: await fetchEmails({ folder, limit, since }) });
+      }
+    }
+
+    if (req.method === "POST") {
+      const body = (req.body ?? {}) as {
+        to?: string | string[];
+        subject?: string;
+        text?: string;
+        html?: string;
+        cc?: string[];
+        bcc?: string[];
+      };
+
+      if (!body.to || !body.subject || !body.text) {
+        return json(res, { error: "to, subject e text são obrigatórios" }, 400);
+      }
+
+      const result = await sendEmail({
+        to: body.to,
+        subject: body.subject,
+        text: body.text,
+        html: body.html,
+        cc: body.cc,
+        bcc: body.bcc,
+      });
+      return json(res, result);
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── CNPJ/CPF Lookup ───────────────────────────────────────────────
+  if (resource === "lookup") {
+    if (!requireAuth(req, res, "leads")) return;
+
+    if (req.method === "GET") {
+      const type = typeof req.query.type === "string" ? req.query.type : "";
+      const document = typeof req.query.document === "string" ? req.query.document : "";
+
+      if (!type || !document) {
+        return json(res, { error: "type e document são obrigatórios" }, 400);
+      }
+
+      if (type === "cnpj") {
+        const { lookupCnpj, isValidCnpj, formatCnpj } = await import("../_lib/cnpj.js");
+        if (!isValidCnpj(document)) {
+          return json(res, { error: "CNPJ inválido" }, 400);
+        }
+        const data = await lookupCnpj(document);
+        if (!data) {
+          return json(res, { error: "CNPJ não encontrado" }, 404);
+        }
+        return json(res, { ...data, formattedCnpj: formatCnpj(data.cnpj) });
+      }
+
+      if (type === "cpf") {
+        const { lookupCpf, isValidCpf, formatCpf } = await import("../_lib/cnpj.js");
+        if (!isValidCpf(document)) {
+          return json(res, { error: "CPF inválido" }, 400);
+        }
+        const data = await lookupCpf(document);
+        if (!data) {
+          return json(res, { error: "CPF não encontrado" }, 404);
+        }
+        return json(res, { ...data, formattedCpf: formatCpf(data.cpf) });
+      }
+
+      return json(res, { error: "type deve ser 'cnpj' ou 'cpf'" }, 400);
+    }
+
+    return methodNotAllowed(res);
+  }
+
   return json(res, { error: "Recurso não encontrado" }, 404);
 }

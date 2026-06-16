@@ -2,10 +2,13 @@ import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 import {
   resolveSession as resolveDevSession,
   roleCanAccess,
+  hasPermission,
+  getResourcePermissions,
+  getAccessibleResources,
 } from "../../shared/agro/auth.js";
 import type { AgroUser } from "../../shared/agro/types.js";
 
-export { roleCanAccess };
+export { roleCanAccess, hasPermission, getResourcePermissions, getAccessibleResources };
 
 
 interface UserRecord extends AgroUser {

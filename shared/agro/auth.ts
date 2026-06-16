@@ -89,31 +89,100 @@ export function revokeSession() {
   /* Stateless — logout apenas no cliente. */
 }
 
+// ── Granular RBAC ──────────────────────────────────────────────────
+
+export type Permission = "read" | "create" | "update" | "delete" | "export";
+
+/**
+ * Permission matrix per role and resource.
+ * gestao has full access to everything.
+ */
+const PERMISSIONS: Record<AgroRole, Record<string, Permission[]>> = {
+  gestao: {
+    "*": ["read", "create", "update", "delete", "export"],
+  },
+  comercial: {
+    leads: ["read", "create", "update", "delete"],
+    accounts: ["read", "create", "update", "delete"],
+    opportunities: ["read", "create", "update", "delete"],
+    activities: ["read", "create"],
+    stats: ["read"],
+    copilot: ["read"],
+    knowledge: ["read"],
+    audit: ["read"],
+    email: ["read", "create"],
+  },
+  juridico: {
+    matters: ["read", "create", "update", "delete"],
+    tasks: ["read", "create", "update", "delete"],
+    deadlines: ["read", "create", "update", "delete"],
+    activities: ["read", "create"],
+    stats: ["read"],
+    copilot: ["read"],
+    knowledge: ["read"],
+    audit: ["read"],
+    email: ["read", "create"],
+  },
+};
+
+/**
+ * Check if a role can access a resource (legacy compatibility).
+ */
 export function roleCanAccess(role: AgroRole, resource: string): boolean {
   if (role === "gestao") return true;
-  if (role === "comercial") {
-    return [
-      "leads",
-      "accounts",
-      "opportunities",
-      "activities",
-      "stats",
-      "crm",
-      "copilot",
-      "knowledge",
-    ].includes(resource);
+  const rolePerms = PERMISSIONS[role];
+  if (!rolePerms) return false;
+  return resource in rolePerms;
+}
+
+/**
+ * Check if a role has a specific permission on a resource.
+ */
+export function hasPermission(
+  role: AgroRole,
+  resource: string,
+  permission: Permission,
+): boolean {
+  // gestao has full access
+  if (role === "gestao") return true;
+
+  const rolePerms = PERMISSIONS[role];
+  if (!rolePerms) return false;
+
+  // Check exact resource match
+  const resourcePerms = rolePerms[resource];
+  if (resourcePerms) {
+    return resourcePerms.includes(permission);
   }
-  if (role === "juridico") {
-    return [
-      "matters",
-      "tasks",
-      "deadlines",
-      "activities",
-      "stats",
-      "crm",
-      "copilot",
-      "knowledge",
-    ].includes(resource);
+
+  // Check wildcard
+  const wildcardPerms = rolePerms["*"];
+  if (wildcardPerms) {
+    return wildcardPerms.includes(permission);
   }
+
   return false;
+}
+
+/**
+ * Get all permissions for a role on a resource.
+ */
+export function getResourcePermissions(
+  role: AgroRole,
+  resource: string,
+): Permission[] {
+  if (role === "gestao") return ["read", "create", "update", "delete", "export"];
+  const rolePerms = PERMISSIONS[role];
+  if (!rolePerms) return [];
+  return rolePerms[resource] ?? rolePerms["*"] ?? [];
+}
+
+/**
+ * Get all resources a role can access.
+ */
+export function getAccessibleResources(role: AgroRole): string[] {
+  if (role === "gestao") return ["*"];
+  const rolePerms = PERMISSIONS[role];
+  if (!rolePerms) return [];
+  return Object.keys(rolePerms);
 }
