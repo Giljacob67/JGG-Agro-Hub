@@ -99,11 +99,26 @@ export function addLead(lead: Lead) {
   store.leads.push(lead);
 }
 
+export function addAccount(account: Account) {
+  store.accounts.push(account);
+}
+
+export function patchAccount(id: string, patch: Partial<Account>): Account | undefined {
+  const account = getAccount(id);
+  if (!account) return undefined;
+  Object.assign(account, patch);
+  return account;
+}
+
 export function patchLead(id: string, patch: Partial<Lead>): Lead | undefined {
   const lead = getLead(id);
   if (!lead) return undefined;
   Object.assign(lead, patch);
   return lead;
+}
+
+export function addTask(task: Task) {
+  store.tasks.push(task);
 }
 
 export function patchTask(id: string, patch: Partial<Task>): Task | undefined {
@@ -123,17 +138,13 @@ export function patchOpportunity(
   return opp;
 }
 
+export function addMatter(matter: Matter) {
+  store.matters.push(matter);
+}
+
 export function patchMatter(
   id: string,
-  patch: Partial<Pick<Matter, "status" | "risk" | "deadline" | "owner" | "description">> & {
-    cnjNumber?: string | null;
-    court?: string | null;
-    phase?: Matter["phase"] | null;
-    opposingParty?: string | null;
-    claimValueBrl?: number | null;
-    opportunityId?: string | null;
-    nextSteps?: string | null;
-  },
+  patch: Partial<Matter>,
 ): Matter | undefined {
   const matter = getMatter(id);
   if (!matter) return undefined;

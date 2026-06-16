@@ -18,7 +18,6 @@ import {
   getRelatedTasks,
   getTask,
   listTasks,
-  updateTaskStatus,
   listDeadlines,
   createDeadline,
   updateDeadline,
@@ -43,11 +42,16 @@ import {
   parseLeadCreate,
   parseLeadPatch,
   parseOpportunityPatch,
+  parseOpportunityCreate,
   parseMatterPatch,
-  parseTaskStatusPatch,
+  parseMatterCreate,
+  parseTaskCreate,
+  parseTaskPatch,
   parseDeadlineCreate,
   parseDeadlinePatch,
   parseActivityCreate,
+  parseAccountCreate,
+  parseAccountPatch,
   isActivityEntityType,
 } from "../_lib/validation.js";
 import { auditCreate, auditUpdate, auditDelete, type AuditEntityType } from "../_lib/audit.js";
@@ -166,6 +170,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return json(res, lead);
     }
 
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const lead = await getLead(id);
+      if (!lead) return json(res, { error: "Lead não encontrado" }, 404);
+      const { deleteLead } = await import("../_lib/data-service.js");
+      await deleteLead(id);
+      const user = requireAuth(req, res, "leads");
+      if (user) {
+        auditDelete(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "lead" as AuditEntityType,
+          lead as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, { ok: true });
+    }
+
     return methodNotAllowed(res);
   }
 
@@ -189,6 +211,66 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return json(res, await listAccounts(parseAccountListQuery(req)));
     }
 
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const input = parseAccountCreate(body);
+      if (!input.ok) return json(res, { error: input.error }, 400);
+      const { createAccount } = await import("../_lib/data-service.js");
+      const account = await createAccount(input.data as Parameters<typeof createAccount>[0]);
+      const user = requireAuth(req, res, "accounts");
+      if (user) {
+        auditCreate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "account" as AuditEntityType,
+          account as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, account, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const body = getBody(req.body);
+      const input = parseAccountPatch(body);
+      if (!input.ok) return json(res, { error: input.error }, 400);
+      const before = await getAccount(id);
+      if (!before) return json(res, { error: "Conta não encontrada" }, 404);
+      const { updateAccount } = await import("../_lib/data-service.js");
+      const account = await updateAccount(id, input.data as Record<string, unknown>);
+      if (!account) return json(res, { error: "Conta não encontrada" }, 404);
+      const user = requireAuth(req, res, "accounts");
+      if (user) {
+        auditUpdate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "account" as AuditEntityType,
+          id,
+          account.name,
+          before as unknown as Record<string, unknown>,
+          account as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, account);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const account = await getAccount(id);
+      if (!account) return json(res, { error: "Conta não encontrada" }, 404);
+      const { deleteAccount } = await import("../_lib/data-service.js");
+      await deleteAccount(id);
+      const user = requireAuth(req, res, "accounts");
+      if (user) {
+        auditDelete(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "account" as AuditEntityType,
+          account as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, { ok: true });
+    }
+
     return methodNotAllowed(res);
   }
 
@@ -204,6 +286,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return json(res, opp);
       }
       return json(res, await listOpportunities(parseOpportunityListQuery(req)));
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const input = parseOpportunityCreate(body);
+      if (!input.ok) return json(res, { error: input.error }, 400);
+      const { createOpportunity } = await import("../_lib/data-service.js");
+      const opp = await createOpportunity(input.data as Parameters<typeof createOpportunity>[0]);
+      const user = requireAuth(req, res, "opportunities");
+      if (user) {
+        auditCreate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "opportunity" as AuditEntityType,
+          opp as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, opp, 201);
     }
 
     if (req.method === "PATCH") {
@@ -229,6 +328,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return json(res, opp);
     }
 
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const opp = await getOpportunity(id);
+      if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
+      const { deleteOpportunity } = await import("../_lib/data-service.js");
+      await deleteOpportunity(id);
+      const user = requireAuth(req, res, "opportunities");
+      if (user) {
+        auditDelete(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "opportunity" as AuditEntityType,
+          opp as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, { ok: true });
+    }
+
     return methodNotAllowed(res);
   }
 
@@ -248,6 +365,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return json(res, await getMattersByOpportunity(opportunityId));
       }
       return json(res, await listMatters(parseMatterListQuery(req)));
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const input = parseMatterCreate(body);
+      if (!input.ok) return json(res, { error: input.error }, 400);
+      const { createMatter } = await import("../_lib/data-service.js");
+      const matter = await createMatter(input.data as Parameters<typeof createMatter>[0]);
+      const user = requireAuth(req, res, "matters");
+      if (user) {
+        auditCreate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "matter" as AuditEntityType,
+          matter as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, matter, 201);
     }
 
     if (req.method === "PATCH") {
@@ -273,6 +407,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return json(res, matter);
     }
 
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const matter = await getMatter(id);
+      if (!matter) return json(res, { error: "Demanda não encontrada" }, 404);
+      const { deleteMatter } = await import("../_lib/data-service.js");
+      await deleteMatter(id);
+      const user = requireAuth(req, res, "matters");
+      if (user) {
+        auditDelete(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "matter" as AuditEntityType,
+          matter as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, { ok: true });
+    }
+
     return methodNotAllowed(res);
   }
 
@@ -294,14 +446,33 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return json(res, await listTasks(parseTaskListQuery(req)));
     }
 
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const input = parseTaskCreate(body);
+      if (!input.ok) return json(res, { error: input.error }, 400);
+      const { createTask } = await import("../_lib/data-service.js");
+      const task = await createTask(input.data as Parameters<typeof createTask>[0]);
+      const user = requireAuth(req, res, "tasks");
+      if (user) {
+        auditCreate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "task" as AuditEntityType,
+          task as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, task, 201);
+    }
+
     if (req.method === "PATCH") {
       const id = req.query.id as string | undefined;
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
-      const status = parseTaskStatusPatch(getBody(req.body));
-      if (!status.ok) return json(res, { error: status.error }, 400);
+      const body = getBody(req.body);
+      const input = parseTaskPatch(body);
+      if (!input.ok) return json(res, { error: input.error }, 400);
       const before = await getTask(id);
       if (!before) return json(res, { error: "Tarefa não encontrada" }, 404);
-      const task = await updateTaskStatus(id, status.data);
+      const { updateTask } = await import("../_lib/data-service.js");
+      const task = await updateTask(id, input.data as Record<string, unknown>);
       if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
       const user = requireAuth(req, res, "tasks");
       if (user) {
@@ -315,6 +486,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         );
       }
       return json(res, task);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const task = await getTask(id);
+      if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
+      const { deleteTask } = await import("../_lib/data-service.js");
+      await deleteTask(id);
+      const user = requireAuth(req, res, "tasks");
+      if (user) {
+        auditDelete(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "task" as AuditEntityType,
+          task as unknown as Record<string, unknown>,
+        );
+      }
+      return json(res, { ok: true });
     }
 
     return methodNotAllowed(res);

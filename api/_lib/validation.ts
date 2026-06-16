@@ -7,9 +7,11 @@ import type {
   LeadStatus,
   MatterPhase,
   MatterStatus,
+  MatterUrgency,
   OpportunityPriority,
   OpportunityStage,
   RiskLevel,
+  TaskPriority,
   TaskStatus,
 } from "../../shared/agro/types.js";
 
@@ -319,4 +321,171 @@ export function parseActivityCreate(body: Body) {
 
 export function isActivityEntityType(value: unknown): value is ActivityEntityType {
   return (ACTIVITY_ENTITY_TYPES as readonly string[]).includes(String(value));
+}
+
+const ACCOUNT_TYPES = ["produtor", "familia", "cooperativa", "agroindustria", "trading", "investidor"] as const;
+const TASK_PRIORITIES = ["baixa", "media", "alta", "urgente"] as const;
+const TASK_TYPES = ["comercial", "juridica", "operacional"] as const;
+const MATTER_URGENCIES = ["normal", "alta", "critica"] as const;
+const JURISDICTIONS = ["federal", "estadual", "trabalhista", "arbitral"] as const;
+
+export function parseAccountCreate(body: Body) {
+  const name = requiredString(body, "name");
+  if (!name.ok) return name;
+  const owner = requiredString(body, "owner");
+  if (!owner.ok) return owner;
+  const type = enumValue(body.type, ACCOUNT_TYPES, "type");
+  if (!type.ok) return type;
+  return {
+    ok: true,
+    data: {
+      name: name.data,
+      type: (type.data as string) ?? "produtor",
+      region: optionalString(body.region) ?? "",
+      areaHa: Number(body.areaHa) || 0,
+      mainCrop: optionalString(body.mainCrop) ?? "",
+      owner: owner.data,
+      cnpj: optionalString(body.cnpj),
+      cpf: optionalString(body.cpf),
+      phone: optionalString(body.phone),
+      email: optionalString(body.email),
+      address: optionalString(body.address),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseAccountPatch(body: Body) {
+  const type = enumValue(body.type, ACCOUNT_TYPES, "type");
+  if (!type.ok) return type;
+  return {
+    ok: true,
+    data: {
+      ...(type.data ? { type: type.data } : {}),
+      ...(body.name !== undefined ? { name: String(body.name) } : {}),
+      ...(body.region !== undefined ? { region: String(body.region) } : {}),
+      ...(body.areaHa !== undefined ? { areaHa: Number(body.areaHa) || 0 } : {}),
+      ...(body.mainCrop !== undefined ? { mainCrop: String(body.mainCrop) } : {}),
+      ...(body.owner !== undefined ? { owner: String(body.owner) } : {}),
+      ...(body.relationshipStatus !== undefined ? { relationshipStatus: String(body.relationshipStatus) } : {}),
+      ...(body.cnpj !== undefined ? { cnpj: optionalString(body.cnpj) } : {}),
+      ...(body.phone !== undefined ? { phone: optionalString(body.phone) } : {}),
+      ...(body.email !== undefined ? { email: optionalString(body.email) } : {}),
+      ...(body.address !== undefined ? { address: optionalString(body.address) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseOpportunityCreate(body: Body) {
+  const title = requiredString(body, "title");
+  if (!title.ok) return title;
+  const owner = requiredString(body, "owner");
+  if (!owner.ok) return owner;
+  const stage = enumValue(body.stage, OPPORTUNITY_STAGES, "stage");
+  if (!stage.ok) return stage;
+  const valueBrl = optionalNumber(body.valueBrl, "valueBrl");
+  if (!valueBrl.ok) return valueBrl;
+  const expectedClose = optionalDate(body.expectedClose, "expectedClose");
+  if (!expectedClose.ok) return expectedClose;
+  return {
+    ok: true,
+    data: {
+      title: title.data,
+      accountName: optionalString(body.accountName) ?? "",
+      accountId: optionalString(body.accountId),
+      stage: (stage.data as OpportunityStage) ?? "novo_contato",
+      valueBrl: valueBrl.data ?? 0,
+      owner: owner.data,
+      expectedClose: expectedClose.data ?? "",
+      nextContact: null,
+      priority: (body.priority as string) === "alta" ? "alta" : "normal",
+      practice: optionalString(body.practice) ?? "",
+      description: optionalString(body.description),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseMatterCreate(body: Body) {
+  const title = requiredString(body, "title");
+  if (!title.ok) return title;
+  const owner = requiredString(body, "owner");
+  if (!owner.ok) return owner;
+  const status = enumValue(body.status, MATTER_STATUSES, "status");
+  if (!status.ok) return status;
+  const risk = enumValue(body.risk, RISK_LEVELS, "risk");
+  if (!risk.ok) return risk;
+  const deadline = optionalDate(body.deadline, "deadline");
+  if (!deadline.ok) return deadline;
+  const urgency = enumValue(body.urgency, MATTER_URGENCIES, "urgency");
+  if (!urgency.ok) return urgency;
+  const jurisdiction = enumValue(body.jurisdiction, JURISDICTIONS, "jurisdiction");
+  if (!jurisdiction.ok) return jurisdiction;
+  const nextHearingDate = optionalDate(body.nextHearingDate, "nextHearingDate");
+  if (!nextHearingDate.ok) return nextHearingDate;
+  return {
+    ok: true,
+    data: {
+      title: title.data,
+      accountName: optionalString(body.accountName) ?? "",
+      accountId: optionalString(body.accountId),
+      practice: optionalString(body.practice) ?? "",
+      status: (status.data as MatterStatus) ?? "aberta",
+      risk: (risk.data as RiskLevel) ?? "baixo",
+      deadline: deadline.data ?? "",
+      owner: owner.data,
+      description: optionalString(body.description) ?? "",
+      urgency: (urgency.data as MatterUrgency) ?? "normal",
+      cnjNumber: optionalString(body.cnjNumber),
+      court: optionalString(body.court),
+      opposingParty: optionalString(body.opposingParty),
+      clientLawyer: optionalString(body.clientLawyer),
+      opposingLawyer: optionalString(body.opposingLawyer),
+      nextHearingDate: nextHearingDate.data ?? null,
+      jurisdiction: (jurisdiction.data as string) ?? undefined,
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseTaskCreate(body: Body) {
+  const title = requiredString(body, "title");
+  if (!title.ok) return title;
+  const owner = requiredString(body, "owner");
+  if (!owner.ok) return owner;
+  const type = enumValue(body.type, TASK_TYPES, "type");
+  if (!type.ok) return type;
+  const priority = enumValue(body.priority, TASK_PRIORITIES, "priority");
+  if (!priority.ok) return priority;
+  const dueDate = optionalDate(body.dueDate, "dueDate");
+  if (!dueDate.ok) return dueDate;
+  return {
+    ok: true,
+    data: {
+      title: title.data,
+      relatedTo: optionalString(body.relatedTo) ?? "",
+      type: (type.data as string) ?? "operacional",
+      priority: (priority.data as TaskPriority) ?? "media",
+      dueDate: dueDate.data ?? "",
+      owner: owner.data,
+      description: optionalString(body.description),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseTaskPatch(body: Body) {
+  const status = enumValue(body.status, TASK_STATUSES, "status");
+  if (!status.ok) return status;
+  const priority = enumValue(body.priority, TASK_PRIORITIES, "priority");
+  if (!priority.ok) return priority;
+  const dueDate = optionalDate(body.dueDate, "dueDate");
+  if (!dueDate.ok) return dueDate;
+  return {
+    ok: true,
+    data: {
+      ...(status.data ? { status: status.data as TaskStatus } : {}),
+      ...(priority.data ? { priority: priority.data as TaskPriority } : {}),
+      ...(body.title !== undefined ? { title: String(body.title) } : {}),
+      ...(body.owner !== undefined ? { owner: String(body.owner) } : {}),
+      ...(body.dueDate !== undefined ? { dueDate: dueDate.data ?? "" } : {}),
+      ...(body.description !== undefined ? { description: optionalString(body.description) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
 }

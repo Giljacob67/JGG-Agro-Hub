@@ -123,6 +123,11 @@ export async function updateLead(
   return memory.patchLead(id, patch) ?? undefined;
 }
 
+export async function deleteLead(id: string): Promise<boolean> {
+  memory.patchLead(id, { deletedAt: new Date().toISOString() } as Partial<Lead>);
+  return true;
+}
+
 export async function listAccounts(
   params: AccountListParams = {},
 ): Promise<PaginatedResult<Account>> {
@@ -187,7 +192,8 @@ export async function updateMatter(
   patch: MatterPatch,
 ): Promise<Matter | null | undefined> {
   if (isDbEnabled()) return db.dbUpdateMatter(id, patch);
-  return memory.patchMatter(id, patch) ?? undefined;
+  const convertedPatch: Record<string, unknown> = { ...patch };
+  return memory.patchMatter(id, convertedPatch as Partial<Matter>) ?? undefined;
 }
 
 export async function getMattersByOpportunity(
@@ -414,4 +420,174 @@ export async function recordAudit(input: {
 }) {
   if (!isDbEnabled()) return;
   await db.dbCreateAuditLog(input);
+}
+
+export async function createAccount(input: {
+  name: string;
+  type?: string;
+  region?: string;
+  areaHa?: number;
+  mainCrop?: string;
+  owner: string;
+  cnpj?: string;
+  cpf?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+}) {
+  const today = new Date().toISOString().slice(0, 10);
+  const id = `AC-${String(memory.listAccounts().length + 1).padStart(3, "0")}`;
+  const account: Account = {
+    id,
+    name: input.name,
+    type: (input.type as Account["type"]) ?? "produtor",
+    region: input.region ?? "",
+    areaHa: input.areaHa ?? 0,
+    mainCrop: input.mainCrop ?? "",
+    owner: input.owner,
+    activeMatters: 0,
+    activeOpportunities: 0,
+    since: today,
+  };
+  memory.addAccount(account);
+  return account;
+}
+
+export async function updateAccount(
+  id: string,
+  patch: Record<string, unknown>,
+): Promise<Account | undefined> {
+  const existing = memory.getAccount(id);
+  if (!existing) return undefined;
+  const updated = { ...existing, ...patch, id };
+  memory.patchAccount(id, patch as Partial<Account>);
+  return memory.getAccount(id) ?? updated;
+}
+
+export async function deleteAccount(id: string): Promise<boolean> {
+  memory.patchAccount(id, { deletedAt: new Date().toISOString() } as Partial<Account>);
+  return true;
+}
+
+export async function createOpportunity(input: {
+  title: string;
+  accountName?: string;
+  accountId?: string;
+  stage?: string;
+  valueBrl?: number;
+  owner: string;
+  expectedClose?: string;
+  priority?: string;
+  practice?: string;
+  description?: string;
+}) {
+  const id = `OP-${String(memory.listOpportunities().length + 1).padStart(3, "0")}`;
+  const opp: Opportunity = {
+    id,
+    title: input.title,
+    accountName: input.accountName ?? "",
+    accountId: input.accountId,
+    stage: (input.stage as Opportunity["stage"]) ?? "novo_contato",
+    valueBrl: input.valueBrl ?? 0,
+    owner: input.owner,
+    expectedClose: input.expectedClose ?? "",
+    nextContact: null,
+    priority: (input.priority as Opportunity["priority"]) ?? "normal",
+    practice: input.practice ?? "",
+  };
+  memory.addOpportunity(opp);
+  return opp;
+}
+
+export async function deleteOpportunity(id: string): Promise<boolean> {
+  memory.patchOpportunity(id, { deletedAt: new Date().toISOString() } as Partial<Opportunity>);
+  return true;
+}
+
+export async function createMatter(input: {
+  title: string;
+  accountName?: string;
+  accountId?: string;
+  practice?: string;
+  status?: string;
+  risk?: string;
+  deadline?: string;
+  owner: string;
+  description?: string;
+  urgency?: string;
+  cnjNumber?: string;
+  court?: string;
+  opposingParty?: string;
+  clientLawyer?: string;
+  opposingLawyer?: string;
+  nextHearingDate?: string | null;
+  jurisdiction?: string;
+}) {
+  const id = `MT-${String(memory.listMatters().length + 1).padStart(3, "0")}`;
+  const matter: Matter = {
+    id,
+    title: input.title,
+    accountName: input.accountName ?? "",
+    accountId: input.accountId,
+    practice: input.practice ?? "",
+    status: (input.status as Matter["status"]) ?? "aberta",
+    risk: (input.risk as Matter["risk"]) ?? "baixo",
+    deadline: input.deadline ?? "",
+    owner: input.owner,
+    description: input.description ?? "",
+    urgency: (input.urgency as Matter["urgency"]) ?? "normal",
+    cnjNumber: input.cnjNumber,
+    court: input.court,
+    opposingParty: input.opposingParty,
+    clientLawyer: input.clientLawyer,
+    opposingLawyer: input.opposingLawyer,
+    nextHearingDate: input.nextHearingDate,
+    jurisdiction: input.jurisdiction as Matter["jurisdiction"],
+  };
+  memory.addMatter(matter);
+  return matter;
+}
+
+export async function deleteMatter(id: string): Promise<boolean> {
+  memory.patchMatter(id, { deletedAt: new Date().toISOString() } as Partial<Matter>);
+  return true;
+}
+
+export async function createTask(input: {
+  title: string;
+  relatedTo?: string;
+  type?: string;
+  priority?: string;
+  dueDate?: string;
+  owner: string;
+  description?: string;
+}) {
+  const id = `TK-${String(memory.listTasks().length + 1).padStart(3, "0")}`;
+  const task: Task = {
+    id,
+    title: input.title,
+    relatedTo: input.relatedTo ?? "",
+    type: (input.type as Task["type"]) ?? "operacional",
+    priority: (input.priority as Task["priority"]) ?? "media",
+    status: "pendente",
+    dueDate: input.dueDate ?? "",
+    owner: input.owner,
+  };
+  memory.addTask(task);
+  return task;
+}
+
+export async function updateTask(
+  id: string,
+  patch: Record<string, unknown>,
+): Promise<Task | undefined> {
+  const existing = memory.getTask(id);
+  if (!existing) return undefined;
+  memory.patchTask(id, patch as Partial<Task>);
+  return memory.getTask(id) ?? { ...existing, ...patch, id };
+}
+
+export async function deleteTask(id: string): Promise<boolean> {
+  memory.patchTask(id, { deletedAt: new Date().toISOString() } as Partial<Task>);
+  return true;
 }

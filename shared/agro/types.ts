@@ -73,6 +73,11 @@ export interface Lead {
   priority?: LeadPriority;
   /** Oportunidade gerada na conversão deste lead. */
   convertedOpportunityId?: string | null;
+  phone?: string;
+  email?: string;
+  cnpj?: string;
+  cpf?: string;
+  deletedAt?: string | null;
 }
 
 export interface Account {
@@ -91,6 +96,12 @@ export interface Account {
   contractedAreas?: string[];
   mappedRisks?: string[];
   relationshipStatus?: RelationshipStatus;
+  cnpj?: string;
+  cpf?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  deletedAt?: string | null;
 }
 
 export interface Opportunity {
@@ -109,6 +120,8 @@ export interface Opportunity {
   nextStep?: string;
   /** Lead que originou esta oportunidade (rastreabilidade de origem). */
   leadId?: string | null;
+  description?: string;
+  deletedAt?: string | null;
 }
 
 export interface Matter {
@@ -133,6 +146,11 @@ export interface Matter {
   claimValueBrl?: number;
   /** Oportunidade comercial que originou (ou está ligada a) esta demanda. */
   opportunityId?: string | null;
+  clientLawyer?: string;
+  opposingLawyer?: string;
+  nextHearingDate?: string | null;
+  jurisdiction?: "federal" | "estadual" | "trabalhista" | "arbitral";
+  deletedAt?: string | null;
 }
 
 /** Prazo processual vinculado a uma demanda. Uma demanda tem N prazos. */
@@ -146,6 +164,8 @@ export interface Deadline {
   owner: string;
   completedAt: string | null;
   notes?: string;
+  reminderDays?: number;
+  deletedAt?: string | null;
 }
 
 /** Interação (ligação, reunião, e-mail, WhatsApp…) vinculada a uma entidade. */
@@ -169,6 +189,10 @@ export interface Task {
   status: TaskStatus;
   dueDate: string;
   owner: string;
+  description?: string;
+  estimatedHours?: number;
+  actualHours?: number;
+  deletedAt?: string | null;
 }
 
 export interface AgroUser {
@@ -176,6 +200,10 @@ export interface AgroUser {
   email: string;
   name: string;
   role: AgroRole;
+  phone?: string;
+  avatar?: string;
+  barNumber?: string;
+  department?: string;
 }
 
 export interface PracticeBreakdown {

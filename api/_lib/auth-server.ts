@@ -157,9 +157,13 @@ export function authenticate(
   };
 
   const secret = getAuthSecret();
-  if (!secret && isProduction()) return null;
-  const token = secret ? signToken(user, secret) : signToken(user, "dev-insecure");
-  return { token, user };
+  if (!secret) {
+    if (isProduction()) {
+      throw new Error("AUTH_SECRET é obrigatório em produção");
+    }
+    return { token: signToken(user, "dev-insecure"), user };
+  }
+  return { token: signToken(user, secret), user };
 }
 
 function isProduction(): boolean {
