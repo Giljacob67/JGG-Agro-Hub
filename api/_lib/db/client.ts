@@ -11,11 +11,7 @@ type Sql = NeonQueryFunction<false, false>;
 let sql: Sql | null = null;
 
 export function isDbEnabled() {
-  const hasUrl = Boolean(process.env.DATABASE_URL);
-  if (!hasUrl && process.env.VERCEL_ENV === "production") {
-    throw new Error("DATABASE_URL é obrigatória em produção");
-  }
-  return hasUrl;
+  return Boolean(process.env.DATABASE_URL);
 }
 
 export function getSql(): Sql {
