@@ -20,6 +20,8 @@ const CrmOpportunityDetailPage = lazy(() => import("./pages/crm/opportunity-deta
 const CrmMattersPage = lazy(() => import("./pages/crm/matters"));
 const CrmMatterDetailPage = lazy(() => import("./pages/crm/matter-detail"));
 const CrmTasksPage = lazy(() => import("./pages/crm/tasks"));
+const CalendarPage = lazy(() => import("./pages/agro/calendar"));
+const ReportsPage = lazy(() => import("./pages/agro/reports"));
 
 function PageLoader() {
   return (
@@ -76,6 +78,14 @@ export default function App() {
 
       <Route path={ROUTES.audit}>
         <AgroRoute component={AuditLogsPage} resource="stats" />
+      </Route>
+
+      <Route path={ROUTES.calendar}>
+        <AgroRoute component={CalendarPage} resource="matters" />
+      </Route>
+
+      <Route path={ROUTES.reports}>
+        <AgroRoute component={ReportsPage} resource="stats" />
       </Route>
 
       <Route path={ROUTES.crm.root}>

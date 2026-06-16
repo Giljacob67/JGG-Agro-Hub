@@ -7,6 +7,8 @@ export const ROUTES = {
   copilot: "/agro/copilot",
   knowledge: "/agro/knowledge",
   audit: "/agro/audit",
+  calendar: "/agro/calendar",
+  reports: "/agro/reports",
   institucional: "/institucional",
   crm: {
     root: "/agro/crm",

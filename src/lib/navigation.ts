@@ -10,6 +10,8 @@ import {
   Scale,
   CheckSquare,
   Shield,
+  CalendarDays,
+  BarChart3,
 } from "lucide-react";
 import { ROUTES } from "./routes";
 
@@ -67,7 +69,9 @@ export const CRM_NAV: NavItem[] = [
 
 export const OPERATION_NAV: NavItem[] = [
   { path: ROUTES.crm.matters, label: "Demandas jurídicas", icon: Scale, resource: "matters" },
+  { path: ROUTES.calendar, label: "Calendário", icon: CalendarDays, resource: "matters" },
   { path: ROUTES.crm.tasks, label: "Tarefas", icon: CheckSquare, resource: "tasks" },
+  { path: ROUTES.reports, label: "Relatórios", icon: BarChart3, resource: "stats" },
 ];
 
 export const NAV_GROUPS: NavGroup[] = [
