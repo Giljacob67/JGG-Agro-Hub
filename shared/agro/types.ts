@@ -150,6 +150,10 @@ export interface Matter {
   opposingLawyer?: string;
   nextHearingDate?: string | null;
   jurisdiction?: "federal" | "estadual" | "trabalhista" | "arbitral";
+  /** Vinculação entre demandas (ex: apelação → instância original) */
+  parentMatterId?: string | null;
+  /** Tipo de vínculo: apelacao, recurso, execucao, incidente, etc. */
+  relationType?: string;
   deletedAt?: string | null;
 }
 

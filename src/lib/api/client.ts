@@ -355,6 +355,8 @@ export const agroApi = {
     owner: string;
     notes?: string;
     opportunityId?: string;
+    parentMatterId?: string;
+    relationType?: string;
   }) =>
     request<import("@shared/agro/types").Matter>("/api/agro/matters", {
       method: "POST",

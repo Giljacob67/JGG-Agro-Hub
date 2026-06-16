@@ -9,6 +9,7 @@ export const ROUTES = {
   audit: "/agro/audit",
   calendar: "/agro/calendar",
   reports: "/agro/reports",
+  productivity: "/agro/productivity",
   institucional: "/institucional",
   crm: {
     root: "/agro/crm",

@@ -323,6 +323,17 @@ export default function CrmMatterDetailPage() {
               </Button>
             </div>
           )}
+
+          {matter.parentMatterId && (
+            <div className="pt-1">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={ROUTES.crm.matterDetail(matter.parentMatterId)}>
+                  Demanda de origem ({matter.relationType || "vínculo"}){" "}
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </Button>
+            </div>
+          )}
         </Card>
 
         <ProceduralDataCard matter={matter} key={`pd-${matter.id}`} />

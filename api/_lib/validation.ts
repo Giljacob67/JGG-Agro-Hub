@@ -441,6 +441,8 @@ export function parseMatterCreate(body: Body) {
       opposingLawyer: optionalString(body.opposingLawyer),
       nextHearingDate: nextHearingDate.data ?? null,
       jurisdiction: (jurisdiction.data as string) ?? undefined,
+      parentMatterId: optionalString(body.parentMatterId),
+      relationType: optionalString(body.relationType),
     },
   } satisfies ValidationResult<unknown>;
 }

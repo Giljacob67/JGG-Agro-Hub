@@ -1,15 +1,16 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/use-auth";
-import { useCreateMatter } from "@/hooks/use-crm-queries";
+import { useCreateMatter, useAllMatters } from "@/hooks/use-crm-queries";
 
 export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?: string; onCreated?: () => void }) {
   const { user } = useAuth();
   const createMatter = useCreateMatter();
+  const { data: allMatters } = useAllMatters();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -22,7 +23,11 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
     valueBrl: "",
     owner: "",
     notes: "",
+    parentMatterId: "",
+    relationType: "",
   });
+
+  const mattersList = (allMatters as any)?.items || allMatters || [];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -39,10 +44,12 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
         owner: form.owner || user?.name || "Equipe Agro",
         notes: form.notes,
         opportunityId,
+        parentMatterId: form.parentMatterId || undefined,
+        relationType: form.relationType || undefined,
       });
       toast.success("Demanda criada com sucesso!");
       setOpen(false);
-      setForm({ title: "", clientName: "", cnjNumber: "", court: "", opposingParty: "", phase: "", risk: "medio", valueBrl: "", owner: "", notes: "" });
+      setForm({ title: "", clientName: "", cnjNumber: "", court: "", opposingParty: "", phase: "", risk: "medio", valueBrl: "", owner: "", notes: "", parentMatterId: "", relationType: "" });
       onCreated?.();
     } catch {
       toast.error("Erro ao criar demanda. Tente novamente.");
@@ -151,6 +158,47 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             className="mt-1"
           />
+        </div>
+
+        <div className="sm:col-span-2 border-t border-border pt-4 mt-2">
+          <div className="flex items-center gap-2 mb-3">
+            <Link2 className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground">Vincular a demanda existente (opcional)</span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-muted-foreground">Tipo de vínculo</label>
+              <select
+                value={form.relationType}
+                onChange={(e) => setForm((f) => ({ ...f, relationType: e.target.value }))}
+                className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+              >
+                <option value="">Nenhum</option>
+                <option value="apelacao">Apelação</option>
+                <option value="recurso">Recurso</option>
+                <option value="execucao">Execução</option>
+                <option value="incidente">Incidente</option>
+                <option value="correlacao">Correlação</option>
+              </select>
+            </div>
+            {form.relationType && (
+              <div>
+                <label className="text-xs text-muted-foreground">Demanda de origem</label>
+                <select
+                  value={form.parentMatterId}
+                  onChange={(e) => setForm((f) => ({ ...f, parentMatterId: e.target.value }))}
+                  className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
+                >
+                  <option value="">Selecionar demanda...</option>
+                  {mattersList.map((m: any) => (
+                    <option key={m.id} value={m.id}>
+                      {m.title || m.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
         </div>
         <div className="sm:col-span-2 flex gap-2 justify-end">
           <Button type="button" variant="outline" size="sm" onClick={() => setOpen(false)}>
