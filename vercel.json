@@ -46,7 +46,7 @@
     "api/auth/[action].ts": { "includeFiles": "{shared/**,api/_lib/**}" },
     "api/health/db.ts": { "includeFiles": "{shared/**,api/_lib/**}" }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [{ "source": "/((?!api/).*)", "destination": "/index.html" }],
   "headers": [
     {
       "source": "/(.*)",
