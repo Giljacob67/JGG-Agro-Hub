@@ -1,5 +1,6 @@
 import { Link, useRoute } from "wouter";
 import { ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { ConvertLeadCard } from "@/components/crm/convert-lead-card";
@@ -78,10 +79,10 @@ export default function CrmLeadDetailPage() {
               value={lead.status}
               disabled={updateLead.isPending}
               onChange={(e) =>
-                updateLead.mutate({
-                  id: lead.id,
-                  patch: { status: e.target.value as LeadStatus },
-                })
+                updateLead.mutate(
+                  { id: lead.id, patch: { status: e.target.value as LeadStatus } },
+                  { onSuccess: () => toast.success("Status atualizado!"), onError: () => toast.error("Erro ao atualizar status") },
+                )
               }
               className="mt-1 h-9 w-full max-w-xs rounded-md border border-border bg-background px-3 text-sm"
             >

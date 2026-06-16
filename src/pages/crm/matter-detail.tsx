@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useRoute } from "wouter";
 import { ArrowRight } from "lucide-react";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { DeadlinesPanel } from "@/components/crm/deadlines-panel";
@@ -50,7 +51,7 @@ function ProceduralDataCard({ matter }: { matter: Matter }) {
           claimValueBrl: claimValue ? Number(claimValue) : null,
         },
       },
-      { onSuccess: () => setEditing(false) },
+      { onSuccess: () => { setEditing(false); toast.success("Dados processuais salvos!"); }, onError: () => toast.error("Erro ao salvar dados") },
     );
   }
 
@@ -223,10 +224,10 @@ export default function CrmMatterDetailPage() {
                 value={matter.status}
                 disabled={updateMatter.isPending}
                 onChange={(e) =>
-                  updateMatter.mutate({
-                    id: matter.id,
-                    patch: { status: e.target.value as MatterStatus },
-                  })
+                  updateMatter.mutate(
+                    { id: matter.id, patch: { status: e.target.value as MatterStatus } },
+                    { onSuccess: () => toast.success("Status atualizado!"), onError: () => toast.error("Erro ao atualizar") },
+                  )
                 }
                 className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
               >
@@ -243,10 +244,10 @@ export default function CrmMatterDetailPage() {
                 value={matter.risk}
                 disabled={updateMatter.isPending}
                 onChange={(e) =>
-                  updateMatter.mutate({
-                    id: matter.id,
-                    patch: { risk: e.target.value as RiskLevel },
-                  })
+                  updateMatter.mutate(
+                    { id: matter.id, patch: { risk: e.target.value as RiskLevel } },
+                    { onSuccess: () => toast.success("Risco atualizado!"), onError: () => toast.error("Erro ao atualizar") },
+                  )
                 }
                 className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
               >

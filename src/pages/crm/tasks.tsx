@@ -11,6 +11,7 @@ import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useTasks, useUpdateTaskStatus } from "@/hooks/use-crm-queries";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import { toast } from "sonner";
 import {
   TASK_STATUS,
   TASK_PRIORITY,
@@ -188,10 +189,10 @@ export default function CrmTasksPage() {
                     value={r.status}
                     disabled={updateStatus.isPending}
                     onChange={(e) =>
-                      updateStatus.mutate({
-                        id: r.id,
-                        status: e.target.value as TaskStatus,
-                      })
+                      updateStatus.mutate(
+                        { id: r.id, status: e.target.value as TaskStatus },
+                        { onSuccess: () => toast.success("Tarefa atualizada!"), onError: () => toast.error("Erro ao atualizar tarefa") },
+                      )
                     }
                     className="h-8 rounded-md border border-border bg-background px-2 text-xs"
                     aria-label={`Status da tarefa ${r.title}`}

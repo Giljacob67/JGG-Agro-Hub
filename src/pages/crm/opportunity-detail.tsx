@@ -1,4 +1,5 @@
 import { useRoute } from "wouter";
+import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { DetailBackLink } from "@/components/crm/detail-back-link";
 import { Badge } from "@/components/ui/badge";
@@ -69,10 +70,10 @@ export default function CrmOpportunityDetailPage() {
                 value={opp.stage}
                 disabled={updateOpp.isPending}
                 onChange={(e) =>
-                  updateOpp.mutate({
-                    id: opp.id,
-                    patch: { stage: e.target.value as OpportunityStage },
-                  })
+                  updateOpp.mutate(
+                    { id: opp.id, patch: { stage: e.target.value as OpportunityStage } },
+                    { onSuccess: () => toast.success("Fase atualizada!"), onError: () => toast.error("Erro ao atualizar fase") },
+                  )
                 }
                 className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
               >
@@ -89,10 +90,10 @@ export default function CrmOpportunityDetailPage() {
                 value={opp.priority}
                 disabled={updateOpp.isPending}
                 onChange={(e) =>
-                  updateOpp.mutate({
-                    id: opp.id,
-                    patch: { priority: e.target.value as OpportunityPriority },
-                  })
+                  updateOpp.mutate(
+                    { id: opp.id, patch: { priority: e.target.value as OpportunityPriority } },
+                    { onSuccess: () => toast.success("Prioridade atualizada!"), onError: () => toast.error("Erro ao atualizar prioridade") },
+                  )
                 }
                 className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
               >

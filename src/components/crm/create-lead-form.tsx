@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { Plus, Building2 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -27,22 +28,27 @@ export function CreateLeadForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const lead = await createLead.mutateAsync({
-      ...form,
-      owner: user?.name ?? "Equipe Agro",
-      nextContact: form.nextContact || null,
-    });
-    setOpen(false);
-    setForm({
-      name: "",
-      contact: "",
-      region: "",
-      crop: "",
-      source: "Manual",
-      notes: "",
-      nextContact: "",
-    });
-    navigate(ROUTES.crm.leadDetail(lead.id));
+    try {
+      const lead = await createLead.mutateAsync({
+        ...form,
+        owner: user?.name ?? "Equipe Agro",
+        nextContact: form.nextContact || null,
+      });
+      toast.success("Lead criado com sucesso!");
+      setOpen(false);
+      setForm({
+        name: "",
+        contact: "",
+        region: "",
+        crop: "",
+        source: "Manual",
+        notes: "",
+        nextContact: "",
+      });
+      navigate(ROUTES.crm.leadDetail(lead.id));
+    } catch {
+      toast.error("Erro ao criar lead. Tente novamente.");
+    }
   }
 
   function handleCnpjFill(data: {
