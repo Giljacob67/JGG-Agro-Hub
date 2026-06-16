@@ -9,6 +9,7 @@ import {
   Target,
   Scale,
   CheckSquare,
+  Shield,
 } from "lucide-react";
 import { ROUTES } from "./routes";
 
@@ -43,6 +44,12 @@ export const INTELLIGENCE_NAV: NavItem[] = [
     label: "Base de Conhecimento",
     icon: Library,
     resource: "knowledge",
+  },
+  {
+    path: ROUTES.audit,
+    label: "Auditoria",
+    icon: Shield,
+    resource: "stats",
   },
 ];
 

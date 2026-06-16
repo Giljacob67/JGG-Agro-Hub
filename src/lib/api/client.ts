@@ -349,4 +349,67 @@ export const agroApi = {
 
   dbHealth: () =>
     request<{ mode: string; connected: boolean }>("/api/health/db"),
+
+  audit: (params: {
+    entityType?: string;
+    entityId?: string;
+    userId?: string;
+    action?: string;
+    from?: string;
+    to?: string;
+    limit?: number;
+    offset?: number;
+  } = {}) =>
+    request<{
+      items: Array<{
+        id: string;
+        entityType: string;
+        entityId: string;
+        action: string;
+        userId: string;
+        userName: string;
+        timestamp: string;
+        before: Record<string, unknown> | null;
+        after: Record<string, unknown> | null;
+        ip?: string;
+      }>;
+      total: number;
+      limit: number;
+      offset: number;
+    }>(`/api/agro/audit${buildQuery(params)}`),
+
+  auditStats: () =>
+    request<{
+      totalLogs: number;
+      byEntity: Record<string, number>;
+      byAction: Record<string, number>;
+    }>("/api/agro/audit?action=stats"),
+
+  lookupCnpj: (cnpj: string) =>
+    request<{
+      cnpj: string;
+      razaoSocial: string;
+      nomeFantasia?: string;
+      situacao: string;
+      porte?: string;
+      naturezaJuridica?: string;
+      endereco?: string;
+      bairro?: string;
+      municipio?: string;
+      uf?: string;
+      cep?: string;
+      telefone?: string;
+      email?: string;
+      capitalSocial?: number;
+      dataAbertura?: string;
+      atividadePrincipal?: string;
+      source: string;
+    }>(`/api/agro/lookup?type=cnpj&document=${encodeURIComponent(cnpj)}`),
+
+  lookupCpf: (cpf: string) =>
+    request<{
+      cpf: string;
+      nome: string;
+      Situacao: string;
+    }>(`/api/agro/lookup?type=cpf&document=${encodeURIComponent(cpf)}`),
 };

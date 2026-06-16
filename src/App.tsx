@@ -1,22 +1,33 @@
-import type { ComponentType } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { Route, Switch, Redirect } from "wouter";
-import CommandCenterPage from "./pages/command-center";
-import AgroCopilotPage from "./pages/agro/copilot";
-import KnowledgePage from "./pages/agro/knowledge";
-import InstitucionalPage from "./pages/institucional";
-import AgroLoginPage from "./pages/agro/login";
-import CrmOverviewPage from "./pages/crm/overview";
-import CrmLeadsPage from "./pages/crm/leads";
-import CrmLeadDetailPage from "./pages/crm/lead-detail";
-import CrmAccountsPage from "./pages/crm/accounts";
-import CrmAccountDetailPage from "./pages/crm/account-detail";
-import CrmOpportunitiesPage from "./pages/crm/opportunities";
-import CrmOpportunityDetailPage from "./pages/crm/opportunity-detail";
-import CrmMattersPage from "./pages/crm/matters";
-import CrmMatterDetailPage from "./pages/crm/matter-detail";
-import CrmTasksPage from "./pages/crm/tasks";
 import { ProtectedRoute } from "./components/auth/protected-route";
 import { ROUTES } from "./lib/routes";
+
+// Lazy-loaded pages for code splitting
+const CommandCenterPage = lazy(() => import("./pages/command-center"));
+const AgroCopilotPage = lazy(() => import("./pages/agro/copilot"));
+const KnowledgePage = lazy(() => import("./pages/agro/knowledge"));
+const AuditLogsPage = lazy(() => import("./pages/agro/audit"));
+const InstitucionalPage = lazy(() => import("./pages/institucional"));
+const AgroLoginPage = lazy(() => import("./pages/agro/login"));
+const CrmOverviewPage = lazy(() => import("./pages/crm/overview"));
+const CrmLeadsPage = lazy(() => import("./pages/crm/leads"));
+const CrmLeadDetailPage = lazy(() => import("./pages/crm/lead-detail"));
+const CrmAccountsPage = lazy(() => import("./pages/crm/accounts"));
+const CrmAccountDetailPage = lazy(() => import("./pages/crm/account-detail"));
+const CrmOpportunitiesPage = lazy(() => import("./pages/crm/opportunities"));
+const CrmOpportunityDetailPage = lazy(() => import("./pages/crm/opportunity-detail"));
+const CrmMattersPage = lazy(() => import("./pages/crm/matters"));
+const CrmMatterDetailPage = lazy(() => import("./pages/crm/matter-detail"));
+const CrmTasksPage = lazy(() => import("./pages/crm/tasks"));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center min-h-[50vh]">
+      <div className="animate-pulse text-muted-foreground">Carregando...</div>
+    </div>
+  );
+}
 
 function AgroRoute({
   component: Component,
@@ -27,7 +38,9 @@ function AgroRoute({
 }) {
   return (
     <ProtectedRoute resource={resource}>
-      <Component />
+      <Suspense fallback={<PageLoader />}>
+        <Component />
+      </Suspense>
     </ProtectedRoute>
   );
 }
@@ -43,7 +56,11 @@ export default function App() {
         <Redirect to={ROUTES.commandCenter} />
       </Route>
 
-      <Route path={ROUTES.login} component={AgroLoginPage} />
+      <Route path={ROUTES.login}>
+        <Suspense fallback={<PageLoader />}>
+          <AgroLoginPage />
+        </Suspense>
+      </Route>
 
       <Route path={ROUTES.commandCenter}>
         <AgroRoute component={CommandCenterPage} resource="stats" />
@@ -55,6 +72,10 @@ export default function App() {
 
       <Route path={ROUTES.knowledge}>
         <AgroRoute component={KnowledgePage} resource="knowledge" />
+      </Route>
+
+      <Route path={ROUTES.audit}>
+        <AgroRoute component={AuditLogsPage} resource="stats" />
       </Route>
 
       <Route path={ROUTES.crm.root}>
@@ -116,7 +137,11 @@ export default function App() {
         <Redirect to={ROUTES.crm.tasks} />
       </Route>
 
-      <Route path={ROUTES.institucional} component={InstitucionalPage} />
+      <Route path={ROUTES.institucional}>
+        <Suspense fallback={<PageLoader />}>
+          <InstitucionalPage />
+        </Suspense>
+      </Route>
 
       <Route>
         <Redirect to={ROUTES.commandCenter} />

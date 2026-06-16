@@ -333,3 +333,52 @@ export function useMattersByOpportunity(opportunityId: string) {
     enabled: !!opportunityId,
   });
 }
+
+/* --------------------------------------------------------------- Auditoria */
+
+export const auditKeys = {
+  all: ["audit"] as const,
+  list: (params: Record<string, unknown>) => ["audit", "list", params] as const,
+  stats: ["audit", "stats"] as const,
+};
+
+export function useAuditLogs(params: {
+  entityType?: string;
+  entityId?: string;
+  userId?: string;
+  action?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+} = {}) {
+  return useQuery({
+    queryKey: auditKeys.list(params),
+    queryFn: () => agroApi.audit(params),
+  });
+}
+
+export function useAuditStats() {
+  return useQuery({
+    queryKey: auditKeys.stats,
+    queryFn: agroApi.auditStats,
+  });
+}
+
+/* ----------------------------------------------------------------- Lookup */
+
+export function useLookupCnpj(cnpj: string, enabled = false) {
+  return useQuery({
+    queryKey: ["lookup", "cnpj", cnpj],
+    queryFn: () => agroApi.lookupCnpj(cnpj),
+    enabled,
+  });
+}
+
+export function useLookupCpf(cpf: string, enabled = false) {
+  return useQuery({
+    queryKey: ["lookup", "cpf", cpf],
+    queryFn: () => agroApi.lookupCpf(cpf),
+    enabled,
+  });
+}
