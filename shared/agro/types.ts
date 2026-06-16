@@ -292,7 +292,8 @@ export interface CopilotResponse {
   nextSteps: string[];
   sources: CopilotSource[];
   relatedEntities: CopilotRelatedEntity[];
-  simulated: true;
+  /** true = keyword engine mock, false = LLM-generated */
+  simulated: boolean;
   disclaimer: string;
   generatedAt: string;
 }
@@ -300,6 +301,7 @@ export interface CopilotResponse {
 export interface CopilotQueryRequest {
   query: string;
   contextEntity?: CopilotContextEntity | null;
+  history?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
 export interface KnowledgeListResponse {

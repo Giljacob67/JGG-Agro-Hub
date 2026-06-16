@@ -32,7 +32,9 @@ export function CopilotResponseCard({ response }: CopilotResponseCardProps) {
             “{response.query}”
           </p>
         </div>
-        <Badge variant="warning">Simulada</Badge>
+        <Badge variant={response.simulated ? "warning" : "default"}>
+          {response.simulated ? "Simulada" : "Gerado por IA"}
+        </Badge>
       </div>
 
       <div>

@@ -335,7 +335,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!requireAuth(req, res, "copilot")) return;
 
     if (req.method === "POST") {
-      const body = (req.body ?? {}) as { query?: string; contextEntity?: unknown };
+      const body = (req.body ?? {}) as {
+        query?: string;
+        contextEntity?: import("../../shared/agro/types.js").CopilotContextEntity | null;
+        history?: Array<{ role: "user" | "assistant"; content: string }>;
+      };
       if (!body.query?.trim()) {
         return json(res, { error: "query é obrigatório" }, 400);
       }
@@ -349,8 +353,109 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         tasks: dataset.tasks,
       });
 
+      const query = body.query.trim();
+      const contextEntity = body.contextEntity ?? null;
+
+      // Try LLM pipeline first; fall back to keyword engine
+      try {
+        const { getDefaultConfig, createProvider } = await import("../_lib/llm/providers.js");
+        const llmConfig = getDefaultConfig();
+
+        if (llmConfig) {
+          // RAG: semantic search on KB
+          const { searchKnowledge } = await import("../_lib/llm/rag.js");
+          const ragResults = await searchKnowledge(query, 5);
+
+          // Build prompt
+          const { buildSystemPrompt, buildUserMessage } = await import("../_lib/llm/prompt.js");
+          const systemPrompt = buildSystemPrompt({
+            query,
+            contextEntity,
+            stats,
+            ragResults,
+            history: body.history,
+          });
+          const userMessage = buildUserMessage(query, body.history);
+
+          // Generate structured output with AI SDK v6
+          const { generateText, Output } = await import("ai");
+          const { CopilotResponseSchema } = await import("../_lib/llm/schema.js");
+
+          const modelFactory = createProvider(llmConfig.provider);
+
+          const { output: llmOutput } = await generateText({
+            model: modelFactory(llmConfig.model),
+            system: systemPrompt,
+            prompt: userMessage,
+            output: Output.object({ schema: CopilotResponseSchema }),
+            temperature: llmConfig.temperature ?? 0.3,
+          });
+
+          if (!llmOutput) {
+            throw new Error("LLM returned no output");
+          }
+
+          // Resolve KB sources from sourceIds
+          const { getKnowledgeDocument, getKnowledgeCategory } = await import("../../shared/agro/knowledge.js");
+          const sources = llmOutput.sourceIds
+            .map((id: string) => {
+              const doc = getKnowledgeDocument(id);
+              if (!doc) return null;
+              const cat = getKnowledgeCategory(doc.categoryId);
+              return {
+                id: `src-${id}`,
+                documentId: id,
+                title: doc.title,
+                excerpt: doc.summary,
+                categoryLabel: cat?.label ?? "",
+              };
+            })
+            .filter(Boolean) as Array<{
+            id: string;
+            documentId: string;
+            title: string;
+            excerpt: string;
+            categoryLabel: string;
+          }>;
+
+          // Resolve related CRM entities
+          const relatedEntities: Array<{
+            id: string;
+            type: "conta" | "oportunidade" | "demanda" | "lead";
+            name: string;
+          }> = [];
+          if (contextEntity) {
+            relatedEntities.push({
+              id: contextEntity.id,
+              type: contextEntity.type,
+              name: contextEntity.name,
+            });
+          }
+
+          const response: import("../../shared/agro/types.js").CopilotResponse = {
+            id: `cop-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            promptId: null,
+            query,
+            synthesis: llmOutput.synthesis,
+            risks: llmOutput.risks,
+            nextSteps: llmOutput.nextSteps,
+            sources,
+            relatedEntities,
+            simulated: false,
+            disclaimer:
+              "Esta análise é gerada por IA e tem caráter informativo. Não substitui consulta a um advogado especializado.",
+            generatedAt: new Date().toISOString(),
+          };
+
+          return json(res, response);
+        }
+      } catch (err) {
+        console.error("[Copilot] LLM pipeline failed, falling back to keywords:", err);
+      }
+
+      // Fallback: keyword engine
       const response = resolveCopilotQuery(
-        { query: body.query.trim(), contextEntity: (body.contextEntity as import("../../shared/agro/types.js").CopilotContextEntity) ?? null },
+        { query, contextEntity },
         stats,
       );
 
