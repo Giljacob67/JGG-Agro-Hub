@@ -12,11 +12,19 @@ function str(value: string | string[] | undefined): string | undefined {
   return value;
 }
 
+const MAX_PAGE_SIZE = 200;
+
 function num(value: string | string[] | undefined): number | undefined {
   const v = str(value);
   if (!v) return undefined;
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
+}
+
+function pageSize(value: string | string[] | undefined): number | undefined {
+  const n = num(value);
+  if (!n) return undefined;
+  return Math.min(n, MAX_PAGE_SIZE);
 }
 
 function bool(value: string | string[] | undefined): boolean | undefined {
@@ -28,7 +36,7 @@ function bool(value: string | string[] | undefined): boolean | undefined {
 export function parseLeadListQuery(req: VercelRequest): LeadListParams {
   return {
     page: num(req.query.page),
-    pageSize: num(req.query.pageSize),
+    pageSize: pageSize(req.query.pageSize),
     facets: bool(req.query.facets),
     search: str(req.query.search),
     status: str(req.query.status),
@@ -42,7 +50,7 @@ export function parseLeadListQuery(req: VercelRequest): LeadListParams {
 export function parseAccountListQuery(req: VercelRequest): AccountListParams {
   return {
     page: num(req.query.page),
-    pageSize: num(req.query.pageSize),
+    pageSize: pageSize(req.query.pageSize),
     facets: bool(req.query.facets),
     search: str(req.query.search),
     type: str(req.query.type),
@@ -56,7 +64,7 @@ export function parseOpportunityListQuery(
 ): OpportunityListParams {
   return {
     page: num(req.query.page),
-    pageSize: num(req.query.pageSize),
+    pageSize: pageSize(req.query.pageSize),
     facets: bool(req.query.facets),
     search: str(req.query.search),
     stage: str(req.query.stage),
@@ -70,7 +78,7 @@ export function parseOpportunityListQuery(
 export function parseMatterListQuery(req: VercelRequest): MatterListParams {
   return {
     page: num(req.query.page),
-    pageSize: num(req.query.pageSize),
+    pageSize: pageSize(req.query.pageSize),
     facets: bool(req.query.facets),
     search: str(req.query.search),
     status: str(req.query.status),
@@ -84,7 +92,7 @@ export function parseMatterListQuery(req: VercelRequest): MatterListParams {
 export function parseTaskListQuery(req: VercelRequest): TaskListParams {
   return {
     page: num(req.query.page),
-    pageSize: num(req.query.pageSize),
+    pageSize: pageSize(req.query.pageSize),
     facets: bool(req.query.facets),
     search: str(req.query.search),
     status: str(req.query.status),
