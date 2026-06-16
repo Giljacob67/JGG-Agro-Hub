@@ -6,6 +6,7 @@ import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { CreateAccountForm } from "@/components/crm/create-account-form";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
@@ -58,11 +59,14 @@ export default function CrmAccountsPage() {
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold">Contas / Clientes Agro</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Carteira ativa do JGG Group — produtores, cooperativas e operações.
-          </p>
+        <header className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Contas / Clientes Agro</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Carteira ativa do JGG Group — produtores, cooperativas e operações.
+            </p>
+          </div>
+          <CreateAccountForm />
         </header>
         <CrmFilters
           search={search}

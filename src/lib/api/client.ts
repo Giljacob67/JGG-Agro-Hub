@@ -297,6 +297,63 @@ export const agroApi = {
       body: JSON.stringify(input),
     }),
 
+  createAccount: (input: {
+    name: string;
+    type: string;
+    region: string;
+    crop?: string;
+    owner: string;
+    notes?: string;
+  }) =>
+    request<import("@shared/agro/types").Account>("/api/agro/accounts", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  createOpportunity: (input: {
+    title: string;
+    clientName: string;
+    region?: string;
+    crop?: string;
+    valueBrl?: number;
+    owner: string;
+    notes?: string;
+  }) =>
+    request<import("@shared/agro/types").Opportunity>("/api/agro/opportunities", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  createMatter: (input: {
+    title: string;
+    clientName: string;
+    cnjNumber?: string;
+    court?: string;
+    opposingParty?: string;
+    phase?: string;
+    risk?: string;
+    valueBrl?: number;
+    owner: string;
+    notes?: string;
+    opportunityId?: string;
+  }) =>
+    request<import("@shared/agro/types").Matter>("/api/agro/matters", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  createTask: (input: {
+    title: string;
+    description?: string;
+    priority?: string;
+    dueDate?: string;
+    assignee: string;
+  }) =>
+    request<import("@shared/agro/types").Task>("/api/agro/tasks", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
   updateTaskStatus: (id: string, status: import("@shared/agro/types").TaskStatus) =>
     request<import("@shared/agro/types").Task>(`/api/agro/tasks?id=${id}`, {
       method: "PATCH",

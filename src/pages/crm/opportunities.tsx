@@ -5,6 +5,7 @@ import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
+import { CreateOpportunityForm } from "@/components/crm/create-opportunity-form";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -86,16 +87,19 @@ export default function CrmOpportunitiesPage() {
   return (
     <AppShell>
       <div className="max-w-7xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold">Oportunidades Agro</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Pipeline comercial — propostas e negociações distintas das demandas
-            jurídicas em andamento.
-          </p>
-          <p className="text-xs text-muted-foreground mt-2 tabular-nums">
-            {items.length} de {total} oportunidades · Valor filtrado:{" "}
-            {formatBrl(totalValue)}
-          </p>
+        <header className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Oportunidades Agro</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Pipeline comercial — propostas e negociações distintas das demandas
+              jurídicas em andamento.
+            </p>
+            <p className="text-xs text-muted-foreground mt-2 tabular-nums">
+              {items.length} de {total} oportunidades · Valor filtrado:{" "}
+              {formatBrl(totalValue)}
+            </p>
+          </div>
+          <CreateOpportunityForm />
         </header>
         <CrmFilters
           search={search}

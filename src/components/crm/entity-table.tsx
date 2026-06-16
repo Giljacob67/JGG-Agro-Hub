@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { Search, Plus } from "lucide-react";
 
 export interface Column<T> {
   key: string;
@@ -26,9 +27,18 @@ export function EntityTable<T extends { id: string }>({
 }: EntityTableProps<T>) {
   if (data.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground py-12 text-center border border-dashed border-border/80 rounded-xl bg-muted/15">
-        {isFiltered ? filteredEmptyMessage : emptyMessage}
-      </p>
+      <div className="flex flex-col items-center justify-center py-16 border border-dashed border-border/80 rounded-xl bg-muted/15">
+        <div className="rounded-full bg-muted/50 p-3 mb-3">
+          {isFiltered ? (
+            <Search className="w-6 h-6 text-muted-foreground" />
+          ) : (
+            <Plus className="w-6 h-6 text-muted-foreground" />
+          )}
+        </div>
+        <p className="text-sm text-muted-foreground text-center max-w-xs">
+          {isFiltered ? filteredEmptyMessage : emptyMessage}
+        </p>
+      </div>
     );
   }
 

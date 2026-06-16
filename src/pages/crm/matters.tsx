@@ -6,6 +6,7 @@ import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { CreateMatterForm } from "@/components/crm/create-matter-form";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
@@ -78,11 +79,14 @@ export default function CrmMattersPage() {
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
-        <header className="mb-6">
-          <h1 className="text-2xl font-bold">Demandas jurídicas</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Matters em aberto — prazos, riscos e status operacional.
-          </p>
+        <header className="mb-6 flex items-start justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Demandas jurídicas</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Matters em aberto — prazos, riscos e status operacional.
+            </p>
+          </div>
+          <CreateMatterForm />
         </header>
         <CrmFilters
           search={search}

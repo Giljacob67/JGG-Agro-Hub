@@ -36,6 +36,7 @@ import {
   parseTaskListQuery,
 } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
+import { checkUserRateLimit, getRateLimitHeaders } from "../_lib/rate-limit.js";
 import {
   getBody,
   parseLeadConversion,
@@ -89,9 +90,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return json(res, { error: "Recurso não especificado" }, 400);
   }
 
+  // ── CORS headers ──────────────────────────────────────────────────
+  res.setHeader("Access-Control-Allow-Origin", process.env.APP_URL || "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
+
   // ── Leads ──────────────────────────────────────────────────────────
   if (resource === "leads") {
-    if (!requireAuth(req, res, "leads")) return;
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) {
+      return json(res, { error: "Rate limit excedido" }, 429);
+    }
 
     if (req.method === "GET") {
       const id = req.query.id as string | undefined;
@@ -122,28 +139,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : "Lead descartado não pode ser convertido";
           return json(res, { error: message, reason: result.reason }, status);
         }
-        const user = requireAuth(req, res, "leads");
-        if (user) {
-          auditCreate(
-            { userId: user.id, userName: user.name, userRole: user.role },
-            "lead" as AuditEntityType,
-            result.opportunity as unknown as Record<string, unknown>,
-          );
-        }
+        auditCreate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "lead" as AuditEntityType,
+          result.opportunity as unknown as Record<string, unknown>,
+        );
         return json(res, result, 201);
       }
 
       const input = parseLeadCreate(body);
       if (!input.ok) return json(res, { error: input.error }, 400);
       const lead = await createLead(input.data);
-      const user = requireAuth(req, res, "leads");
-      if (user) {
-        auditCreate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "lead" as AuditEntityType,
-          lead as unknown as Record<string, unknown>,
-        );
-      }
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead" as AuditEntityType,
+        lead as unknown as Record<string, unknown>,
+      );
       return json(res, lead, 201);
     }
 
@@ -156,17 +167,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!before) return json(res, { error: "Lead não encontrado" }, 404);
       const lead = await updateLead(id, patch.data);
       if (!lead) return json(res, { error: "Lead não encontrado" }, 404);
-      const user = requireAuth(req, res, "leads");
-      if (user) {
-        auditUpdate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "lead" as AuditEntityType,
-          id,
-          lead.name,
-          before as unknown as Record<string, unknown>,
-          lead as unknown as Record<string, unknown>,
-        );
-      }
+      auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead" as AuditEntityType,
+        id,
+        lead.name,
+        before as unknown as Record<string, unknown>,
+        lead as unknown as Record<string, unknown>,
+      );
       return json(res, lead);
     }
 
@@ -177,14 +185,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!lead) return json(res, { error: "Lead não encontrado" }, 404);
       const { deleteLead } = await import("../_lib/data-service.js");
       await deleteLead(id);
-      const user = requireAuth(req, res, "leads");
-      if (user) {
-        auditDelete(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "lead" as AuditEntityType,
-          lead as unknown as Record<string, unknown>,
-        );
-      }
+      auditDelete(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead" as AuditEntityType,
+        lead as unknown as Record<string, unknown>,
+      );
       return json(res, { ok: true });
     }
 
@@ -193,7 +198,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Accounts ───────────────────────────────────────────────────────
   if (resource === "accounts") {
-    if (!requireAuth(req, res, "accounts")) return;
+    const user = requireAuth(req, res, "accounts");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) {
+      return json(res, { error: "Rate limit excedido" }, 429);
+    }
 
     if (req.method === "GET") {
       const id = req.query.id as string | undefined;
@@ -217,14 +229,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!input.ok) return json(res, { error: input.error }, 400);
       const { createAccount } = await import("../_lib/data-service.js");
       const account = await createAccount(input.data as Parameters<typeof createAccount>[0]);
-      const user = requireAuth(req, res, "accounts");
-      if (user) {
-        auditCreate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "account" as AuditEntityType,
-          account as unknown as Record<string, unknown>,
-        );
-      }
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "account" as AuditEntityType,
+        account as unknown as Record<string, unknown>,
+      );
       return json(res, account, 201);
     }
 
@@ -239,17 +248,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { updateAccount } = await import("../_lib/data-service.js");
       const account = await updateAccount(id, input.data as Record<string, unknown>);
       if (!account) return json(res, { error: "Conta não encontrada" }, 404);
-      const user = requireAuth(req, res, "accounts");
-      if (user) {
-        auditUpdate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "account" as AuditEntityType,
-          id,
-          account.name,
-          before as unknown as Record<string, unknown>,
-          account as unknown as Record<string, unknown>,
-        );
-      }
+      auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "account" as AuditEntityType,
+        id,
+        account.name,
+        before as unknown as Record<string, unknown>,
+        account as unknown as Record<string, unknown>,
+      );
       return json(res, account);
     }
 
@@ -260,14 +266,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!account) return json(res, { error: "Conta não encontrada" }, 404);
       const { deleteAccount } = await import("../_lib/data-service.js");
       await deleteAccount(id);
-      const user = requireAuth(req, res, "accounts");
-      if (user) {
-        auditDelete(
-          { userId: user.id, userName: user.name, userRole: user.role },
+      auditDelete(
+        { userId: user.id, userName: user.name, userRole: user.role },
           "account" as AuditEntityType,
           account as unknown as Record<string, unknown>,
         );
-      }
       return json(res, { ok: true });
     }
 
@@ -276,7 +279,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Opportunities ──────────────────────────────────────────────────
   if (resource === "opportunities") {
-    if (!requireAuth(req, res, "opportunities")) return;
+    const user = requireAuth(req, res, "opportunities");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) {
+      return json(res, { error: "Rate limit excedido" }, 429);
+    }
 
     if (req.method === "GET") {
       const id = req.query.id as string | undefined;
@@ -294,14 +304,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!input.ok) return json(res, { error: input.error }, 400);
       const { createOpportunity } = await import("../_lib/data-service.js");
       const opp = await createOpportunity(input.data as Parameters<typeof createOpportunity>[0]);
-      const user = requireAuth(req, res, "opportunities");
-      if (user) {
-        auditCreate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "opportunity" as AuditEntityType,
-          opp as unknown as Record<string, unknown>,
-        );
-      }
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "opportunity" as AuditEntityType,
+        opp as unknown as Record<string, unknown>,
+      );
       return json(res, opp, 201);
     }
 
@@ -314,17 +321,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!before) return json(res, { error: "Oportunidade não encontrada" }, 404);
       const opp = await updateOpportunity(id, patch.data);
       if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
-      const user = requireAuth(req, res, "opportunities");
-      if (user) {
-        auditUpdate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "opportunity" as AuditEntityType,
-          id,
-          opp.title,
-          before as unknown as Record<string, unknown>,
-          opp as unknown as Record<string, unknown>,
-        );
-      }
+      auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "opportunity" as AuditEntityType,
+        id,
+        opp.title,
+        before as unknown as Record<string, unknown>,
+        opp as unknown as Record<string, unknown>,
+      );
       return json(res, opp);
     }
 
@@ -335,14 +339,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
       const { deleteOpportunity } = await import("../_lib/data-service.js");
       await deleteOpportunity(id);
-      const user = requireAuth(req, res, "opportunities");
-      if (user) {
-        auditDelete(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "opportunity" as AuditEntityType,
-          opp as unknown as Record<string, unknown>,
-        );
-      }
+      auditDelete(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "opportunity" as AuditEntityType,
+        opp as unknown as Record<string, unknown>,
+      );
       return json(res, { ok: true });
     }
 
@@ -351,7 +352,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Matters ────────────────────────────────────────────────────────
   if (resource === "matters") {
-    if (!requireAuth(req, res, "matters")) return;
+    const user = requireAuth(req, res, "matters");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) {
+      return json(res, { error: "Rate limit excedido" }, 429);
+    }
 
     if (req.method === "GET") {
       const id = req.query.id as string | undefined;
@@ -373,14 +381,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!input.ok) return json(res, { error: input.error }, 400);
       const { createMatter } = await import("../_lib/data-service.js");
       const matter = await createMatter(input.data as Parameters<typeof createMatter>[0]);
-      const user = requireAuth(req, res, "matters");
-      if (user) {
-        auditCreate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "matter" as AuditEntityType,
-          matter as unknown as Record<string, unknown>,
-        );
-      }
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "matter" as AuditEntityType,
+        matter as unknown as Record<string, unknown>,
+      );
       return json(res, matter, 201);
     }
 
@@ -393,17 +398,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!before) return json(res, { error: "Demanda não encontrada" }, 404);
       const matter = await updateMatter(id, patch.data);
       if (!matter) return json(res, { error: "Demanda não encontrada" }, 404);
-      const user = requireAuth(req, res, "matters");
-      if (user) {
-        auditUpdate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "matter" as AuditEntityType,
-          id,
-          matter.title,
-          before as unknown as Record<string, unknown>,
-          matter as unknown as Record<string, unknown>,
-        );
-      }
+      auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "matter" as AuditEntityType,
+        id,
+        matter.title,
+        before as unknown as Record<string, unknown>,
+        matter as unknown as Record<string, unknown>,
+      );
       return json(res, matter);
     }
 
@@ -414,14 +416,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!matter) return json(res, { error: "Demanda não encontrada" }, 404);
       const { deleteMatter } = await import("../_lib/data-service.js");
       await deleteMatter(id);
-      const user = requireAuth(req, res, "matters");
-      if (user) {
-        auditDelete(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "matter" as AuditEntityType,
-          matter as unknown as Record<string, unknown>,
-        );
-      }
+      auditDelete(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "matter" as AuditEntityType,
+        matter as unknown as Record<string, unknown>,
+      );
       return json(res, { ok: true });
     }
 
@@ -430,7 +429,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Tasks ──────────────────────────────────────────────────────────
   if (resource === "tasks") {
-    if (!requireAuth(req, res, "tasks")) return;
+    const user = requireAuth(req, res, "tasks");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) {
+      return json(res, { error: "Rate limit excedido" }, 429);
+    }
 
     if (req.method === "GET") {
       const id = req.query.id as string | undefined;
@@ -452,14 +458,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!input.ok) return json(res, { error: input.error }, 400);
       const { createTask } = await import("../_lib/data-service.js");
       const task = await createTask(input.data as Parameters<typeof createTask>[0]);
-      const user = requireAuth(req, res, "tasks");
-      if (user) {
-        auditCreate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "task" as AuditEntityType,
-          task as unknown as Record<string, unknown>,
-        );
-      }
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "task" as AuditEntityType,
+        task as unknown as Record<string, unknown>,
+      );
       return json(res, task, 201);
     }
 
@@ -474,17 +477,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { updateTask } = await import("../_lib/data-service.js");
       const task = await updateTask(id, input.data as Record<string, unknown>);
       if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
-      const user = requireAuth(req, res, "tasks");
-      if (user) {
-        auditUpdate(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "task" as AuditEntityType,
-          id,
-          task.title,
-          before as unknown as Record<string, unknown>,
-          task as unknown as Record<string, unknown>,
-        );
-      }
+      auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "task" as AuditEntityType,
+        id,
+        task.title,
+        before as unknown as Record<string, unknown>,
+        task as unknown as Record<string, unknown>,
+      );
       return json(res, task);
     }
 
@@ -495,14 +495,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
       const { deleteTask } = await import("../_lib/data-service.js");
       await deleteTask(id);
-      const user = requireAuth(req, res, "tasks");
-      if (user) {
-        auditDelete(
-          { userId: user.id, userName: user.name, userRole: user.role },
-          "task" as AuditEntityType,
-          task as unknown as Record<string, unknown>,
-        );
-      }
+      auditDelete(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "task" as AuditEntityType,
+        task as unknown as Record<string, unknown>,
+      );
       return json(res, { ok: true });
     }
 
@@ -511,7 +508,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Deadlines ──────────────────────────────────────────────────────
   if (resource === "deadlines") {
-    if (!requireAuth(req, res, "deadlines")) return;
+    const user = requireAuth(req, res, "deadlines");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) {
+      return json(res, { error: "Rate limit excedido" }, 429);
+    }
 
     if (req.method === "GET") {
       const matterId = req.query.matterId as string | undefined;

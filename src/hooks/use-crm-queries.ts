@@ -71,6 +71,17 @@ export function useCreateLead() {
   });
 }
 
+export function useCreateAccount() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: agroApi.createAccount,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.accounts });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
 export function useAccounts(params: AccountListParams = { facets: true }) {
   return useQuery({
     queryKey: [...crmKeys.accounts, params],
@@ -101,6 +112,17 @@ export function useOpportunity(id: string) {
   });
 }
 
+export function useCreateOpportunity() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: agroApi.createOpportunity,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.opportunities });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
 export function useMatters(params: MatterListParams = { facets: true }) {
   return useQuery({
     queryKey: [...crmKeys.matters, params],
@@ -116,10 +138,32 @@ export function useMatter(id: string) {
   });
 }
 
+export function useCreateMatter() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: agroApi.createMatter,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.matters });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
 export function useTasks(params: TaskListParams = { facets: true }) {
   return useQuery({
     queryKey: [...crmKeys.tasks, params],
     queryFn: () => agroApi.tasks(params),
+  });
+}
+
+export function useCreateTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: agroApi.createTask,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.tasks });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
   });
 }
 
