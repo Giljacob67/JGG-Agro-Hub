@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { authenticate, resolveSession } from "../_lib/auth-server.js";
+import { generateCsrfToken, validateCsrfToken, getSessionId } from "../_lib/csrf.js";
 import {
   buildSsoAuthorizeUrl,
   decodeStateWithNonce,
@@ -66,7 +67,12 @@ async function login(req: VercelRequest, res: VercelResponse) {
 
   await clearLoginRateLimit(req, normalizedEmail);
   setSessionCookie(res, result.token);
-  return json(res, { user: result.user });
+
+  // Generate CSRF token
+  const csrfToken = generateCsrfToken(result.token);
+  res.setHeader("Set-Cookie", `agro_csrf=${csrfToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=3600`);
+
+  return json(res, { user: result.user, csrfToken });
 }
 
 function me(req: VercelRequest, res: VercelResponse) {

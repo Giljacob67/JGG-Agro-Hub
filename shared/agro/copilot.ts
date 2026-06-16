@@ -54,6 +54,11 @@ export const COPILOT_PROMPTS: CopilotPrompt[] = [
     text: "Quais demandas ambientais precisam de atenção?",
   },
   {
+    id: "lead-suggestions",
+    label: "Sugerir leads",
+    text: "Analise os dados do CRM e sugira novos leads ou abordagens para prospectação baseadas em padrões de sucesso e oportunidades identificadas.",
+  },
+  {
     id: "execucao-ccb",
     label: "Defesa em execução de CCB",
     text: "Como defender produtor rural em execução de CCB com alienação fiduciária?",

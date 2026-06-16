@@ -6,6 +6,7 @@ import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { CreateOpportunityForm } from "@/components/crm/create-opportunity-form";
+import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -99,7 +100,10 @@ export default function CrmOpportunitiesPage() {
               {formatBrl(totalValue)}
             </p>
           </div>
-          <CreateOpportunityForm />
+          <div className="flex gap-2">
+            <ExportCsvButton resource="opportunities" />
+            <CreateOpportunityForm />
+          </div>
         </header>
         <CrmFilters
           search={search}

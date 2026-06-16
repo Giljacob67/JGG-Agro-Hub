@@ -35,7 +35,7 @@ import {
   parseMatterListQuery,
   parseTaskListQuery,
 } from "../_lib/list-query.js";
-import { json, methodNotAllowed, requireAuth } from "../_lib/http.js";
+import { json, methodNotAllowed, requireAuth, requireCsrf } from "../_lib/http.js";
 import { checkUserRateLimit, getRateLimitHeaders } from "../_lib/rate-limit.js";
 import {
   getBody,
@@ -62,11 +62,11 @@ import { auditCreate, auditUpdate, auditDelete, type AuditEntityType } from "../
  * para respeitar o limite de 12 functions do plano Hobby da Vercel.
  *
  * Rotas:
- * /api/agro/leads?...         (leads, lead by id, convert lead)
- * /api/agro/accounts?...      (accounts, account by id, timeline)
- * /api/agro/opportunities?... (opportunities, opportunity by id)
- * /api/agro/matters?...       (matters, matter by id, by opportunity)
- * /api/agro/tasks?...         (tasks, task by id, related tasks)
+ * /api/agro/leads?...         (leads, lead by id, convert lead, export csv)
+ * /api/agro/accounts?...      (accounts, account by id, timeline, export csv)
+ * /api/agro/opportunities?... (opportunities, opportunity by id, export csv)
+ * /api/agro/matters?...       (matters, matter by id, by opportunity, export csv)
+ * /api/agro/tasks?...         (tasks, task by id, related tasks, export csv)
  * /api/agro/deadlines?...     (deadlines)
  * /api/agro/activities?...    (activities)
  * /api/agro/stats             (CRM stats)
@@ -83,6 +83,27 @@ function getResource(req: VercelRequest): string | undefined {
   return clean || undefined;
 }
 
+// ── CSV helpers ────────────────────────────────────────────────────
+
+function toCsvValue(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  const str = String(val);
+  if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function arrayToCsv(rows: Record<string, unknown>[]): string {
+  if (rows.length === 0) return "";
+  const headers = Object.keys(rows[0]);
+  const lines = [
+    headers.join(","),
+    ...rows.map((row) => headers.map((h) => toCsvValue(row[h])).join(",")),
+  ];
+  return lines.join("\n");
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const resource = getResource(req);
 
@@ -93,11 +114,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── CORS headers ──────────────────────────────────────────────────
   res.setHeader("Access-Control-Allow-Origin", process.env.APP_URL || "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token");
   res.setHeader("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") {
     return res.status(204).end();
   }
+
+  // ── CSRF validation for write requests ────────────────────────────
+  if (!requireCsrf(req, res)) return;
 
   // ── Leads ──────────────────────────────────────────────────────────
   if (resource === "leads") {
@@ -117,6 +141,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!lead) return json(res, { error: "Lead não encontrado" }, 404);
         return json(res, lead);
       }
+
+      // CSV export
+      if (req.query.export === "csv") {
+        const result = await listLeads(parseLeadListQuery(req));
+        const csv = arrayToCsv(result.items.map((l) => ({
+          id: l.id,
+          name: l.name,
+          contact: l.contact,
+          region: l.region,
+          crop: l.crop,
+          status: l.status,
+          priority: l.priority,
+          source: l.source,
+          owner: l.owner,
+          createdAt: l.createdAt,
+          nextContact: l.nextContact,
+        })));
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="leads-${new Date().toISOString().slice(0, 10)}.csv"`);
+        return res.send(csv);
+      }
+
       return json(res, await listLeads(parseLeadListQuery(req)));
     }
 
@@ -220,6 +266,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
         return json(res, account);
       }
+
+      // CSV export
+      if (req.query.export === "csv") {
+        const result = await listAccounts(parseAccountListQuery(req));
+        const csv = arrayToCsv(result.items.map((a) => ({
+          id: a.id,
+          name: a.name,
+          type: a.type,
+          region: a.region,
+          mainCrop: a.mainCrop,
+          owner: a.owner,
+          areaHa: a.areaHa,
+          activeMatters: a.activeMatters,
+          activeOpportunities: a.activeOpportunities,
+          since: a.since,
+        })));
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="contas-${new Date().toISOString().slice(0, 10)}.csv"`);
+        return res.send(csv);
+      }
+
       return json(res, await listAccounts(parseAccountListQuery(req)));
     }
 
@@ -295,6 +362,27 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
         return json(res, opp);
       }
+
+      // CSV export
+      if (req.query.export === "csv") {
+        const result = await listOpportunities(parseOpportunityListQuery(req));
+        const csv = arrayToCsv(result.items.map((o) => ({
+          id: o.id,
+          title: o.title,
+          accountName: o.accountName,
+          stage: o.stage,
+          priority: o.priority,
+          valueBrl: o.valueBrl,
+          owner: o.owner,
+          practice: o.practice,
+          expectedClose: o.expectedClose,
+          nextContact: o.nextContact,
+        })));
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="oportunidades-${new Date().toISOString().slice(0, 10)}.csv"`);
+        return res.send(csv);
+      }
+
       return json(res, await listOpportunities(parseOpportunityListQuery(req)));
     }
 
@@ -372,6 +460,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (opportunityId) {
         return json(res, await getMattersByOpportunity(opportunityId));
       }
+
+      // CSV export
+      if (req.query.export === "csv") {
+        const result = await listMatters(parseMatterListQuery(req));
+        const csv = arrayToCsv(result.items.map((m) => ({
+          id: m.id,
+          title: m.title,
+          accountName: m.accountName,
+          status: m.status,
+          risk: m.risk,
+          cnjNumber: m.cnjNumber,
+          court: m.court,
+          opposingParty: m.opposingParty,
+          claimValueBrl: m.claimValueBrl,
+          owner: m.owner,
+          deadline: m.deadline,
+        })));
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="demandas-${new Date().toISOString().slice(0, 10)}.csv"`);
+        return res.send(csv);
+      }
+
       return json(res, await listMatters(parseMatterListQuery(req)));
     }
 
@@ -449,6 +559,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
         return json(res, task);
       }
+
+      // CSV export
+      if (req.query.export === "csv") {
+        const result = await listTasks(parseTaskListQuery(req));
+        const csv = arrayToCsv(result.items.map((t) => ({
+          id: t.id,
+          title: t.title,
+          status: t.status,
+          priority: t.priority,
+          owner: t.owner,
+          dueDate: t.dueDate,
+          relatedTo: t.relatedTo,
+          type: t.type,
+        })));
+        res.setHeader("Content-Type", "text/csv; charset=utf-8");
+        res.setHeader("Content-Disposition", `attachment; filename="tarefas-${new Date().toISOString().slice(0, 10)}.csv"`);
+        return res.send(csv);
+      }
+
       return json(res, await listTasks(parseTaskListQuery(req)));
     }
 

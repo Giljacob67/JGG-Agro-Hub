@@ -31,11 +31,29 @@ function shouldUseLocalApi() {
   return import.meta.env.DEV && import.meta.env.VITE_USE_API !== "true";
 }
 
+// CSRF token management
+let csrfToken: string | null = null;
+
+export function setCsrfToken(token: string | null) {
+  csrfToken = token;
+}
+
+function getCsrfToken(): string | null {
+  return csrfToken;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const method = init?.method?.toUpperCase() || "GET";
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...(init?.headers as Record<string, string>),
   };
+
+  // Add CSRF token for write requests
+  if (method !== "GET" && method !== "OPTIONS" && method !== "HEAD") {
+    const token = getCsrfToken();
+    if (token) headers["X-CSRF-Token"] = token;
+  }
 
   if (shouldUseLocalApi()) {
     const token = getAuthToken();
@@ -66,11 +84,12 @@ export class ApiError extends Error {
 
 export const agroApi = {
   login: (email: string, password: string) =>
-    request<{ token?: string; user: import("@shared/agro/types").AgroUser }>(
+    request<{ token?: string; user: import("@shared/agro/types").AgroUser; csrfToken?: string }>(
       "/api/auth/login",
       { method: "POST", body: JSON.stringify({ email, password }) },
     ).then((res) => {
       clearLegacyAuthToken();
+      if (res.csrfToken) setCsrfToken(res.csrfToken);
       return res;
     }),
 
@@ -469,4 +488,14 @@ export const agroApi = {
       nome: string;
       Situacao: string;
     }>(`/api/agro/lookup?type=cpf&document=${encodeURIComponent(cpf)}`),
+
+  // ── CSV Export ──────────────────────────────────────────────────
+
+  exportCsv: (resource: "leads" | "accounts" | "opportunities" | "matters" | "tasks") => {
+    window.open(`/api/agro/${resource}?export=csv`, "_blank");
+  },
+
+  exportAuditCsv: () => {
+    window.open("/api/agro/audit?action=export", "_blank");
+  },
 };

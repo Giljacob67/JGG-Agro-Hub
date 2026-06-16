@@ -1,11 +1,14 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { resolveSession, roleCanAccess } from "./auth-server.js";
+import { validateCsrfToken, getSessionId } from "./csrf.js";
 import type { AgroUser } from "../../shared/agro/types.js";
 
 const DEV_SESSION_COOKIE = "agro_session";
 const PROD_SESSION_COOKIE = "__Host-agro_session";
 const OAUTH_STATE_COOKIE = "agro_oauth_state";
 const OAUTH_PKCE_COOKIE = "agro_oauth_pkce";
+const DEV_CSRF_COOKIE = "agro_csrf";
+const PROD_CSRF_COOKIE = "__Host-agro_csrf";
 
 function parseCookies(header: string | undefined): Record<string, string> {
   if (!header) return {};
@@ -25,8 +28,48 @@ function sessionCookieName(): string {
   return process.env.VERCEL_ENV === "production" ? PROD_SESSION_COOKIE : DEV_SESSION_COOKIE;
 }
 
+function csrfCookieName(): string {
+  return process.env.VERCEL_ENV === "production" ? PROD_CSRF_COOKIE : DEV_CSRF_COOKIE;
+}
+
 export function getToken(req: VercelRequest): string | undefined {
   return parseCookies(req.headers.cookie)[sessionCookieName()];
+}
+
+function getCsrfCookie(req: VercelRequest): string | undefined {
+  return parseCookies(req.headers.cookie)[csrfCookieName()];
+}
+
+/**
+ * Validate CSRF token for write requests (POST, PATCH, DELETE).
+ * Returns true if valid, false if invalid (and sends 403 response).
+ */
+export function requireCsrf(req: VercelRequest, res: VercelResponse): boolean {
+  // Only validate on write methods
+  if (req.method === "GET" || req.method === "OPTIONS" || req.method === "HEAD") {
+    return true;
+  }
+
+  const sessionToken = getToken(req);
+  const csrfHeader = req.headers["x-csrf-token"] as string | undefined;
+  const csrfCookie = getCsrfCookie(req);
+
+  // If no session, let requireAuth handle it
+  if (!sessionToken) return true;
+
+  // CSRF token can come from header or cookie
+  const csrfToken = csrfHeader || csrfCookie;
+  if (!csrfToken) {
+    res.status(403).json({ error: "CSRF token ausente" });
+    return false;
+  }
+
+  if (!validateCsrfToken(sessionToken, csrfToken)) {
+    res.status(403).json({ error: "CSRF token inválido" });
+    return false;
+  }
+
+  return true;
 }
 
 function cookieBase() {

@@ -1,11 +1,12 @@
 /**
- * Email integration service.
- * Provides email sending (SMTP) and receiving (IMAP) capabilities.
+ * Email integration service using Resend API.
  *
- * In production, configure with:
- * - SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
- * - IMAP_HOST, IMAP_PORT, IMAP_USER, IMAP_PASS
+ * Configure with environment variable:
+ * - RESEND_API_KEY: Your Resend API key
+ * - SMTP_FROM: Sender email (must be verified in Resend)
  */
+
+import { Resend } from "resend";
 
 // ── Types ──────────────────────────────────────────────────────────
 
@@ -18,55 +19,20 @@ export interface EmailMessage {
   subject: string;
   body: string;
   html?: string;
-  attachments?: EmailAttachment[];
   createdAt: string;
   folder?: string;
 }
 
-export interface EmailAttachment {
-  filename: string;
-  content: Buffer;
-  contentType: string;
-}
-
-export interface EmailConfig {
-  smtpHost: string;
-  smtpPort: number;
-  smtpUser: string;
-  smtpPass: string;
-  smtpFrom: string;
-  imapHost: string;
-  imapPort: number;
-  imapUser: string;
-  imapPass: string;
-}
-
 // ── Configuration ──────────────────────────────────────────────────
 
-function getEmailConfig(): EmailConfig | null {
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = process.env.SMTP_PORT;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const smtpFrom = process.env.SMTP_FROM;
-  const imapHost = process.env.IMAP_HOST;
-  const imapPort = process.env.IMAP_PORT;
-  const imapUser = process.env.IMAP_USER;
-  const imapPass = process.env.IMAP_PASS;
+function getResendClient(): Resend | null {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+  return new Resend(apiKey);
+}
 
-  if (!smtpHost || !smtpUser || !smtpPass) return null;
-
-  return {
-    smtpHost,
-    smtpPort: Number(smtpPort) || 587,
-    smtpUser,
-    smtpPass,
-    smtpFrom: smtpFrom || smtpUser,
-    imapHost: imapHost || "",
-    imapPort: Number(imapPort) || 993,
-    imapUser: imapUser || "",
-    imapPass: imapPass || "",
-  };
+function getFromEmail(): string {
+  return process.env.SMTP_FROM || "noreply@jgggroup.com.br";
 }
 
 // ── Public API ─────────────────────────────────────────────────────
@@ -75,13 +41,11 @@ function getEmailConfig(): EmailConfig | null {
  * Check if email is configured.
  */
 export function isEmailConfigured(): boolean {
-  return getEmailConfig() !== null;
+  return getResendClient() !== null;
 }
 
 /**
- * Send an email via SMTP.
- * Note: In Vercel Serverless, direct SMTP may not work.
- * Consider using a transactional email service (SendGrid, Resend, etc.)
+ * Send an email via Resend API.
  */
 export async function sendEmail(options: {
   to: string | string[];
@@ -90,69 +54,74 @@ export async function sendEmail(options: {
   html?: string;
   cc?: string[];
   bcc?: string[];
+  replyTo?: string;
 }): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const config = getEmailConfig();
-  if (!config) {
-    return { success: false, error: "Email não configurado" };
+  const resend = getResendClient();
+  if (!resend) {
+    return { success: false, error: "RESEND_API_KEY não configurado" };
   }
 
-  // In production, use a proper SMTP library like nodemailer
-  // For now, we'll log the email and return success
-  console.log("[Email] Sending:", {
-    from: config.smtpFrom,
+  const to = Array.isArray(options.to) ? options.to : [options.to];
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: getFromEmail(),
+      to,
+      subject: options.subject,
+      text: options.text,
+      html: options.html,
+      replyTo: options.replyTo,
+    });
+
+    if (error) {
+      return { success: false, error: error.message };
+    }
+
+    return {
+      success: true,
+      messageId: data?.id,
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : "Erro desconhecido ao enviar email",
+    };
+  }
+}
+
+/**
+ * Send a notification email about CRM events (lead created, task due, etc.)
+ */
+export async function sendCrmNotification(options: {
+  to: string | string[];
+  event: string;
+  title: string;
+  description: string;
+  url?: string;
+}): Promise<{ success: boolean; error?: string }> {
+  const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+      <div style="background: #1a1a2e; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+        <h1 style="margin: 0; font-size: 18px;">JGG Agro Hub</h1>
+        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.8;">${options.event}</p>
+      </div>
+      <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef; border-top: none; border-radius: 0 0 8px 8px;">
+        <h2 style="margin: 0 0 12px; font-size: 16px; color: #1a1a2e;">${options.title}</h2>
+        <p style="margin: 0 0 16px; color: #495057; font-size: 14px; line-height: 1.5;">${options.description}</p>
+        ${options.url ? `<a href="${options.url}" style="display: inline-block; background: #1a1a2e; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Ver detalhes</a>` : ""}
+      </div>
+      <div style="padding: 12px 20px; text-align: center; font-size: 11px; color: #6c757d;">
+        JGG Agro Hub — CRM Jurídico Agrícola
+      </div>
+    </div>
+  `;
+
+  return sendEmail({
     to: options.to,
-    subject: options.subject,
-    text: options.text,
-    timestamp: new Date().toISOString(),
+    subject: `[JGG Agro] ${options.event}: ${options.title}`,
+    text: `${options.event}: ${options.title}\n${options.description}\n${options.url || ""}`,
+    html,
   });
-
-  // TODO: Integrate with nodemailer or transactional email service
-  // const nodemailer = await import("nodemailer");
-  // const transporter = nodemailer.createTransport({ ... });
-  // const result = await transporter.sendMail({ ... });
-
-  return {
-    success: true,
-    messageId: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-  };
-}
-
-/**
- * Fetch emails from inbox (IMAP).
- * Note: Requires imap library and persistent connection.
- */
-export async function fetchEmails(options?: {
-  folder?: string;
-  limit?: number;
-  since?: string;
-}): Promise<EmailMessage[]> {
-  const config = getEmailConfig();
-  if (!config || !config.imapHost) {
-    return [];
-  }
-
-  // TODO: Integrate with imap library
-  // For now, return empty array
-  console.log("[Email] Fetch:", {
-    folder: options?.folder ?? "INBOX",
-    limit: options?.limit ?? 50,
-    since: options?.since,
-  });
-
-  return [];
-}
-
-/**
- * Get email folders/mailboxes.
- */
-export async function getEmailFolders(): Promise<string[]> {
-  const config = getEmailConfig();
-  if (!config || !config.imapHost) {
-    return [];
-  }
-
-  // TODO: Integrate with imap library
-  return ["INBOX", "Sent", "Drafts", "Trash"];
 }
 
 /**
@@ -160,17 +129,30 @@ export async function getEmailFolders(): Promise<string[]> {
  */
 export function getEmailStatus(): {
   configured: boolean;
-  smtp: boolean;
-  imap: boolean;
+  provider: string;
 } {
-  const config = getEmailConfig();
-  if (!config) {
-    return { configured: false, smtp: false, imap: false };
-  }
-
+  const resend = getResendClient();
   return {
-    configured: true,
-    smtp: true,
-    imap: !!config.imapHost,
+    configured: resend !== null,
+    provider: resend ? "Resend" : "Nenhum",
   };
+}
+
+/**
+ * Fetch emails (stub - Resend doesn't support IMAP).
+ */
+export async function fetchEmails(options?: {
+  folder?: string;
+  limit?: number;
+  since?: string;
+}): Promise<EmailMessage[]> {
+  // Resend is send-only; for inbox you'd need a separate IMAP provider
+  return [];
+}
+
+/**
+ * Get email folders (stub).
+ */
+export async function getEmailFolders(): Promise<string[]> {
+  return ["INBOX", "Sent", "Drafts", "Trash"];
 }

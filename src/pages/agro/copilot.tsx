@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { AlertTriangle, Sparkles } from "lucide-react";
+import { AlertTriangle, Sparkles, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CopilotPromptBox } from "@/components/copilot/copilot-prompt-box";
 import { CopilotResponseCard } from "@/components/copilot/copilot-response-card";
 import { CopilotSuggestedPrompts } from "@/components/copilot/copilot-suggested-prompts";
 import { CrmLoadingState } from "@/components/crm/loading-state";
+import { Button } from "@/components/ui/button";
 import { useCopilotQuery } from "@/hooks/use-copilot";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmStats } from "@/hooks/use-crm-queries";
@@ -17,12 +18,18 @@ import {
 } from "@shared/agro/copilot";
 import type { CopilotContextEntity, CopilotPrompt, CopilotResponse } from "@shared/agro/types";
 
+interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
 export default function AgroCopilotPage() {
   usePageTitle("Agro Copilot");
   const [location] = useLocation();
   const { data: stats, isLoading: statsLoading } = useCrmStats();
   const copilot = useCopilotQuery();
   const [responses, setResponses] = useState<CopilotResponse[]>([]);
+  const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
 
   const urlPrompt = useMemo(() => {
     const params = new URLSearchParams(location.split("?")[1] ?? "");
@@ -32,12 +39,26 @@ export default function AgroCopilotPage() {
   const contextOptions = stats ? buildCopilotContextOptions(stats) : [];
 
   async function runQuery(query: string, contextEntity: CopilotContextEntity | null) {
-    const result = await copilot.mutateAsync({ query, contextEntity });
+    const result = await copilot.mutateAsync({
+      query,
+      contextEntity,
+      history: conversationHistory,
+    });
     setResponses((prev) => [result, ...prev]);
+    setConversationHistory((prev) => [
+      ...prev,
+      { role: "user", content: query },
+      { role: "assistant", content: result.synthesis },
+    ]);
   }
 
   function handlePromptSelect(prompt: CopilotPrompt) {
     void runQuery(prompt.text, null);
+  }
+
+  function clearHistory() {
+    setConversationHistory([]);
+    setResponses([]);
   }
 
   if (statsLoading) {
@@ -107,7 +128,20 @@ export default function AgroCopilotPage() {
           </div>
 
           <div className="lg:col-span-3 space-y-4">
-            <p className="text-label-caps">Análises geradas</p>
+            <div className="flex items-center justify-between">
+              <p className="text-label-caps">Análises geradas</p>
+              {responses.length > 0 && (
+                <Button variant="ghost" size="sm" onClick={clearHistory}>
+                  <Trash2 className="w-3.5 h-3.5 mr-1" />
+                  Limpar histórico
+                </Button>
+              )}
+            </div>
+            {conversationHistory.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                {conversationHistory.length / 2} mensagem(ns) no histórico
+              </p>
+            )}
             {responses.length === 0 ? (
               <div className="surface-panel p-8 text-center border-dashed">
                 <p className="text-sm text-muted-foreground">

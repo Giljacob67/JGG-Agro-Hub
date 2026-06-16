@@ -6,6 +6,7 @@ import { CrmLoadingState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { CreateTaskForm } from "@/components/crm/create-task-form";
+import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
@@ -87,7 +88,10 @@ export default function CrmTasksPage() {
               Ações do time — comercial, jurídica e operacional.
             </p>
           </div>
-          <CreateTaskForm />
+          <div className="flex gap-2">
+            <ExportCsvButton resource="tasks" />
+            <CreateTaskForm />
+          </div>
         </header>
         <CrmFilters
           search={search}

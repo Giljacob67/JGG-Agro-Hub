@@ -7,6 +7,7 @@ import { CrmLoadingState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { CreateAccountForm } from "@/components/crm/create-account-form";
+import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
@@ -66,7 +67,10 @@ export default function CrmAccountsPage() {
               Carteira ativa do JGG Group — produtores, cooperativas e operações.
             </p>
           </div>
-          <CreateAccountForm />
+          <div className="flex gap-2">
+            <ExportCsvButton resource="accounts" />
+            <CreateAccountForm />
+          </div>
         </header>
         <CrmFilters
           search={search}

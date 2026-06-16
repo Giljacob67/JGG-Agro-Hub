@@ -7,6 +7,7 @@ import { CrmLoadingState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { CreateMatterForm } from "@/components/crm/create-matter-form";
+import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
@@ -86,7 +87,10 @@ export default function CrmMattersPage() {
               Matters em aberto — prazos, riscos e status operacional.
             </p>
           </div>
-          <CreateMatterForm />
+          <div className="flex gap-2">
+            <ExportCsvButton resource="matters" />
+            <CreateMatterForm />
+          </div>
         </header>
         <CrmFilters
           search={search}
