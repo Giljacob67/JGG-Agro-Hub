@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Plus } from "lucide-react";
+import { Plus, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useAuth } from "@/contexts/use-auth";
 import { useCreateLead } from "@/hooks/use-crm-queries";
 import { ROUTES } from "@/lib/routes";
+import { CnpjLookup } from "./cnpj-lookup";
 
 export function CreateLeadForm() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const createLead = useCreateLead();
   const [open, setOpen] = useState(false);
+  const [showCnpj, setShowCnpj] = useState(false);
   const [form, setForm] = useState({
     name: "",
     contact: "",
@@ -43,6 +45,22 @@ export function CreateLeadForm() {
     navigate(ROUTES.crm.leadDetail(lead.id));
   }
 
+  function handleCnpjFill(data: {
+    name: string;
+    contact?: string;
+    region?: string;
+    notes?: string;
+  }) {
+    setForm((f) => ({
+      ...f,
+      name: data.name || f.name,
+      contact: data.contact || f.contact,
+      region: data.region || f.region,
+      notes: data.notes ? (f.notes ? `${f.notes}\n${data.notes}` : data.notes) : f.notes,
+    }));
+    setShowCnpj(false);
+  }
+
   if (!open) {
     return (
       <Button size="sm" onClick={() => setOpen(true)}>
@@ -54,6 +72,22 @@ export function CreateLeadForm() {
   return (
     <Card className="p-5 mb-6">
       <h2 className="text-sm font-semibold mb-4">Cadastrar lead Agro</h2>
+      <div className="mb-4">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setShowCnpj(!showCnpj)}
+        >
+          <Building2 className="w-3.5 h-3.5 mr-1" />
+          {showCnpj ? "Fechar consulta CNPJ" : "Consultar CNPJ para preencher"}
+        </Button>
+        {showCnpj && (
+          <div className="mt-3">
+            <CnpjLookup onFill={handleCnpjFill} />
+          </div>
+        )}
+      </div>
       <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="lead-name" className="text-xs text-muted-foreground">

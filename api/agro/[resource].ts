@@ -50,6 +50,7 @@ import {
   parseActivityCreate,
   isActivityEntityType,
 } from "../_lib/validation.js";
+import { auditCreate, auditUpdate, auditDelete, type AuditEntityType } from "../_lib/audit.js";
 
 /**
  * API consolidada — todas as rotas /api/agro/* em uma só Serverless Function
@@ -117,12 +118,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : "Lead descartado não pode ser convertido";
           return json(res, { error: message, reason: result.reason }, status);
         }
+        const user = requireAuth(req, res, "leads");
+        if (user) {
+          auditCreate(
+            { userId: user.id, userName: user.name, userRole: user.role },
+            "lead" as AuditEntityType,
+            result.opportunity as unknown as Record<string, unknown>,
+          );
+        }
         return json(res, result, 201);
       }
 
       const input = parseLeadCreate(body);
       if (!input.ok) return json(res, { error: input.error }, 400);
       const lead = await createLead(input.data);
+      const user = requireAuth(req, res, "leads");
+      if (user) {
+        auditCreate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "lead" as AuditEntityType,
+          lead as unknown as Record<string, unknown>,
+        );
+      }
       return json(res, lead, 201);
     }
 
@@ -131,8 +148,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const patch = parseLeadPatch(getBody(req.body));
       if (!patch.ok) return json(res, { error: patch.error }, 400);
+      const before = await getLead(id);
+      if (!before) return json(res, { error: "Lead não encontrado" }, 404);
       const lead = await updateLead(id, patch.data);
       if (!lead) return json(res, { error: "Lead não encontrado" }, 404);
+      const user = requireAuth(req, res, "leads");
+      if (user) {
+        auditUpdate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "lead" as AuditEntityType,
+          id,
+          lead.name,
+          before as unknown as Record<string, unknown>,
+          lead as unknown as Record<string, unknown>,
+        );
+      }
       return json(res, lead);
     }
 
@@ -181,8 +211,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const patch = parseOpportunityPatch(getBody(req.body));
       if (!patch.ok) return json(res, { error: patch.error }, 400);
+      const before = await getOpportunity(id);
+      if (!before) return json(res, { error: "Oportunidade não encontrada" }, 404);
       const opp = await updateOpportunity(id, patch.data);
       if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
+      const user = requireAuth(req, res, "opportunities");
+      if (user) {
+        auditUpdate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "opportunity" as AuditEntityType,
+          id,
+          opp.title,
+          before as unknown as Record<string, unknown>,
+          opp as unknown as Record<string, unknown>,
+        );
+      }
       return json(res, opp);
     }
 
@@ -212,8 +255,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const patch = parseMatterPatch(getBody(req.body));
       if (!patch.ok) return json(res, { error: patch.error }, 400);
+      const before = await getMatter(id);
+      if (!before) return json(res, { error: "Demanda não encontrada" }, 404);
       const matter = await updateMatter(id, patch.data);
       if (!matter) return json(res, { error: "Demanda não encontrada" }, 404);
+      const user = requireAuth(req, res, "matters");
+      if (user) {
+        auditUpdate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "matter" as AuditEntityType,
+          id,
+          matter.title,
+          before as unknown as Record<string, unknown>,
+          matter as unknown as Record<string, unknown>,
+        );
+      }
       return json(res, matter);
     }
 
@@ -243,8 +299,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const status = parseTaskStatusPatch(getBody(req.body));
       if (!status.ok) return json(res, { error: status.error }, 400);
+      const before = await getTask(id);
+      if (!before) return json(res, { error: "Tarefa não encontrada" }, 404);
       const task = await updateTaskStatus(id, status.data);
       if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
+      const user = requireAuth(req, res, "tasks");
+      if (user) {
+        auditUpdate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "task" as AuditEntityType,
+          id,
+          task.title,
+          before as unknown as Record<string, unknown>,
+          task as unknown as Record<string, unknown>,
+        );
+      }
       return json(res, task);
     }
 
