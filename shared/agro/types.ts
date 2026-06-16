@@ -168,6 +168,270 @@ export interface Deadline {
   deletedAt?: string | null;
 }
 
+// ── Document Management ────────────────────────────────────────────
+
+export type DocumentCategory =
+  | "contrato"
+  | "peticao"
+  | "procuracao"
+  | "comprovante"
+  | "certidao"
+  | "laudo"
+  | "parecer"
+  | "decisao"
+  | " despacho"
+  | "notificacao"
+  | "outro";
+
+export type DocumentStatus = "pendente" | "recebido" | "aprovado" | "rejeitado" | "arquivado";
+
+export type DocumentEntityType = "matter" | "account" | "opportunity" | "lead";
+
+export interface Document {
+  id: string;
+  name: string;
+  category: DocumentCategory;
+  status: DocumentStatus;
+  entityType: DocumentEntityType;
+  entityId: string;
+  matterId?: string | null;
+  description?: string;
+  fileName?: string;
+  fileSize?: number;
+  mimeType?: string;
+  version: number;
+  versions: DocumentVersion[];
+  tags?: string[];
+  owner: string;
+  dueDate?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+export interface DocumentVersion {
+  version: number;
+  fileName: string;
+  uploadedBy: string;
+  uploadedAt: string;
+  notes?: string;
+}
+
+export interface DocumentChecklistItem {
+  id: string;
+  matterId: string;
+  label: string;
+  category: DocumentCategory;
+  required: boolean;
+  status: DocumentStatus;
+  documentId?: string | null;
+  notes?: string;
+  createdAt: string;
+}
+
+// ── Time Tracking & Billing ────────────────────────────────────────
+
+export type TimeEntryType = "horas" | "fixo" | "contingencia";
+
+export interface TimeEntry {
+  id: string;
+  matterId: string;
+  taskId?: string | null;
+  description: string;
+  hours: number;
+  hourlyRate: number;
+  totalBrl: number;
+  type: TimeEntryType;
+  date: string;
+  owner: string;
+  billable: boolean;
+  invoiced: boolean;
+  invoiceId?: string | null;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+export interface Invoice {
+  id: string;
+  accountId: string;
+  matterId?: string | null;
+  number: string;
+  status: "rascunho" | "emitida" | "paga" | "atrasada" | "cancelada";
+  totalBrl: number;
+  issuedAt: string;
+  dueAt: string;
+  paidAt?: string | null;
+  notes?: string;
+  timeEntryIds: string[];
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+export interface FeeAgreement {
+  id: string;
+  accountId: string;
+  matterId?: string | null;
+  type: "hora" | "fixo" | "percentual" | "contingencia";
+  hourlyRate?: number;
+  fixedValue?: number;
+  percentage?: number;
+  successFeePercentage?: number;
+  capValue?: number;
+  description: string;
+  signedAt: string;
+  expiresAt?: string | null;
+  active: boolean;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+// ── Contact Entity ─────────────────────────────────────────────────
+
+export type ContactRole = "proprietario" | "administrador" | "gerente" | "advogado" | "contador" | "parceiro" | "outro";
+
+export interface Contact {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  whatsapp?: string;
+  cpf?: string;
+  role: ContactRole;
+  department?: string;
+  isPrimary: boolean;
+  accountIds: string[];
+  notes?: string;
+  owner: string;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+// ── Property / Rural Land ──────────────────────────────────────────
+
+export type PropertyType = "propriedade" | "posse" | "area_de_interesse";
+
+export interface Property {
+  id: string;
+  name: string;
+  type: PropertyType;
+  accountId: string;
+  carNumber?: string;
+  matricula?: string;
+  areaHa: number;
+  declaredAreaHa?: number;
+  carAreaHa?: number;
+  matriculaAreaHa?: number;
+  location?: string;
+  municipality?: string;
+  state?: string;
+  GPS?: string;
+  mainCrop?: string;
+  encumbrances?: string[];
+  restrictions?: string[];
+  notes?: string;
+  owner: string;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+// ── Opposing Party ─────────────────────────────────────────────────
+
+export interface OpposingParty {
+  id: string;
+  name: string;
+  cpf?: string;
+  cnpj?: string;
+  type: "pessoa_fisica" | "pessoa_juridica" | "orgao_publico";
+  lawyer?: string;
+  lawyerOab?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  matters: string[];
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+// ── Crop Season / Safra ────────────────────────────────────────────
+
+export interface CropSeason {
+  id: string;
+  name: string;
+  year: number;
+  plantingStart: string;
+  plantingEnd: string;
+  harvestStart: string;
+  harvestEnd: string;
+  mainCrop: string;
+  region?: string;
+  notes?: string;
+  createdAt: string;
+}
+
+// ── Tax Tracking (ITR/ITBI) ───────────────────────────────────────
+
+export type TaxType = "itr" | "itbi" | "ipva" | "outro";
+
+export interface TaxObligation {
+  id: string;
+  propertyId: string;
+  accountId: string;
+  type: TaxType;
+  year: number;
+  valueBrl: number;
+  dueDate: string;
+  paidDate?: string | null;
+  status: "pendente" | "pago" | "atrasado" | "isento";
+  notes?: string;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+// ── Environmental License ──────────────────────────────────────────
+
+export type LicenseStatus = "vigente" | "em_renovacao" | "vencida" | "suspensa";
+
+export interface EnvironmentalLicense {
+  id: string;
+  propertyId: string;
+  accountId: string;
+  type: string;
+  number: string;
+  issuer: string;
+  issuedAt: string;
+  expiresAt: string;
+  status: LicenseStatus;
+  conditions?: string[];
+  notes?: string;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
+// ── Rural Credit Instruments ───────────────────────────────────────
+
+export type CreditInstrumentType = "cpr" | "ccb" | "penhor" | "alienacao_fiduciaria" | "contrato";
+
+export interface CreditInstrument {
+  id: string;
+  accountId: string;
+  matterId?: string | null;
+  type: CreditInstrumentType;
+  number: string;
+  issuer?: string;
+  valueBrl: number;
+  interestRate?: number;
+  iofRate?: number;
+  issueDate: string;
+  maturityDate: string;
+  paymentMethod?: string;
+  installments?: number;
+  status: "ativo" | "vencido" | "quitado" | "em_execucao";
+  notes?: string;
+  createdAt: string;
+  deletedAt?: string | null;
+}
+
 /** Interação (ligação, reunião, e-mail, WhatsApp…) vinculada a uma entidade. */
 export interface Activity {
   id: string;

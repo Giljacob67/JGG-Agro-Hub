@@ -11,11 +11,22 @@ import type {
   Account,
   Activity,
   ActivityEntityType,
+  Contact,
+  CreditInstrument,
   Deadline,
+  Document,
+  DocumentChecklistItem,
+  EnvironmentalLicense,
+  FeeAgreement,
+  Invoice,
   Lead,
   Matter,
   Opportunity,
+  OpposingParty,
+  Property,
+  TaxObligation,
   Task,
+  TimeEntry,
 } from "./types.js";
 
 /** Store em memória — substituível por PostgreSQL via repositório. */
@@ -27,6 +38,17 @@ const store = {
   tasks: structuredClone(SEED_TASKS),
   deadlines: structuredClone(SEED_DEADLINES),
   activities: structuredClone(SEED_ACTIVITIES),
+  documents: [] as Document[],
+  documentChecklist: [] as DocumentChecklistItem[],
+  timeEntries: [] as TimeEntry[],
+  invoices: [] as Invoice[],
+  feeAgreements: [] as FeeAgreement[],
+  contacts: [] as Contact[],
+  properties: [] as Property[],
+  opposingParties: [] as OpposingParty[],
+  taxObligations: [] as TaxObligation[],
+  environmentalLicenses: [] as EnvironmentalLicense[],
+  creditInstruments: [] as CreditInstrument[],
 };
 
 export function listLeads(): Lead[] {
@@ -217,6 +239,265 @@ export function addOpportunity(opp: Opportunity) {
   store.opportunities.push(opp);
 }
 
+// ── Document Management ────────────────────────────────────────────
+
+export function listDocuments(filters?: { entityType?: string; entityId?: string; matterId?: string }): Document[] {
+  let result = store.documents.filter((d) => !d.deletedAt);
+  if (filters?.entityType) result = result.filter((d) => d.entityType === filters.entityType);
+  if (filters?.entityId) result = result.filter((d) => d.entityId === filters.entityId);
+  if (filters?.matterId) result = result.filter((d) => d.matterId === filters.matterId);
+  return result;
+}
+
+export function getDocument(id: string): Document | undefined {
+  return store.documents.find((d) => d.id === id && !d.deletedAt);
+}
+
+export function addDocument(doc: Document): Document {
+  store.documents.push(doc);
+  return doc;
+}
+
+export function patchDocument(id: string, patch: Partial<Document>): Document | undefined {
+  const doc = store.documents.find((d) => d.id === id && !d.deletedAt);
+  if (!doc) return undefined;
+  Object.assign(doc, patch, { updatedAt: new Date().toISOString() });
+  return doc;
+}
+
+export function deleteDocument(id: string): boolean {
+  const doc = store.documents.find((d) => d.id === id);
+  if (!doc) return false;
+  doc.deletedAt = new Date().toISOString();
+  return true;
+}
+
+// ── Document Checklist ─────────────────────────────────────────────
+
+export function listDocumentChecklist(matterId: string): DocumentChecklistItem[] {
+  return store.documentChecklist.filter((c) => c.matterId === matterId);
+}
+
+export function addDocumentChecklistItem(item: DocumentChecklistItem): DocumentChecklistItem {
+  store.documentChecklist.push(item);
+  return item;
+}
+
+export function patchDocumentChecklistItem(id: string, patch: Partial<DocumentChecklistItem>): DocumentChecklistItem | undefined {
+  const item = store.documentChecklist.find((c) => c.id === id);
+  if (!item) return undefined;
+  Object.assign(item, patch);
+  return item;
+}
+
+export function deleteDocumentChecklistItem(id: string): boolean {
+  const idx = store.documentChecklist.findIndex((c) => c.id === id);
+  if (idx === -1) return false;
+  store.documentChecklist.splice(idx, 1);
+  return true;
+}
+
+// ── Time Tracking ──────────────────────────────────────────────────
+
+export function listTimeEntries(filters?: { matterId?: string; owner?: string; invoiced?: boolean }): TimeEntry[] {
+  let result = store.timeEntries.filter((t) => !t.deletedAt);
+  if (filters?.matterId) result = result.filter((t) => t.matterId === filters.matterId);
+  if (filters?.owner) result = result.filter((t) => t.owner === filters.owner);
+  if (filters?.invoiced !== undefined) result = result.filter((t) => t.invoiced === filters.invoiced);
+  return result;
+}
+
+export function getTimeEntry(id: string): TimeEntry | undefined {
+  return store.timeEntries.find((t) => t.id === id && !t.deletedAt);
+}
+
+export function addTimeEntry(entry: TimeEntry): TimeEntry {
+  store.timeEntries.push(entry);
+  return entry;
+}
+
+export function patchTimeEntry(id: string, patch: Partial<TimeEntry>): TimeEntry | undefined {
+  const entry = store.timeEntries.find((t) => t.id === id && !t.deletedAt);
+  if (!entry) return undefined;
+  Object.assign(entry, patch);
+  return entry;
+}
+
+export function deleteTimeEntry(id: string): boolean {
+  const entry = store.timeEntries.find((t) => t.id === id);
+  if (!entry) return false;
+  entry.deletedAt = new Date().toISOString();
+  return true;
+}
+
+// ── Invoices ───────────────────────────────────────────────────────
+
+export function listInvoices(filters?: { accountId?: string; status?: string }): Invoice[] {
+  let result = store.invoices.filter((i) => !i.deletedAt);
+  if (filters?.accountId) result = result.filter((i) => i.accountId === filters.accountId);
+  if (filters?.status) result = result.filter((i) => i.status === filters.status);
+  return result;
+}
+
+export function getInvoice(id: string): Invoice | undefined {
+  return store.invoices.find((i) => i.id === id && !i.deletedAt);
+}
+
+export function addInvoice(invoice: Invoice): Invoice {
+  store.invoices.push(invoice);
+  return invoice;
+}
+
+export function patchInvoice(id: string, patch: Partial<Invoice>): Invoice | undefined {
+  const invoice = store.invoices.find((i) => i.id === id && !i.deletedAt);
+  if (!invoice) return undefined;
+  Object.assign(invoice, patch);
+  return invoice;
+}
+
+// ── Fee Agreements ─────────────────────────────────────────────────
+
+export function listFeeAgreements(filters?: { accountId?: string; matterId?: string }): FeeAgreement[] {
+  let result = store.feeAgreements.filter((f) => !f.deletedAt);
+  if (filters?.accountId) result = result.filter((f) => f.accountId === filters.accountId);
+  if (filters?.matterId) result = result.filter((f) => f.matterId === filters.matterId);
+  return result;
+}
+
+export function addFeeAgreement(agreement: FeeAgreement): FeeAgreement {
+  store.feeAgreements.push(agreement);
+  return agreement;
+}
+
+// ── Contacts ───────────────────────────────────────────────────────
+
+export function listContacts(filters?: { accountId?: string }): Contact[] {
+  let result = store.contacts.filter((c) => !c.deletedAt);
+  if (filters?.accountId) result = result.filter((c) => c.accountIds.includes(filters.accountId!));
+  return result;
+}
+
+export function getContact(id: string): Contact | undefined {
+  return store.contacts.find((c) => c.id === id && !c.deletedAt);
+}
+
+export function addContact(contact: Contact): Contact {
+  store.contacts.push(contact);
+  return contact;
+}
+
+export function patchContact(id: string, patch: Partial<Contact>): Contact | undefined {
+  const contact = store.contacts.find((c) => c.id === id && !c.deletedAt);
+  if (!contact) return undefined;
+  Object.assign(contact, patch);
+  return contact;
+}
+
+export function deleteContact(id: string): boolean {
+  const contact = store.contacts.find((c) => c.id === id);
+  if (!contact) return false;
+  contact.deletedAt = new Date().toISOString();
+  return true;
+}
+
+// ── Properties ─────────────────────────────────────────────────────
+
+export function listProperties(filters?: { accountId?: string }): Property[] {
+  let result = store.properties.filter((p) => !p.deletedAt);
+  if (filters?.accountId) result = result.filter((p) => p.accountId === filters.accountId);
+  return result;
+}
+
+export function getProperty(id: string): Property | undefined {
+  return store.properties.find((p) => p.id === id && !p.deletedAt);
+}
+
+export function addProperty(property: Property): Property {
+  store.properties.push(property);
+  return property;
+}
+
+export function patchProperty(id: string, patch: Partial<Property>): Property | undefined {
+  const property = store.properties.find((p) => p.id === id && !p.deletedAt);
+  if (!property) return undefined;
+  Object.assign(property, patch);
+  return property;
+}
+
+export function deleteProperty(id: string): boolean {
+  const property = store.properties.find((p) => p.id === id);
+  if (!property) return false;
+  property.deletedAt = new Date().toISOString();
+  return true;
+}
+
+// ── Opposing Parties ───────────────────────────────────────────────
+
+export function listOpposingParties(): OpposingParty[] {
+  return store.opposingParties.filter((o) => !o.deletedAt);
+}
+
+export function getOpposingParty(id: string): OpposingParty | undefined {
+  return store.opposingParties.find((o) => o.id === id && !o.deletedAt);
+}
+
+export function addOpposingParty(party: OpposingParty): OpposingParty {
+  store.opposingParties.push(party);
+  return party;
+}
+
+export function patchOpposingParty(id: string, patch: Partial<OpposingParty>): OpposingParty | undefined {
+  const party = store.opposingParties.find((o) => o.id === id && !o.deletedAt);
+  if (!party) return undefined;
+  Object.assign(party, patch);
+  return party;
+}
+
+// ── Tax Obligations ────────────────────────────────────────────────
+
+export function listTaxObligations(filters?: { propertyId?: string; accountId?: string; year?: number }): TaxObligation[] {
+  let result = store.taxObligations.filter((t) => !t.deletedAt);
+  if (filters?.propertyId) result = result.filter((t) => t.propertyId === filters.propertyId);
+  if (filters?.accountId) result = result.filter((t) => t.accountId === filters.accountId);
+  if (filters?.year) result = result.filter((t) => t.year === filters.year);
+  return result;
+}
+
+export function addTaxObligation(tax: TaxObligation): TaxObligation {
+  store.taxObligations.push(tax);
+  return tax;
+}
+
+// ── Environmental Licenses ─────────────────────────────────────────
+
+export function listEnvironmentalLicenses(filters?: { propertyId?: string; accountId?: string }): EnvironmentalLicense[] {
+  let result = store.environmentalLicenses.filter((l) => !l.deletedAt);
+  if (filters?.propertyId) result = result.filter((l) => l.propertyId === filters.propertyId);
+  if (filters?.accountId) result = result.filter((l) => l.accountId === filters.accountId);
+  return result;
+}
+
+export function addEnvironmentalLicense(license: EnvironmentalLicense): EnvironmentalLicense {
+  store.environmentalLicenses.push(license);
+  return license;
+}
+
+// ── Credit Instruments ─────────────────────────────────────────────
+
+export function listCreditInstruments(filters?: { accountId?: string; matterId?: string }): CreditInstrument[] {
+  let result = store.creditInstruments.filter((c) => !c.deletedAt);
+  if (filters?.accountId) result = result.filter((c) => c.accountId === filters.accountId);
+  if (filters?.matterId) result = result.filter((c) => c.matterId === filters.matterId);
+  return result;
+}
+
+export function addCreditInstrument(instrument: CreditInstrument): CreditInstrument {
+  store.creditInstruments.push(instrument);
+  return instrument;
+}
+
+// ── Reset ──────────────────────────────────────────────────────────
+
 /** Apenas para testes — reinicia o store. */
 export function resetStore() {
   store.leads = structuredClone(SEED_LEADS);
@@ -226,4 +507,15 @@ export function resetStore() {
   store.tasks = structuredClone(SEED_TASKS);
   store.deadlines = structuredClone(SEED_DEADLINES);
   store.activities = structuredClone(SEED_ACTIVITIES);
+  store.documents = [];
+  store.documentChecklist = [];
+  store.timeEntries = [];
+  store.invoices = [];
+  store.feeAgreements = [];
+  store.contacts = [];
+  store.properties = [];
+  store.opposingParties = [];
+  store.taxObligations = [];
+  store.environmentalLicenses = [];
+  store.creditInstruments = [];
 }

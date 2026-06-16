@@ -1017,5 +1017,495 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return methodNotAllowed(res);
   }
 
+  // ── Documents ─────────────────────────────────────────────────────
+  if (resource === "documents") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+    if (!requireCsrf(req, res)) return;
+
+    if (req.method === "GET") {
+      const { listDocuments } = await import("../../shared/agro/store.js");
+      const docs = listDocuments({
+        entityType: req.query.entityType as string,
+        entityId: req.query.entityId as string,
+        matterId: req.query.matterId as string,
+      });
+      return json(res, docs);
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body) as Record<string, unknown>;
+      const { addDocument } = await import("../../shared/agro/store.js");
+      const now = new Date().toISOString();
+      const doc = await addDocument({
+        id: `DOC-${Date.now()}`,
+        name: String(body.name || ""),
+        category: (body.category as string || "outro") as any,
+        status: (body.status as string || "pendente") as any,
+        entityType: (body.entityType as string || "matter") as any,
+        entityId: String(body.entityId || ""),
+        matterId: body.matterId as string || null,
+        description: body.description as string,
+        fileName: body.fileName as string,
+        fileSize: body.fileSize as number,
+        mimeType: body.mimeType as string,
+        version: 1,
+        versions: [{
+          version: 1,
+          fileName: String(body.fileName || body.name || ""),
+          uploadedBy: user.name,
+          uploadedAt: now,
+        }],
+        tags: body.tags as string[],
+        owner: user.name,
+        dueDate: body.dueDate as string || null,
+        createdAt: now,
+        updatedAt: now,
+      } as any);
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead" as AuditEntityType,
+        doc as unknown as Record<string, unknown>,
+      );
+      return json(res, doc, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { getDocument, patchDocument } = await import("../../shared/agro/store.js");
+      const before = getDocument(id);
+      if (!before) return json(res, { error: "Documento não encontrado" }, 404);
+      const patch = getBody(req.body) as Record<string, unknown>;
+      const doc = patchDocument(id, patch as any);
+      if (!doc) return json(res, { error: "Documento não encontrado" }, 404);
+      auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead" as AuditEntityType,
+        id,
+        doc.name,
+        before as unknown as Record<string, unknown>,
+        doc as unknown as Record<string, unknown>,
+      );
+      return json(res, doc);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { getDocument, deleteDocument } = await import("../../shared/agro/store.js");
+      const doc = getDocument(id);
+      if (!doc) return json(res, { error: "Documento não encontrado" }, 404);
+      await deleteDocument(id);
+      auditDelete(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead" as AuditEntityType,
+        doc as unknown as Record<string, unknown>,
+      );
+      return json(res, { ok: true });
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Document Checklist ────────────────────────────────────────────
+  if (resource === "document-checklist") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+
+    if (req.method === "GET") {
+      const matterId = req.query.matterId as string;
+      if (!matterId) return json(res, { error: "matterId é obrigatório" }, 400);
+      const { listDocumentChecklist } = await import("../../shared/agro/store.js");
+      return json(res, listDocumentChecklist(matterId));
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body) as Record<string, unknown>;
+      const { addDocumentChecklistItem } = await import("../../shared/agro/store.js");
+      const item = await addDocumentChecklistItem({
+        id: `DCL-${Date.now()}`,
+        matterId: String(body.matterId || ""),
+        label: String(body.label || ""),
+        category: (body.category as string || "outro") as any,
+        required: Boolean(body.required),
+        status: "pendente",
+        documentId: null,
+        notes: body.notes as string,
+        createdAt: new Date().toISOString(),
+      });
+      return json(res, item, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { patchDocumentChecklistItem } = await import("../../shared/agro/store.js");
+      const item = patchDocumentChecklistItem(id, getBody(req.body) as any);
+      if (!item) return json(res, { error: "Item não encontrado" }, 404);
+      return json(res, item);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { deleteDocumentChecklistItem } = await import("../../shared/agro/store.js");
+      await deleteDocumentChecklistItem(id);
+      return json(res, { ok: true });
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Time Entries ──────────────────────────────────────────────────
+  if (resource === "time-entries") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+    if (!requireCsrf(req, res)) return;
+
+    if (req.method === "GET") {
+      const { listTimeEntries } = await import("../../shared/agro/store.js");
+      const entries = listTimeEntries({
+        matterId: req.query.matterId as string,
+        owner: req.query.owner as string,
+        invoiced: req.query.invoiced === "true" ? true : req.query.invoiced === "false" ? false : undefined,
+      });
+      return json(res, entries);
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body) as Record<string, unknown>;
+      const { addTimeEntry } = await import("../../shared/agro/store.js");
+      const hours = Number(body.hours) || 0;
+      const hourlyRate = Number(body.hourlyRate) || 0;
+      const entry = await addTimeEntry({
+        id: `TE-${Date.now()}`,
+        matterId: String(body.matterId || ""),
+        taskId: body.taskId as string || null,
+        description: String(body.description || ""),
+        hours,
+        hourlyRate,
+        totalBrl: hours * hourlyRate,
+        type: (body.type as string || "horas") as any,
+        date: String(body.date || new Date().toISOString().slice(0, 10)),
+        owner: user.name,
+        billable: body.billable !== false,
+        invoiced: false,
+        createdAt: new Date().toISOString(),
+      });
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead" as AuditEntityType,
+        entry as unknown as Record<string, unknown>,
+      );
+      return json(res, entry, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { patchTimeEntry } = await import("../../shared/agro/store.js");
+      const entry = patchTimeEntry(id, getBody(req.body) as any);
+      if (!entry) return json(res, { error: "Registro não encontrado" }, 404);
+      return json(res, entry);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { deleteTimeEntry } = await import("../../shared/agro/store.js");
+      await deleteTimeEntry(id);
+      return json(res, { ok: true });
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Invoices ──────────────────────────────────────────────────────
+  if (resource === "invoices") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+    if (!requireCsrf(req, res)) return;
+
+    if (req.method === "GET") {
+      const { listInvoices } = await import("../../shared/agro/store.js");
+      return json(res, listInvoices({
+        accountId: req.query.accountId as string,
+        status: req.query.status as string,
+      }));
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body) as Record<string, unknown>;
+      const { addInvoice } = await import("../../shared/agro/store.js");
+      const invoice = await addInvoice({
+        id: `INV-${Date.now()}`,
+        accountId: String(body.accountId || ""),
+        matterId: body.matterId as string || null,
+        number: String(body.number || `FAT-${Date.now()}`),
+        status: "rascunho",
+        totalBrl: Number(body.totalBrl) || 0,
+        issuedAt: new Date().toISOString(),
+        dueAt: String(body.dueAt || ""),
+        notes: body.notes as string,
+        timeEntryIds: (body.timeEntryIds as string[]) || [],
+        createdAt: new Date().toISOString(),
+      });
+      return json(res, invoice, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { patchInvoice } = await import("../../shared/agro/store.js");
+      const invoice = patchInvoice(id, getBody(req.body) as any);
+      if (!invoice) return json(res, { error: "Fatura não encontrada" }, 404);
+      return json(res, invoice);
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Fee Agreements ────────────────────────────────────────────────
+  if (resource === "fee-agreements") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+
+    if (req.method === "GET") {
+      const { listFeeAgreements } = await import("../../shared/agro/store.js");
+      return json(res, listFeeAgreements({
+        accountId: req.query.accountId as string,
+        matterId: req.query.matterId as string,
+      }));
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body) as Record<string, unknown>;
+      const { addFeeAgreement } = await import("../../shared/agro/store.js");
+      const agreement = await addFeeAgreement({
+        id: `FA-${Date.now()}`,
+        accountId: String(body.accountId || ""),
+        matterId: body.matterId as string || null,
+        type: (body.type as string || "hora") as any,
+        hourlyRate: body.hourlyRate as number,
+        fixedValue: body.fixedValue as number,
+        percentage: body.percentage as number,
+        successFeePercentage: body.successFeePercentage as number,
+        capValue: body.capValue as number,
+        description: String(body.description || ""),
+        signedAt: String(body.signedAt || new Date().toISOString()),
+        expiresAt: body.expiresAt as string || null,
+        active: true,
+        createdAt: new Date().toISOString(),
+      });
+      return json(res, agreement, 201);
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Contacts ──────────────────────────────────────────────────────
+  if (resource === "contacts") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+    if (!requireCsrf(req, res)) return;
+
+    if (req.method === "GET") {
+      const { listContacts } = await import("../../shared/agro/store.js");
+      return json(res, listContacts({ accountId: req.query.accountId as string }));
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body) as Record<string, unknown>;
+      const { addContact } = await import("../../shared/agro/store.js");
+      const contact = await addContact({
+        id: `CT-${Date.now()}`,
+        name: String(body.name || ""),
+        email: body.email as string,
+        phone: body.phone as string,
+        whatsapp: body.whatsapp as string,
+        cpf: body.cpf as string,
+        role: (body.role as string || "outro") as any,
+        department: body.department as string,
+        isPrimary: Boolean(body.isPrimary),
+        accountIds: (body.accountIds as string[]) || [],
+        notes: body.notes as string,
+        owner: user.name,
+        createdAt: new Date().toISOString(),
+      });
+      return json(res, contact, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { patchContact } = await import("../../shared/agro/store.js");
+      const contact = patchContact(id, getBody(req.body) as any);
+      if (!contact) return json(res, { error: "Contato não encontrado" }, 404);
+      return json(res, contact);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { deleteContact } = await import("../../shared/agro/store.js");
+      await deleteContact(id);
+      return json(res, { ok: true });
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Properties ────────────────────────────────────────────────────
+  if (resource === "properties") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+    if (!requireCsrf(req, res)) return;
+
+    if (req.method === "GET") {
+      const { listProperties } = await import("../../shared/agro/store.js");
+      return json(res, listProperties({ accountId: req.query.accountId as string }));
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body) as Record<string, unknown>;
+      const { addProperty } = await import("../../shared/agro/store.js");
+      const property = await addProperty({
+        id: `PR-${Date.now()}`,
+        name: String(body.name || ""),
+        type: (body.type as string || "propriedade") as any,
+        accountId: String(body.accountId || ""),
+        carNumber: body.carNumber as string,
+        matricula: body.matricula as string,
+        areaHa: Number(body.areaHa) || 0,
+        declaredAreaHa: body.declaredAreaHa as number,
+        carAreaHa: body.carAreaHa as number,
+        matriculaAreaHa: body.matriculaAreaHa as number,
+        location: body.location as string,
+        municipality: body.municipality as string,
+        state: body.state as string,
+        GPS: body.GPS as string,
+        mainCrop: body.mainCrop as string,
+        encumbrances: body.encumbrances as string[],
+        restrictions: body.restrictions as string[],
+        notes: body.notes as string,
+        owner: user.name,
+        createdAt: new Date().toISOString(),
+      });
+      return json(res, property, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { patchProperty } = await import("../../shared/agro/store.js");
+      const property = patchProperty(id, getBody(req.body) as any);
+      if (!property) return json(res, { error: "Propriedade não encontrada" }, 404);
+      return json(res, property);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { deleteProperty } = await import("../../shared/agro/store.js");
+      await deleteProperty(id);
+      return json(res, { ok: true });
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Opposing Parties ──────────────────────────────────────────────
+  if (resource === "opposing-parties") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+
+    if (req.method === "GET") {
+      const { listOpposingParties } = await import("../../shared/agro/store.js");
+      return json(res, listOpposingParties());
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body) as Record<string, unknown>;
+      const { addOpposingParty } = await import("../../shared/agro/store.js");
+      const party = await addOpposingParty({
+        id: `OPP-${Date.now()}`,
+        name: String(body.name || ""),
+        cpf: body.cpf as string,
+        cnpj: body.cnpj as string,
+        type: (body.type as string || "pessoa_fisica") as any,
+        lawyer: body.lawyer as string,
+        lawyerOab: body.lawyerOab as string,
+        phone: body.phone as string,
+        email: body.email as string,
+        address: body.address as string,
+        notes: body.notes as string,
+        matters: (body.matters as string[]) || [],
+        createdAt: new Date().toISOString(),
+      });
+      return json(res, party, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const { patchOpposingParty } = await import("../../shared/agro/store.js");
+      const party = patchOpposingParty(id, getBody(req.body) as any);
+      if (!party) return json(res, { error: "Parte contrária não encontrada" }, 404);
+      return json(res, party);
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Conflict Check ────────────────────────────────────────────────
+  if (resource === "conflict-check") {
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
+
+    if (req.method === "GET") {
+      const name = (req.query.name as string || "").toLowerCase();
+      if (!name) return json(res, { error: "name é obrigatório" }, 400);
+
+      const { listOpposingParties, listMatters, listLeads } = await import("../../shared/agro/store.js");
+      const conflicts: Array<{ type: string; entity: string; detail: string }> = [];
+
+      // Check opposing parties
+      const parties = listOpposingParties();
+      for (const p of parties) {
+        if (p.name.toLowerCase().includes(name)) {
+          conflicts.push({
+            type: "parte_contraria",
+            entity: p.name,
+            detail: `Parte contrária em ${p.matters.length} demanda(s)`,
+          });
+        }
+        if (p.lawyer?.toLowerCase().includes(name)) {
+          conflicts.push({
+            type: "advogado_contrario",
+            entity: p.lawyer,
+            detail: `Advogado da parte contrária`,
+          });
+        }
+      }
+
+      // Check if name appears as client (would be conflict)
+      const leads = listLeads();
+      for (const l of leads) {
+        if (l.name.toLowerCase().includes(name)) {
+          conflicts.push({
+            type: "cliente_existente",
+            entity: l.name,
+            detail: `Lead existente: ${l.status}`,
+          });
+        }
+      }
+
+      return json(res, { hasConflicts: conflicts.length > 0, conflicts });
+    }
+
+    return methodNotAllowed(res);
+  }
+
   return json(res, { error: "Recurso não encontrado" }, 404);
 }

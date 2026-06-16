@@ -489,6 +489,113 @@ export const agroApi = {
       Situacao: string;
     }>(`/api/agro/lookup?type=cpf&document=${encodeURIComponent(cpf)}`),
 
+  // ── Documents ────────────────────────────────────────────────────
+
+  listDocuments: (params: { entityType?: string; entityId?: string; matterId?: string }) =>
+    request<any[]>(`/api/agro/documents?${buildQuery(params)}`),
+
+  createDocument: (input: Record<string, unknown>) =>
+    request<any>("/api/agro/documents", { method: "POST", body: JSON.stringify(input) }),
+
+  updateDocument: (id: string, patch: Record<string, unknown>) =>
+    request<any>(`/api/agro/documents?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  deleteDocument: (id: string) =>
+    request<any>(`/api/agro/documents?id=${id}`, { method: "DELETE" }),
+
+  // ── Document Checklist ───────────────────────────────────────────
+
+  listDocumentChecklist: (matterId: string) =>
+    request<any[]>(`/api/agro/document-checklist?matterId=${matterId}`),
+
+  createDocumentChecklistItem: (input: Record<string, unknown>) =>
+    request<any>("/api/agro/document-checklist", { method: "POST", body: JSON.stringify(input) }),
+
+  updateDocumentChecklistItem: (id: string, patch: Record<string, unknown>) =>
+    request<any>(`/api/agro/document-checklist?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  deleteDocumentChecklistItem: (id: string) =>
+    request<any>(`/api/agro/document-checklist?id=${id}`, { method: "DELETE" }),
+
+  // ── Time Entries ─────────────────────────────────────────────────
+
+  listTimeEntries: (params: { matterId?: string; owner?: string; invoiced?: boolean }) =>
+    request<any[]>(`/api/agro/time-entries?${buildQuery(params)}`),
+
+  createTimeEntry: (input: Record<string, unknown>) =>
+    request<any>("/api/agro/time-entries", { method: "POST", body: JSON.stringify(input) }),
+
+  updateTimeEntry: (id: string, patch: Record<string, unknown>) =>
+    request<any>(`/api/agro/time-entries?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  deleteTimeEntry: (id: string) =>
+    request<any>(`/api/agro/time-entries?id=${id}`, { method: "DELETE" }),
+
+  // ── Invoices ─────────────────────────────────────────────────────
+
+  listInvoices: (params: { accountId?: string; status?: string }) =>
+    request<any[]>(`/api/agro/invoices?${buildQuery(params)}`),
+
+  createInvoice: (input: Record<string, unknown>) =>
+    request<any>("/api/agro/invoices", { method: "POST", body: JSON.stringify(input) }),
+
+  updateInvoice: (id: string, patch: Record<string, unknown>) =>
+    request<any>(`/api/agro/invoices?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  // ── Fee Agreements ───────────────────────────────────────────────
+
+  listFeeAgreements: (params: { accountId?: string; matterId?: string }) =>
+    request<any[]>(`/api/agro/fee-agreements?${buildQuery(params)}`),
+
+  createFeeAgreement: (input: Record<string, unknown>) =>
+    request<any>("/api/agro/fee-agreements", { method: "POST", body: JSON.stringify(input) }),
+
+  // ── Contacts ─────────────────────────────────────────────────────
+
+  listContacts: (params: { accountId?: string }) =>
+    request<any[]>(`/api/agro/contacts?${buildQuery(params)}`),
+
+  createContact: (input: Record<string, unknown>) =>
+    request<any>("/api/agro/contacts", { method: "POST", body: JSON.stringify(input) }),
+
+  updateContact: (id: string, patch: Record<string, unknown>) =>
+    request<any>(`/api/agro/contacts?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  deleteContact: (id: string) =>
+    request<any>(`/api/agro/contacts?id=${id}`, { method: "DELETE" }),
+
+  // ── Properties ───────────────────────────────────────────────────
+
+  listProperties: (params: { accountId?: string }) =>
+    request<any[]>(`/api/agro/properties?${buildQuery(params)}`),
+
+  createProperty: (input: Record<string, unknown>) =>
+    request<any>("/api/agro/properties", { method: "POST", body: JSON.stringify(input) }),
+
+  updateProperty: (id: string, patch: Record<string, unknown>) =>
+    request<any>(`/api/agro/properties?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  deleteProperty: (id: string) =>
+    request<any>(`/api/agro/properties?id=${id}`, { method: "DELETE" }),
+
+  // ── Opposing Parties ─────────────────────────────────────────────
+
+  listOpposingParties: () =>
+    request<any[]>("/api/agro/opposing-parties"),
+
+  createOpposingParty: (input: Record<string, unknown>) =>
+    request<any>("/api/agro/opposing-parties", { method: "POST", body: JSON.stringify(input) }),
+
+  updateOpposingParty: (id: string, patch: Record<string, unknown>) =>
+    request<any>(`/api/agro/opposing-parties?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+
+  // ── Conflict Check ───────────────────────────────────────────────
+
+  checkConflict: (name: string) =>
+    request<{ hasConflicts: boolean; conflicts: Array<{ type: string; entity: string; detail: string }> }>(
+      `/api/agro/conflict-check?name=${encodeURIComponent(name)}`
+    ),
+
   // ── CSV Export ──────────────────────────────────────────────────
 
   exportCsv: (resource: "leads" | "accounts" | "opportunities" | "matters" | "tasks") => {

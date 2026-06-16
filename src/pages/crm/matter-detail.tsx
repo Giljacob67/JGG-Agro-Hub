@@ -5,6 +5,9 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { DeadlinesPanel } from "@/components/crm/deadlines-panel";
+import { DocumentManager } from "@/components/crm/document-manager";
+import { DocumentChecklist } from "@/components/crm/document-checklist";
+import { TimeEntryManager } from "@/components/crm/time-entry-manager";
 import { DetailBackLink } from "@/components/crm/detail-back-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -325,6 +328,12 @@ export default function CrmMatterDetailPage() {
         <ProceduralDataCard matter={matter} key={`pd-${matter.id}`} />
 
         <DeadlinesPanel matterId={matter.id} />
+
+        <DocumentManager entityType="matter" entityId={matter.id} matterId={matter.id} />
+
+        <DocumentChecklist matterId={matter.id} />
+
+        <TimeEntryManager matterId={matter.id} />
 
         <ActivityTimeline entityType="matter" entityId={matter.id} />
 

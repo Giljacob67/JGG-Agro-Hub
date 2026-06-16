@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Link, useRoute } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { DetailBackLink } from "@/components/crm/detail-back-link";
+import { ContactManager } from "@/components/crm/contact-manager";
+import { PropertyManager } from "@/components/crm/property-manager";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -134,6 +136,11 @@ export default function CrmAccountDetailPage() {
             </TimelineBlock>
           </div>
         </section>
+
+        <div className="space-y-6">
+          <ContactManager accountId={account.id} />
+          <PropertyManager accountId={account.id} />
+        </div>
       </div>
     </AppShell>
   );
