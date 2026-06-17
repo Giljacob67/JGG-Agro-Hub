@@ -79,7 +79,7 @@ export default function CrmOpportunitiesPage() {
   );
 
   const stages = OPPORTUNITY_STAGES.filter(
-    (s) => s.id !== "perdido" && s.id !== "arquivado",
+    (s) => s.id !== "perdido",
   );
   const totalValue = items
     .filter((o) => o.stage !== "perdido")

@@ -1,100 +1,132 @@
 # JGG Agro Hub
 
-CRM operacional do JGG Group — prospecção, carteira de clientes, pipeline comercial e demandas jurídicas do segmento Agro.
+CRM Jurídico Agrícola — plataforma completa para escritório de advocacia rural.
+
+## Acesso
+
+**URL**: https://jgg-agro-hub.vercel.app
+
+| Usuário | Email | Senha | Perfil |
+|---------|-------|-------|--------|
+| Gestão | agro@jgggroup.com.br | AgroHub2026! | gestao |
+| Comercial | comercial@jgggroup.com.br | AgroHub2026! | comercial |
+| Jurídico | juridico@jgggroup.com.br | AgroHub2026! | juridico |
+
+## Funcionalidades
+
+### CRM Agro
+- **Leads**: cadastro, qualificação, conversão para oportunidade
+- **Contas**: gestão de clientes e propriedades rurais
+- **Oportunidades**: pipeline comercial com estágios
+- **Demandas Jurídicas**: processo completo com prazos, fases, riscos
+- **Tarefas**: vinculação a demandas e contas
+
+### Gestão Jurídica
+- **Calculadora de Prazos**: 15 dias úteis (contestação, apelação, etc.)
+- **Calendário de Audiências**: visualização mensal
+- **Documentos**: upload para Cloudflare R2, versionamento, checklist
+- **Horas/Faturamento**: timesheet, contratos de honorários
+- **Conflito de Interesses**: verificação automática
+
+### Gestão Agrícola
+- **Safra Agrícola**: plantio, colheita, regiões
+- **ITR/ITBI/IPVA**: rastreamento de obrigações tributárias
+- **Licenças Ambientais**: LP, LI, LO com status e validade
+- **Crédito Rural**: CPR, CCB, penhor, alienação fiduciária
+
+### IA & Analytics
+- **Agro Copilot**: assistente jurídico com RAG
+- **Relatórios Financeiros**: receita, horas, demandas
+- **Produtividade por Advogado**: ranking e métricas
+- **Auditoria**: log completo de ações
+
+## Arquitetura
+
+```
+Frontend: React 19 + Vite + TailwindCSS + TanStack Query
+Backend:  Vercel Serverless Functions (4 rotas consolidadas)
+Database: Neon PostgreSQL (memory fallback)
+AI:       Vercel AI SDK v6 (OpenAI, Anthropic, Google, Ollama)
+Storage:  Cloudflare R2 (presigned URLs)
+Email:    Resend API
+Auth:     scrypt + HMAC-SHA256 tokens
+```
+
+## Variáveis de Ambiente
+
+```bash
+# Autenticação (obrigatório)
+AUTH_SECRET=sua_chave_secreta
+
+# Banco de dados (opcional — usa memória sem DATABASE_URL)
+DATABASE_URL=postgresql://...
+
+# LLM (opcional — fallback para keyword engine)
+OPENAI_API_KEY=sk-...
+ANTHROPIC_API_KEY=sk-ant-...
+GOOGLE_GENERATIVE_AI_API_KEY=...
+
+# Email (opcional)
+RESEND_API_KEY=re_...
+
+# Storage (opcional — uploads sem R2 ficam metadata-only)
+R2_ACCOUNT_ID=...
+R2_ACCESS_KEY_ID=...
+R2_SECRET_ACCESS_KEY=...
+R2_BUCKET_NAME=jgg-agro-docs
+R2_PUBLIC_URL=https://pub-xxx.r2.dev
+
+# Rate Limiting (opcional — usa memória sem Upstash)
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
+```
+
+## Deploy
+
+```bash
+# Instalar dependências
+npm install
+
+# Build
+npm run build
+
+# Deploy no Vercel
+vercel --prod
+```
 
 ## Desenvolvimento
 
 ```bash
-npm install
+# Servidor de desenvolvimento
 npm run dev
+
+# Typecheck
+npm run typecheck
+
+# Testes
+npm run test
+
+# Lint
+npm run lint
 ```
 
-Aplicação em `http://localhost:5173`. Rotas canônicas sob `/agro/*`.
+## Estrutura de Pastas
 
-## Scripts
-
-| Comando | Descrição |
-|---------|-----------|
-| `npm run dev` | Servidor de desenvolvimento |
-| `npm run build` | Typecheck + build de produção |
-| `npm run typecheck` | Verificação TypeScript |
-| `npm run lint` | ESLint (`src`, `shared`, `api`, `scripts`) |
-| `npm run test` | Testes unitários (Vitest) |
-| `npm run test:e2e` | Testes E2E (Playwright) |
-
-## Autenticação
-
-### Desenvolvimento local
-
-- Credenciais: `agro@jgggroup.com.br` / `jgg-agro-dev`
-- Browser dev (`VITE_USE_API` ausente): `shared/agro/auth.ts` — token legado para DX
-- API Vercel: `api/_lib/auth-server.ts` — senha com scrypt + token HMAC-SHA256
-
-### Produção (obrigatório)
-
-1. Defina `AUTH_SECRET` (mín. 32 caracteres) nas variáveis de ambiente da Vercel.
-   Com `AUTH_SECRET` ativo, **somente** tokens assinados com ele são aceitos —
-   os caminhos de desenvolvimento (chave `dev-insecure` e token legado) ficam
-   desabilitados. Em `VERCEL_ENV=production` sem `AUTH_SECRET`, a emissão de
-   tokens é recusada.
-2. Configure senhas individuais por usuário:
-
-```bash
-npx tsx scripts/hash-password.ts "<senha-forte>"
+```
+api/
+  _lib/          # Auth, audit, CORS, rate-limit, R2, email
+  agro/          # CRUD consolidado (4 rotas)
+  auth/          # Login/logout
+  upload.ts      # Presigned URLs para R2
+src/
+  components/    # UI components (crm, layout, ui)
+  pages/         # Páginas (agro, crm, command-center)
+  hooks/         # React Query hooks
+  lib/           # API client, rotas, navegação
+shared/
+  agro/          # Types, store, RBAC, copilot, seed data
 ```
 
-Defina o salt e os hashes na Vercel: `AUTH_PASSWORD_SALT`,
-`AUTH_PASSWORD_HASH_GESTAO`, `AUTH_PASSWORD_HASH_COMERCIAL`,
-`AUTH_PASSWORD_HASH_JURIDICO`. Com `AUTH_SECRET` ativo e sem hash configurado,
-o login por senha do usuário fica desabilitado (resta o SSO). A senha de
-desenvolvimento (`jgg-agro-dev`) só é aceita quando `AUTH_SECRET` está ausente.
+## Licença
 
-### SSO corporativo (OIDC)
-
-Suporte a qualquer provedor OIDC (Azure AD, Okta, Keycloak etc.) com discovery em `/.well-known/openid-configuration`, PKCE S256 e validação do `id_token` (`iss`, `aud`, `exp`, `nonce`, `email_verified`).
-
-Variáveis:
-
-| Variável | Descrição |
-|----------|-----------|
-| `SSO_ENABLED` | `true` na Vercel |
-| `VITE_SSO_ENABLED` | `true` no build do frontend |
-| `SSO_ISSUER` | URL base do tenant OIDC |
-| `SSO_CLIENT_ID` | Client ID |
-| `SSO_CLIENT_SECRET` | Client secret |
-| `SSO_REDIRECT_URI` | Ex.: `https://seu-app.vercel.app/api/auth/callback` |
-| `APP_URL` | URL base do app |
-
-Rotas: `GET /api/auth/sso` (redirect) e `GET /api/auth/callback` (troca code por sessão).
-
-O fluxo armazena `state` e `code_verifier` em cookies `HttpOnly` com binding de sessão para mitigar CSRF e interception do authorization code. O usuário SSO deve existir na lista interna (`auth-server.ts`) com o mesmo e-mail.
-
-## Dados
-
-Todo o seed em `shared/agro/seed.ts` é **100% fictício**. Nunca inserir clientes, propriedades ou contatos reais no repositório ou no ambiente de demonstração.
-
-## Banco de dados (PostgreSQL / Neon)
-
-Com `DATABASE_URL` configurada, a API usa PostgreSQL em vez do store em memória.
-
-```bash
-npm run db:setup        # migra + seed se vazio
-npm run db:reseed       # força re-seed (--force)
-```
-
-Re-seed remoto (produção): `POST /api/admin/db-setup` com header `x-setup-secret` e `?force=1`.
-
-Migrações idempotentes em `db/migrate.sql` e `api/_lib/db/migrate.ts` incluem:
-
-- Colunas enriquecidas (leads, contas, oportunidades, demandas)
-- Novos estágios do pipeline (`proposta_elaboracao`, `proposta_enviada`)
-- Normalização automática do stage legado `proposta` → `proposta_elaboracao`
-
-Campos opcionais em arrays (propriedades, contatos, documentos pendentes) são persistidos como `JSONB`.
-
-## Arquitetura
-
-- **Frontend:** React 19, Vite, wouter, TanStack Query, Tailwind
-- **API:** Vercel serverless (`api/`) com PostgreSQL (Neon); memória apenas em dev local quando `DATABASE_URL` está ausente
-- **Domínio compartilhado:** `shared/agro/` (tipos, seed, stats, store)
-- **Redirect legado:** `/command-center` → `/agro/command-center`
+Propriedade JGG Group — Uso interno.

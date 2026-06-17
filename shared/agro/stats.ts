@@ -77,7 +77,7 @@ function getUpcomingTasks(tasks: Task[], days = 7) {
 
 function getPipelineByStage(opportunities: Opportunity[]) {
   return OPPORTUNITY_STAGES.filter(
-    (s) => s.id !== "perdido" && s.id !== "arquivado",
+    (s) => s.id !== "perdido",
   ).map((stage) => {
     const items = opportunities.filter((o) => o.stage === stage.id);
     return {

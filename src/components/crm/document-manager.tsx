@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { FileText, Upload, Plus, Trash2, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { useState, useRef } from "react";
+import { FileText, Upload, Plus, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,9 +44,18 @@ const STATUS_COLORS: Record<string, "default" | "secondary" | "danger" | "outlin
   arquivado: "secondary",
 };
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function DocumentManager({ entityType, entityId, matterId }: DocumentManagerProps) {
   const qc = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showForm, setShowForm] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     name: "",
     category: "outro",
@@ -60,17 +69,19 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
   });
 
   const createDoc = useMutation({
-    mutationFn: (data: typeof form) =>
-      agroApi.createDocument({
+    mutationFn: async (data: typeof form & { fileUrl?: string; fileSize?: number; fileName?: string }) => {
+      return agroApi.createDocument({
         ...data,
         entityType,
         entityId,
         matterId,
-      }),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["documents", entityType, entityId] });
       toast.success("Documento registrado!");
       setShowForm(false);
+      setSelectedFile(null);
       setForm({ name: "", category: "outro", description: "", dueDate: "" });
     },
     onError: () => toast.error("Erro ao registrar documento"),
@@ -84,8 +95,76 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
     },
   });
 
+  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setSelectedFile(file);
+    if (!form.name) {
+      setForm((f) => ({ ...f, name: file.name.replace(/\.[^.]+$/, "") }));
+    }
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setUploading(true);
+
+    try {
+      let fileUrl: string | undefined;
+      let fileSize: number | undefined;
+      let fileName: string | undefined;
+
+      if (selectedFile) {
+        // Try to upload to R2
+        try {
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              fileName: selectedFile.name,
+              contentType: selectedFile.type || "application/octet-stream",
+              prefix: `${entityType}/${entityId}`,
+            }),
+          });
+
+          if (res.ok) {
+            const { uploadUrl, fileUrl: url } = await res.json();
+            // Upload file to R2
+            await fetch(uploadUrl, {
+              method: "PUT",
+              headers: { "Content-Type": selectedFile.type || "application/octet-stream" },
+              body: selectedFile,
+            });
+            fileUrl = url;
+            fileSize = selectedFile.size;
+            fileName = selectedFile.name;
+          } else {
+            // R2 not configured, save metadata only
+            console.warn("R2 not configured, saving metadata only");
+            fileSize = selectedFile.size;
+            fileName = selectedFile.name;
+          }
+        } catch {
+          // R2 not available, save metadata only
+          fileSize = selectedFile.size;
+          fileName = selectedFile.name;
+        }
+      }
+
+      await createDoc.mutateAsync({
+        ...form,
+        fileUrl,
+        fileSize,
+        fileName,
+      });
+    } catch {
+      toast.error("Erro ao fazer upload");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   const pendingCount = documents.filter((d: any) => d.status === "pendente").length;
-  const approvedCount = documents.filter((d: any) => d.status === "aprovado").length;
 
   return (
     <div className="space-y-4">
@@ -101,20 +180,18 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
           )}
         </div>
         <Button size="sm" variant="outline" onClick={() => setShowForm(!showForm)}>
-          <Plus className="w-3.5 h-3.5 mr-1" />
-          {showForm ? "Cancelar" : "Registrar documento"}
+          {showForm ? "Cancelar" : (
+            <>
+              <Plus className="w-3.5 h-3.5 mr-1" />
+              Registrar documento
+            </>
+          )}
         </Button>
       </div>
 
       {showForm && (
         <Card className="p-4">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              createDoc.mutate(form);
-            }}
-            className="grid sm:grid-cols-2 gap-3"
-          >
+          <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
               <label className="text-xs text-muted-foreground">Nome do documento</label>
               <Input
@@ -125,6 +202,37 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
                 className="mt-1"
               />
             </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-xs text-muted-foreground">Arquivo</label>
+              <div className="mt-1 flex items-center gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.txt,.csv"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload className="w-3.5 h-3.5 mr-1" />
+                  {selectedFile ? "Trocar arquivo" : "Selecionar arquivo"}
+                </Button>
+                {selectedFile && (
+                  <span className="text-xs text-muted-foreground">
+                    {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                  </span>
+                )}
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">
+                PDF, Word, Excel, imagens — máx. 10 MB
+              </p>
+            </div>
+
             <div>
               <label className="text-xs text-muted-foreground">Categoria</label>
               <select
@@ -155,11 +263,11 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
               />
             </div>
             <div className="sm:col-span-2 flex gap-2 justify-end">
-              <Button type="button" variant="outline" size="sm" onClick={() => setShowForm(false)}>
+              <Button type="button" variant="outline" size="sm" onClick={() => { setShowForm(false); setSelectedFile(null); }}>
                 Cancelar
               </Button>
-              <Button type="submit" size="sm" disabled={createDoc.isPending}>
-                {createDoc.isPending ? "Salvando..." : "Registrar"}
+              <Button type="submit" size="sm" disabled={createDoc.isPending || uploading}>
+                {uploading ? "Enviando..." : createDoc.isPending ? "Salvando..." : "Registrar"}
               </Button>
             </div>
           </form>
@@ -186,6 +294,7 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
                   <p className="text-sm font-medium truncate">{doc.name}</p>
                   <p className="text-xs text-muted-foreground">
                     {CATEGORY_LABELS[doc.category] || doc.category}
+                    {doc.fileSize && ` · ${formatFileSize(doc.fileSize)}`}
                     {doc.dueDate && ` · Prazo: ${new Date(doc.dueDate).toLocaleDateString("pt-BR")}`}
                   </p>
                 </div>
@@ -195,6 +304,13 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
                   {STATUS_LABELS[doc.status]}
                 </Badge>
                 <span className="text-xs text-muted-foreground">v{doc.version}</span>
+                {doc.fileUrl && (
+                  <Button variant="ghost" size="sm" asChild className="h-7 w-7 p-0">
+                    <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </Button>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"

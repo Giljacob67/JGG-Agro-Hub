@@ -34,7 +34,7 @@ export function AppSidebar() {
   const nav = (
     <>
       <div className="px-4 py-5 border-b border-sidebar-border">
-        <Link href={ROUTES.commandCenter} className="flex items-center gap-3 group">
+        <Link href={ROUTES.commandCenter} className="flex items-center gap-3 group" aria-label="JGG Agro Hub - Command Center">
           <div className="w-10 h-10 rounded-lg bg-sidebar-accent/80 ring-1 ring-sidebar-foreground/10 flex items-center justify-center shrink-0">
             <span className="text-xs font-bold text-sidebar-foreground tracking-tight">
               JG
@@ -83,6 +83,7 @@ export function AppSidebar() {
                     key={item.path}
                     href={item.path}
                     onClick={() => setMobileOpen(false)}
+                    aria-current={active ? "page" : undefined}
                     className={cn(
                       "flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
                       active

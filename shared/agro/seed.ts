@@ -1,11 +1,15 @@
 import type {
   Account,
   Activity,
+  CropSeason,
+  CreditInstrument,
   Deadline,
+  EnvironmentalLicense,
   Lead,
   Matter,
   Opportunity,
   Task,
+  TaxObligation,
 } from "./types.js";
 
 /** Dados 100% fictícios — cenários Agro JGG Group. Nunca usar clientes reais. */
@@ -837,5 +841,161 @@ export const OPPORTUNITY_STAGES = [
   { id: "negociacao" as const, label: "Em negociação" },
   { id: "contrato" as const, label: "Contratado" },
   { id: "perdido" as const, label: "Perdido" },
-  { id: "arquivado" as const, label: "Arquivado" },
+];
+
+// ── P3 Seed Data: Crop Seasons ─────────────────────────────────
+
+export const SEED_CROP_SEASONS: CropSeason[] = [
+  {
+    id: "CS-001",
+    name: "Safra 2025/26 Soja",
+    year: 2026,
+    plantingStart: "2025-09-15",
+    plantingEnd: "2025-10-30",
+    harvestStart: "2026-01-20",
+    harvestEnd: "2026-03-15",
+    mainCrop: "Soja",
+    region: "MT — Sorriso",
+    notes: "Safra principal com alta produtividade esperada",
+    createdAt: "2025-08-01",
+  },
+  {
+    id: "CS-002",
+    name: "Safrinha 2025/26 Milho",
+    year: 2026,
+    plantingStart: "2026-02-01",
+    plantingEnd: "2026-02-28",
+    harvestStart: "2026-06-15",
+    harvestEnd: "2026-07-30",
+    mainCrop: "Milho",
+    region: "MT — Sorriso",
+    notes: "Safrinha após colheita da soja",
+    createdAt: "2025-08-01",
+  },
+  {
+    id: "CS-003",
+    name: "Safra 2025/26 Algodão",
+    year: 2026,
+    plantingStart: "2025-10-01",
+    plantingEnd: "2025-11-15",
+    harvestStart: "2026-03-01",
+    harvestEnd: "2026-06-30",
+    mainCrop: "Algodão",
+    region: "MT — Campo Novo",
+    notes: "Produção contratada com spinner",
+    createdAt: "2025-09-01",
+  },
+];
+
+// ── P3 Seed Data: Tax Obligations ──────────────────────────────
+
+export const SEED_TAX_OBLIGATIONS: TaxObligation[] = [
+  {
+    id: "TAX-001",
+    propertyId: "PROP-001",
+    accountId: "AC-101",
+    type: "itr",
+    year: 2025,
+    valueBrl: 45000,
+    dueDate: "2025-09-30",
+    paidDate: "2025-09-15",
+    status: "pago",
+    notes: "ITR gleba norte - 1.200 ha",
+    createdAt: "2025-01-15",
+  },
+  {
+    id: "TAX-002",
+    propertyId: "PROP-002",
+    accountId: "AC-101",
+    type: "itr",
+    year: 2025,
+    valueBrl: 28000,
+    dueDate: "2025-09-30",
+    status: "pendente",
+    notes: "ITR gleba sul - 800 ha",
+    createdAt: "2025-01-15",
+  },
+  {
+    id: "TAX-003",
+    propertyId: "PROP-001",
+    accountId: "AC-101",
+    type: "itbi",
+    year: 2025,
+    valueBrl: 120000,
+    dueDate: "2025-12-20",
+    status: "pendente",
+    notes: "ITBI aquisição gleba oeste",
+    createdAt: "2025-06-01",
+  },
+];
+
+// ── P3 Seed Data: Environmental Licenses ───────────────────────
+
+export const SEED_ENVIRONMENTAL_LICENSES: EnvironmentalLicense[] = [
+  {
+    id: "LIC-001",
+    propertyId: "PROP-001",
+    accountId: "AC-101",
+    type: "LP",
+    number: "LP-2024-001234",
+    issuer: "IBAMA",
+    issuedAt: "2024-03-15",
+    expiresAt: "2027-03-15",
+    status: "vigente",
+    conditions: ["Manter APP de 30m em nascentes", "Relatório anual de monitoramento"],
+    notes: "Licença de prevenção para atividade agropecuária",
+    createdAt: "2024-03-15",
+  },
+  {
+    id: "LIC-002",
+    propertyId: "PROP-002",
+    accountId: "AC-101",
+    type: "LO",
+    number: "LO-2023-005678",
+    issuer: "SEMA-MT",
+    issuedAt: "2023-06-01",
+    expiresAt: "2026-06-01",
+    status: "em_renovacao",
+    conditions: ["Controle de erosão", "Manejo integrado de pragas"],
+    notes: "Licença de operação - renovação em andamento",
+    createdAt: "2023-06-01",
+  },
+];
+
+// ── P3 Seed Data: Credit Instruments ───────────────────────────
+
+export const SEED_CREDIT_INSTRUMENTS: CreditInstrument[] = [
+  {
+    id: "CR-001",
+    accountId: "AC-101",
+    matterId: "MT-301",
+    type: "cpr",
+    number: "CPR-2025-001234",
+    issuer: "Banco do Brasil",
+    valueBrl: 2500000,
+    interestRate: 12.5,
+    issueDate: "2025-04-01",
+    maturityDate: "2026-03-31",
+    paymentMethod: "Pagamento na colheita",
+    installments: 1,
+    status: "ativo",
+    notes: "CPR-Financeira para financiamento de safra",
+    createdAt: "2025-04-01",
+  },
+  {
+    id: "CR-002",
+    accountId: "AC-101",
+    type: "ccb",
+    number: "CCB-2024-005678",
+    issuer: "Itaú BBA",
+    valueBrl: 5000000,
+    interestRate: 14.0,
+    iofRate: 0.38,
+    issueDate: "2024-08-15",
+    maturityDate: "2027-08-15",
+    installments: 36,
+    status: "ativo",
+    notes: "CCB para investimentos em maquinário agrícola",
+    createdAt: "2024-08-15",
+  },
 ];

@@ -1,11 +1,15 @@
 import {
   SEED_ACCOUNTS,
   SEED_ACTIVITIES,
+  SEED_CREDIT_INSTRUMENTS,
+  SEED_CROP_SEASONS,
   SEED_DEADLINES,
+  SEED_ENVIRONMENTAL_LICENSES,
   SEED_LEADS,
   SEED_MATTERS,
   SEED_OPPORTUNITIES,
   SEED_TASKS,
+  SEED_TAX_OBLIGATIONS,
 } from "./seed.js";
 import type {
   Account,
@@ -47,10 +51,10 @@ const store = {
   contacts: [] as Contact[],
   properties: [] as Property[],
   opposingParties: [] as OpposingParty[],
-  taxObligations: [] as TaxObligation[],
-  environmentalLicenses: [] as EnvironmentalLicense[],
-  creditInstruments: [] as CreditInstrument[],
-  cropSeasons: [] as CropSeason[],
+  taxObligations: structuredClone(SEED_TAX_OBLIGATIONS),
+  environmentalLicenses: structuredClone(SEED_ENVIRONMENTAL_LICENSES),
+  creditInstruments: structuredClone(SEED_CREDIT_INSTRUMENTS),
+  cropSeasons: structuredClone(SEED_CROP_SEASONS),
 };
 
 export function listLeads(): Lead[] {
@@ -542,8 +546,8 @@ export function resetStore() {
   store.contacts = [];
   store.properties = [];
   store.opposingParties = [];
-  store.taxObligations = [];
-  store.environmentalLicenses = [];
-  store.creditInstruments = [];
-  store.cropSeasons = [];
+  store.taxObligations = structuredClone(SEED_TAX_OBLIGATIONS);
+  store.environmentalLicenses = structuredClone(SEED_ENVIRONMENTAL_LICENSES);
+  store.creditInstruments = structuredClone(SEED_CREDIT_INSTRUMENTS);
+  store.cropSeasons = structuredClone(SEED_CROP_SEASONS);
 }
