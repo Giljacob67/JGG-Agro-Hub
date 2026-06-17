@@ -23,6 +23,10 @@ const CrmTasksPage = lazy(() => import("./pages/crm/tasks"));
 const CalendarPage = lazy(() => import("./pages/agro/calendar"));
 const ReportsPage = lazy(() => import("./pages/agro/reports"));
 const ProductivityPage = lazy(() => import("./pages/agro/productivity"));
+const CropSeasonsPage = lazy(() => import("./pages/agro/crop-seasons"));
+const TaxObligationsPage = lazy(() => import("./pages/agro/tax-obligations"));
+const EnvironmentalLicensesPage = lazy(() => import("./pages/agro/environmental-licenses"));
+const CreditInstrumentsPage = lazy(() => import("./pages/agro/credit-instruments"));
 
 function PageLoader() {
   return (
@@ -91,6 +95,22 @@ export default function App() {
 
       <Route path={ROUTES.productivity}>
         <AgroRoute component={ProductivityPage} resource="stats" />
+      </Route>
+
+      <Route path={ROUTES.cropSeasons}>
+        <AgroRoute component={CropSeasonsPage} resource="matters" />
+      </Route>
+
+      <Route path={ROUTES.taxObligations}>
+        <AgroRoute component={TaxObligationsPage} resource="matters" />
+      </Route>
+
+      <Route path={ROUTES.environmentalLicenses}>
+        <AgroRoute component={EnvironmentalLicensesPage} resource="matters" />
+      </Route>
+
+      <Route path={ROUTES.creditInstruments}>
+        <AgroRoute component={CreditInstrumentsPage} resource="matters" />
       </Route>
 
       <Route path={ROUTES.crm.root}>

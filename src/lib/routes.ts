@@ -10,6 +10,10 @@ export const ROUTES = {
   calendar: "/agro/calendar",
   reports: "/agro/reports",
   productivity: "/agro/productivity",
+  cropSeasons: "/agro/crop-seasons",
+  taxObligations: "/agro/tax-obligations",
+  environmentalLicenses: "/agro/environmental-licenses",
+  creditInstruments: "/agro/credit-instruments",
   institucional: "/institucional",
   crm: {
     root: "/agro/crm",

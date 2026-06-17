@@ -13,6 +13,10 @@ import {
   CalendarDays,
   BarChart3,
   Activity,
+  Sprout,
+  Receipt,
+  Leaf,
+  Landmark,
 } from "lucide-react";
 import { ROUTES } from "./routes";
 
@@ -76,10 +80,18 @@ export const OPERATION_NAV: NavItem[] = [
   { path: ROUTES.productivity, label: "Produtividade", icon: Activity, resource: "stats" },
 ];
 
+export const AGRI_NAV: NavItem[] = [
+  { path: ROUTES.cropSeasons, label: "Safra Agrícola", icon: Sprout, resource: "matters" },
+  { path: ROUTES.taxObligations, label: "ITR / ITBI / IPVA", icon: Receipt, resource: "matters" },
+  { path: ROUTES.environmentalLicenses, label: "Licenças Ambientais", icon: Leaf, resource: "matters" },
+  { path: ROUTES.creditInstruments, label: "Crédito Rural", icon: Landmark, resource: "matters" },
+];
+
 export const NAV_GROUPS: NavGroup[] = [
   { id: "intelligence", label: "IA Agro", items: INTELLIGENCE_NAV },
   { id: "crm", label: "CRM Agro", items: CRM_NAV },
   { id: "operation", label: "Operação", items: OPERATION_NAV },
+  { id: "agri", label: "Gestão Agrícola", items: AGRI_NAV },
 ];
 
 /** @deprecated Use NAV_GROUPS */

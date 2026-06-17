@@ -12,6 +12,7 @@ import type {
   Activity,
   ActivityEntityType,
   Contact,
+  CropSeason,
   CreditInstrument,
   Deadline,
   Document,
@@ -49,6 +50,7 @@ const store = {
   taxObligations: [] as TaxObligation[],
   environmentalLicenses: [] as EnvironmentalLicense[],
   creditInstruments: [] as CreditInstrument[],
+  cropSeasons: [] as CropSeason[],
 };
 
 export function listLeads(): Lead[] {
@@ -496,6 +498,31 @@ export function addCreditInstrument(instrument: CreditInstrument): CreditInstrum
   return instrument;
 }
 
+// ── Crop Seasons ────────────────────────────────────────────────
+
+export function listCropSeasons(filters?: { year?: number; region?: string }): CropSeason[] {
+  let result = [...store.cropSeasons];
+  if (filters?.year) result = result.filter((s) => s.year === filters.year);
+  if (filters?.region) result = result.filter((s) => s.region === filters.region);
+  return result;
+}
+
+export function getCropSeason(id: string): CropSeason | undefined {
+  return store.cropSeasons.find((s) => s.id === id);
+}
+
+export function addCropSeason(season: CropSeason): CropSeason {
+  store.cropSeasons.push(season);
+  return season;
+}
+
+export function updateCropSeason(id: string, patch: Partial<CropSeason>): CropSeason | undefined {
+  const season = store.cropSeasons.find((s) => s.id === id);
+  if (!season) return undefined;
+  Object.assign(season, patch);
+  return season;
+}
+
 // ── Reset ──────────────────────────────────────────────────────────
 
 /** Apenas para testes — reinicia o store. */
@@ -518,4 +545,5 @@ export function resetStore() {
   store.taxObligations = [];
   store.environmentalLicenses = [];
   store.creditInstruments = [];
+  store.cropSeasons = [];
 }

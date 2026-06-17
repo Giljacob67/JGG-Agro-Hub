@@ -1507,5 +1507,180 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return methodNotAllowed(res);
   }
 
+  // ── Crop Seasons ────────────────────────────────────────────────
+  if (resource === "crop-seasons") {
+    const user = requireAuth(req, res, "matters");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
+
+    if (req.method === "GET") {
+      const { listCropSeasons } = await import("../../shared/agro/store.js");
+      const year = req.query.year ? Number(req.query.year) : undefined;
+      const region = req.query.region as string | undefined;
+      return json(res, listCropSeasons({ year, region }));
+    }
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const { listCropSeasons, addCropSeason } = await import("../../shared/agro/store.js");
+      const season = {
+        id: `cs-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name: String(body.name || ""),
+        year: Number(body.year || new Date().getFullYear()),
+        plantingStart: String(body.plantingStart || ""),
+        plantingEnd: String(body.plantingEnd || ""),
+        harvestStart: String(body.harvestStart || ""),
+        harvestEnd: String(body.harvestEnd || ""),
+        mainCrop: String(body.mainCrop || ""),
+        region: body.region ? String(body.region) : undefined,
+        notes: body.notes ? String(body.notes) : undefined,
+        createdAt: new Date().toISOString(),
+      };
+      addCropSeason(season);
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "matter" as AuditEntityType,
+        season as unknown as Record<string, unknown>,
+      );
+      return json(res, season, 201);
+    }
+    return methodNotAllowed(res);
+  }
+
+  // ── Tax Obligations ─────────────────────────────────────────────
+  if (resource === "tax-obligations") {
+    const user = requireAuth(req, res, "matters");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
+
+    if (req.method === "GET") {
+      const { listTaxObligations } = await import("../../shared/agro/store.js");
+      const propertyId = req.query.propertyId as string | undefined;
+      const accountId = req.query.accountId as string | undefined;
+      const year = req.query.year ? Number(req.query.year) : undefined;
+      return json(res, listTaxObligations({ propertyId, accountId, year }));
+    }
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const { addTaxObligation } = await import("../../shared/agro/store.js");
+      const tax = {
+        id: `tax-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        propertyId: String(body.propertyId || ""),
+        accountId: String(body.accountId || ""),
+        type: String(body.type || "itr") as any,
+        year: Number(body.year || new Date().getFullYear()),
+        valueBrl: Number(body.valueBrl || 0),
+        dueDate: String(body.dueDate || ""),
+        paidDate: body.paidDate ? String(body.paidDate) : null,
+        status: String(body.status || "pendente") as any,
+        notes: body.notes ? String(body.notes) : undefined,
+        createdAt: new Date().toISOString(),
+      };
+      addTaxObligation(tax);
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "matter" as AuditEntityType,
+        tax as unknown as Record<string, unknown>,
+      );
+      return json(res, tax, 201);
+    }
+    return methodNotAllowed(res);
+  }
+
+  // ── Environmental Licenses ──────────────────────────────────────
+  if (resource === "environmental-licenses") {
+    const user = requireAuth(req, res, "matters");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
+
+    if (req.method === "GET") {
+      const { listEnvironmentalLicenses } = await import("../../shared/agro/store.js");
+      const propertyId = req.query.propertyId as string | undefined;
+      const accountId = req.query.accountId as string | undefined;
+      return json(res, listEnvironmentalLicenses({ propertyId, accountId }));
+    }
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const { addEnvironmentalLicense } = await import("../../shared/agro/store.js");
+      const license = {
+        id: `lic-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        propertyId: String(body.propertyId || ""),
+        accountId: String(body.accountId || ""),
+        type: String(body.type || ""),
+        number: String(body.number || ""),
+        issuer: String(body.issuer || ""),
+        issuedAt: String(body.issuedAt || ""),
+        expiresAt: String(body.expiresAt || ""),
+        status: String(body.status || "vigente") as any,
+        conditions: Array.isArray(body.conditions) ? body.conditions.map(String) : [],
+        notes: body.notes ? String(body.notes) : undefined,
+        createdAt: new Date().toISOString(),
+      };
+      addEnvironmentalLicense(license);
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "matter" as AuditEntityType,
+        license as unknown as Record<string, unknown>,
+      );
+      return json(res, license, 201);
+    }
+    return methodNotAllowed(res);
+  }
+
+  // ── Credit Instruments ──────────────────────────────────────────
+  if (resource === "credit-instruments") {
+    const user = requireAuth(req, res, "matters");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH";
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
+
+    if (req.method === "GET") {
+      const { listCreditInstruments } = await import("../../shared/agro/store.js");
+      const accountId = req.query.accountId as string | undefined;
+      const matterId = req.query.matterId as string | undefined;
+      return json(res, listCreditInstruments({ accountId, matterId }));
+    }
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const { addCreditInstrument } = await import("../../shared/agro/store.js");
+      const instrument = {
+        id: `cr-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        accountId: String(body.accountId || ""),
+        matterId: body.matterId ? String(body.matterId) : null,
+        type: String(body.type || "cpr") as any,
+        number: String(body.number || ""),
+        issuer: body.issuer ? String(body.issuer) : undefined,
+        valueBrl: Number(body.valueBrl || 0),
+        interestRate: body.interestRate ? Number(body.interestRate) : undefined,
+        iofRate: body.iofRate ? Number(body.iofRate) : undefined,
+        issueDate: String(body.issueDate || ""),
+        maturityDate: String(body.maturityDate || ""),
+        paymentMethod: body.paymentMethod ? String(body.paymentMethod) : undefined,
+        installments: body.installments ? Number(body.installments) : undefined,
+        status: String(body.status || "ativo") as any,
+        notes: body.notes ? String(body.notes) : undefined,
+        createdAt: new Date().toISOString(),
+      };
+      addCreditInstrument(instrument);
+      auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "matter" as AuditEntityType,
+        instrument as unknown as Record<string, unknown>,
+      );
+      return json(res, instrument, 201);
+    }
+    return methodNotAllowed(res);
+  }
+
   return json(res, { error: "Recurso não encontrado" }, 404);
 }
