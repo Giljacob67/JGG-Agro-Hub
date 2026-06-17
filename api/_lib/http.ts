@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { resolveSession, roleCanAccess } from "./auth-server.js";
 import { validateCsrfToken, getSessionId } from "./csrf.js";
+import { assertWritableInProd } from "./guard.js";
 import type { AgroUser } from "../../shared/agro/types.js";
 
 const DEV_SESSION_COOKIE = "agro_session";
@@ -144,4 +145,18 @@ export function json<T>(res: VercelResponse, data: T, status = 200) {
 
 export function methodNotAllowed(res: VercelResponse) {
   res.status(405).json({ error: "Método não permitido" });
+}
+
+/**
+ * Guard de produção: bloqueia escritas memory-only quando DATABASE_URL
+ * está ausente em produção. Espelha `requireCsrf` (retorna false e envia
+ * a resposta em caso de falha). No-op em dev/local e em produção com DB.
+ */
+export function guardWrite(res: VercelResponse, resource: string): boolean {
+  const g = assertWritableInProd(resource);
+  if (!g.ok) {
+    json(res, { error: g.message }, g.status);
+    return false;
+  }
+  return true;
 }

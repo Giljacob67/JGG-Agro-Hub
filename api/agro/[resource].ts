@@ -35,7 +35,7 @@ import {
   parseMatterListQuery,
   parseTaskListQuery,
 } from "../_lib/list-query.js";
-import { json, methodNotAllowed, requireAuth, requireCsrf } from "../_lib/http.js";
+import { json, methodNotAllowed, requireAuth, requireCsrf, guardWrite } from "../_lib/http.js";
 import { checkUserRateLimit, getRateLimitHeaders } from "../_lib/rate-limit.js";
 import {
   getBody,
@@ -128,6 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    if (isWrite && !guardWrite(res, "leads")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) {
@@ -247,6 +248,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "accounts");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    if (isWrite && !guardWrite(res, "accounts")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) {
@@ -349,6 +351,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "opportunities");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    if (isWrite && !guardWrite(res, "opportunities")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) {
@@ -443,6 +446,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "matters");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    if (isWrite && !guardWrite(res, "matters")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) {
@@ -542,6 +546,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "tasks");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    if (isWrite && !guardWrite(res, "tasks")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) {
@@ -640,6 +645,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "deadlines");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    if (isWrite && !guardWrite(res, "deadlines")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) {
@@ -676,6 +682,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   // ── Activities ─────────────────────────────────────────────────────
   if (resource === "activities") {
     if (!requireAuth(req, res, "activities")) return;
+    if (req.method !== "GET" && !guardWrite(res, "activities")) return;
 
     if (req.method === "GET") {
       const entityId = req.query.entityId as string | undefined;
@@ -1022,6 +1029,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
+    if (req.method !== "GET" && !guardWrite(res, "documents")) return;
 
     if (req.method === "GET") {
       const { listDocuments } = await import("../../shared/agro/store.js");
@@ -1112,6 +1120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (resource === "document-checklist") {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
+    if (req.method !== "GET" && !guardWrite(res, "document-checklist")) return;
 
     if (req.method === "GET") {
       const matterId = req.query.matterId as string;
@@ -1162,6 +1171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
+    if (req.method !== "GET" && !guardWrite(res, "time-entries")) return;
 
     if (req.method === "GET") {
       const { listTimeEntries } = await import("../../shared/agro/store.js");
@@ -1226,6 +1236,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
+    if (req.method !== "GET" && !guardWrite(res, "invoices")) return;
 
     if (req.method === "GET") {
       const { listInvoices } = await import("../../shared/agro/store.js");
@@ -1270,6 +1281,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (resource === "fee-agreements") {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
+    if (req.method !== "GET" && !guardWrite(res, "fee-agreements")) return;
 
     if (req.method === "GET") {
       const { listFeeAgreements } = await import("../../shared/agro/store.js");
@@ -1309,6 +1321,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
+    if (req.method !== "GET" && !guardWrite(res, "contacts")) return;
 
     if (req.method === "GET") {
       const { listContacts } = await import("../../shared/agro/store.js");
@@ -1361,6 +1374,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
+    if (req.method !== "GET" && !guardWrite(res, "properties")) return;
 
     if (req.method === "GET") {
       const { listProperties } = await import("../../shared/agro/store.js");
@@ -1419,6 +1433,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (resource === "opposing-parties") {
     const user = requireAuth(req, res, "leads");
     if (!user) return;
+    if (req.method !== "GET" && !guardWrite(res, "opposing-parties")) return;
 
     if (req.method === "GET") {
       const { listOpposingParties } = await import("../../shared/agro/store.js");
@@ -1512,6 +1527,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "matters");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH";
+    if (isWrite && !guardWrite(res, "crop-seasons")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
@@ -1554,6 +1570,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "matters");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH";
+    if (isWrite && !guardWrite(res, "tax-obligations")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
@@ -1597,6 +1614,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "matters");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH";
+    if (isWrite && !guardWrite(res, "environmental-licenses")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
@@ -1640,6 +1658,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const user = requireAuth(req, res, "matters");
     if (!user) return;
     const isWrite = req.method === "POST" || req.method === "PATCH";
+    if (isWrite && !guardWrite(res, "credit-instruments")) return;
     const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
     res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
     if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);

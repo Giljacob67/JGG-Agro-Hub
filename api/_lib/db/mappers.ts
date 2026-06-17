@@ -45,6 +45,11 @@ export function mapLead(row: Record<string, unknown>): Lead {
   if (row.converted_opportunity_id) {
     lead.convertedOpportunityId = String(row.converted_opportunity_id);
   }
+  if (row.deleted_at) {
+    lead.deletedAt = row.deleted_at instanceof Date
+      ? row.deleted_at.toISOString()
+      : String(row.deleted_at);
+  }
 
   return lead;
 }
@@ -76,6 +81,11 @@ export function mapAccount(row: Record<string, unknown>): Account {
     account.relationshipStatus =
       row.relationship_status as Account["relationshipStatus"];
   }
+  if (row.deleted_at) {
+    account.deletedAt = row.deleted_at instanceof Date
+      ? row.deleted_at.toISOString()
+      : String(row.deleted_at);
+  }
 
   return account;
 }
@@ -98,6 +108,11 @@ export function mapOpportunity(row: Record<string, unknown>): Opportunity {
   if (row.probability != null) opp.probability = Number(row.probability);
   if (row.next_step) opp.nextStep = String(row.next_step);
   if (row.lead_id) opp.leadId = String(row.lead_id);
+  if (row.deleted_at) {
+    opp.deletedAt = row.deleted_at instanceof Date
+      ? row.deleted_at.toISOString()
+      : String(row.deleted_at);
+  }
 
   return opp;
 }
@@ -130,6 +145,11 @@ export function mapMatter(row: Record<string, unknown>): Matter {
     matter.claimValueBrl = Number(row.claim_value_brl);
   }
   if (row.opportunity_id) matter.opportunityId = String(row.opportunity_id);
+  if (row.deleted_at) {
+    matter.deletedAt = row.deleted_at instanceof Date
+      ? row.deleted_at.toISOString()
+      : String(row.deleted_at);
+  }
 
   return matter;
 }
@@ -166,7 +186,7 @@ export function mapActivity(row: Record<string, unknown>): Activity {
 }
 
 export function mapTask(row: Record<string, unknown>): Task {
-  return {
+  const task: Task = {
     id: String(row.id),
     title: String(row.title),
     relatedTo: String(row.related_to),
@@ -176,4 +196,10 @@ export function mapTask(row: Record<string, unknown>): Task {
     dueDate: toDateStr(row.due_date),
     owner: String(row.owner),
   };
+  if (row.deleted_at) {
+    task.deletedAt = row.deleted_at instanceof Date
+      ? row.deleted_at.toISOString()
+      : String(row.deleted_at);
+  }
+  return task;
 }

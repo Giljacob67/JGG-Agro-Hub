@@ -69,6 +69,7 @@ CREATE TABLE agro.accounts (
   contracted_areas JSONB DEFAULT '[]'::jsonb,
   mapped_risks JSONB DEFAULT '[]'::jsonb,
   relationship_status agro.relationship_status,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -90,6 +91,7 @@ CREATE TABLE agro.leads (
   interest_area TEXT,
   priority agro.lead_priority,
   converted_opportunity_id TEXT,
+  deleted_at TIMESTAMPTZ,
   created_at DATE NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -109,6 +111,7 @@ CREATE TABLE agro.opportunities (
   probability SMALLINT CHECK (probability IS NULL OR (probability >= 0 AND probability <= 100)),
   next_step TEXT,
   lead_id TEXT REFERENCES agro.leads(id) ON DELETE SET NULL,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -142,6 +145,7 @@ CREATE TABLE agro.matters (
   opposing_party TEXT,
   claim_value_brl NUMERIC(14, 2),
   opportunity_id TEXT REFERENCES agro.opportunities(id) ON DELETE SET NULL,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -194,6 +198,7 @@ CREATE TABLE agro.tasks (
   status agro.task_status NOT NULL DEFAULT 'pendente',
   due_date DATE NOT NULL,
   owner TEXT NOT NULL,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -211,3 +216,8 @@ CREATE INDEX idx_matters_opportunity ON agro.matters(opportunity_id);
 CREATE INDEX idx_opportunities_lead ON agro.opportunities(lead_id);
 CREATE INDEX idx_audit_logs_entity ON agro.audit_logs(entity_type, entity_id, created_at DESC);
 CREATE INDEX idx_audit_logs_actor ON agro.audit_logs(actor_email, created_at DESC);
+CREATE INDEX idx_leads_active ON agro.leads(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_accounts_active ON agro.accounts(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_opportunities_active ON agro.opportunities(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_matters_active ON agro.matters(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX idx_tasks_active ON agro.tasks(deleted_at) WHERE deleted_at IS NULL;

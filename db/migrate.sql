@@ -213,3 +213,16 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON agro.audit_logs(actor_email, 
 -- Normaliza stages legados
 UPDATE agro.opportunities SET stage = 'proposta_elaboracao' WHERE stage::text = 'proposta';
 UPDATE agro.opportunities SET stage = 'diagnostico_agendado' WHERE stage::text = 'qualificacao';
+
+-- Soft-delete (exclusão lógica) — entidades core do CRM
+ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE agro.tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+
+CREATE INDEX IF NOT EXISTS idx_leads_active ON agro.leads(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_accounts_active ON agro.accounts(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_opportunities_active ON agro.opportunities(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_matters_active ON agro.matters(deleted_at) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_tasks_active ON agro.tasks(deleted_at) WHERE deleted_at IS NULL;

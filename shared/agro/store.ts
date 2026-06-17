@@ -58,55 +58,58 @@ const store = {
 };
 
 export function listLeads(): Lead[] {
-  return store.leads;
+  return store.leads.filter((l) => !l.deletedAt);
 }
 
 export function getLead(id: string): Lead | undefined {
-  return store.leads.find((l) => l.id === id);
+  return store.leads.find((l) => l.id === id && !l.deletedAt);
 }
 
 export function listAccounts(): Account[] {
-  return store.accounts;
+  return store.accounts.filter((a) => !a.deletedAt);
 }
 
 export function getAccount(id: string): Account | undefined {
-  return store.accounts.find((a) => a.id === id);
+  return store.accounts.find((a) => a.id === id && !a.deletedAt);
 }
 
 export function listOpportunities(): Opportunity[] {
-  return store.opportunities;
+  return store.opportunities.filter((o) => !o.deletedAt);
 }
 
 export function getOpportunity(id: string): Opportunity | undefined {
-  return store.opportunities.find((o) => o.id === id);
+  return store.opportunities.find((o) => o.id === id && !o.deletedAt);
 }
 
 export function listMatters(): Matter[] {
-  return store.matters;
+  return store.matters.filter((m) => !m.deletedAt);
 }
 
 export function getMatter(id: string): Matter | undefined {
-  return store.matters.find((m) => m.id === id);
+  return store.matters.find((m) => m.id === id && !m.deletedAt);
 }
 
 export function listTasks(): Task[] {
-  return store.tasks;
+  return store.tasks.filter((t) => !t.deletedAt);
 }
 
 export function getTask(id: string): Task | undefined {
-  return store.tasks.find((t) => t.id === id);
+  return store.tasks.find((t) => t.id === id && !t.deletedAt);
 }
 
 export function getRelatedTasks(entityId: string): Task[] {
-  return store.tasks.filter((t) => t.relatedTo === entityId);
+  return store.tasks.filter((t) => t.relatedTo === entityId && !t.deletedAt);
 }
 
 export function getAccountTimeline(accountId: string) {
   return {
-    leads: store.leads.filter((l) => l.accountId === accountId),
-    opportunities: store.opportunities.filter((o) => o.accountId === accountId),
-    matters: store.matters.filter((m) => m.accountId === accountId),
+    leads: store.leads.filter((l) => l.accountId === accountId && !l.deletedAt),
+    opportunities: store.opportunities.filter(
+      (o) => o.accountId === accountId && !o.deletedAt,
+    ),
+    matters: store.matters.filter((m) => m.accountId === accountId && !m.deletedAt),
     tasks: store.tasks.filter((t) => {
+      if (t.deletedAt) return false;
       const prefix = t.relatedTo.split("-")[0];
       const entity =
         prefix === "LD"
@@ -234,7 +237,9 @@ export function nextActivityId(): string {
 /* ------------------------------------------------ Conversão e vínculos */
 
 export function listMattersByOpportunity(opportunityId: string): Matter[] {
-  return store.matters.filter((m) => m.opportunityId === opportunityId);
+  return store.matters.filter(
+    (m) => m.opportunityId === opportunityId && !m.deletedAt,
+  );
 }
 
 export function nextOpportunityId(): string {

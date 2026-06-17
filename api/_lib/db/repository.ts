@@ -65,7 +65,9 @@ export async function dbListLeads(
     where.clauses.push(`(name ILIKE $${where.values.length + 1} OR contact ILIKE $${where.values.length + 2} OR notes ILIKE $${where.values.length + 3})`);
     where.values.push(term, term, term);
   }
-  const whereSql = where.clauses.length ? `WHERE ${where.clauses.join(" AND ")}` : "";
+  const whereSql = where.clauses.length
+    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
+    : "WHERE deleted_at IS NULL";
   const countRows = await sql.query(`SELECT COUNT(*)::int AS c FROM agro.leads ${whereSql}`, where.values);
   const total = Number(countRows[0].c);
   const page = Math.max(1, params.page ?? 1);
@@ -84,7 +86,7 @@ export async function dbListLeads(
     pageSize,
   };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.leads ORDER BY created_at DESC`;
+    const allRows = await sql`SELECT * FROM agro.leads WHERE deleted_at IS NULL ORDER BY created_at DESC`;
     const all = allRows.map((r) => mapLead(r as Record<string, unknown>));
     result.facets = buildLeadFacets(all);
   }
@@ -93,7 +95,7 @@ export async function dbListLeads(
 
 export async function dbGetLead(id: string): Promise<Lead | null> {
   const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.leads WHERE id = ${id}`;
+  const rows = await sql`SELECT * FROM agro.leads WHERE id = ${id} AND deleted_at IS NULL`;
   if (!rows.length) return null;
   return mapLead(rows[0] as Record<string, unknown>);
 }
@@ -139,6 +141,15 @@ export async function dbUpdateLead(
   return dbGetLead(id);
 }
 
+export async function dbDeleteLead(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.leads SET deleted_at = now(), updated_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
+}
+
 export async function dbListAccounts(
   params: AccountListParams = {},
 ): Promise<PaginatedResult<Account>> {
@@ -152,7 +163,9 @@ export async function dbListAccounts(
     where.clauses.push(`(name ILIKE $${where.values.length + 1} OR main_crop ILIKE $${where.values.length + 2})`);
     where.values.push(term, term);
   }
-  const whereSql = where.clauses.length ? `WHERE ${where.clauses.join(" AND ")}` : "";
+  const whereSql = where.clauses.length
+    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
+    : "WHERE deleted_at IS NULL";
   const countRows = await sql.query(`SELECT COUNT(*)::int AS c FROM agro.accounts a ${whereSql}`, where.values);
   const total = Number(countRows[0].c);
   const page = Math.max(1, params.page ?? 1);
@@ -169,7 +182,7 @@ export async function dbListAccounts(
   const items = rows.map((r) => mapAccount(r as Record<string, unknown>));
   const result: PaginatedResult<Account> = { items, total, page, pageSize };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.accounts ORDER BY name`;
+    const allRows = await sql`SELECT * FROM agro.accounts WHERE deleted_at IS NULL ORDER BY name`;
     const all = allRows.map((r) => mapAccount(r as Record<string, unknown>));
     result.facets = buildAccountFacets(all);
   }
@@ -185,7 +198,7 @@ export async function dbGetAccount(id: string): Promise<Account | null> {
       (SELECT COUNT(*)::int FROM agro.opportunities o
         WHERE o.account_id = a.id AND o.stage NOT IN ('perdido', 'contrato', 'arquivado')) AS active_opportunities
     FROM agro.accounts a
-    WHERE a.id = ${id}
+    WHERE a.id = ${id} AND a.deleted_at IS NULL
   `;
   if (!rows.length) return null;
   return mapAccount(rows[0] as Record<string, unknown>);
@@ -194,16 +207,16 @@ export async function dbGetAccount(id: string): Promise<Account | null> {
 export async function dbGetAccountTimeline(accountId: string) {
   const sql = getSql();
   const [leads, opportunities, matters, tasks] = await Promise.all([
-    sql`SELECT * FROM agro.leads WHERE account_id = ${accountId}`,
-    sql`SELECT * FROM agro.opportunities WHERE account_id = ${accountId}`,
-    sql`SELECT * FROM agro.matters WHERE account_id = ${accountId}`,
+    sql`SELECT * FROM agro.leads WHERE account_id = ${accountId} AND deleted_at IS NULL`,
+    sql`SELECT * FROM agro.opportunities WHERE account_id = ${accountId} AND deleted_at IS NULL`,
+    sql`SELECT * FROM agro.matters WHERE account_id = ${accountId} AND deleted_at IS NULL`,
     sql`SELECT * FROM agro.tasks WHERE related_to IN (
       SELECT id FROM agro.leads WHERE account_id = ${accountId}
       UNION ALL
       SELECT id FROM agro.opportunities WHERE account_id = ${accountId}
       UNION ALL
       SELECT id FROM agro.matters WHERE account_id = ${accountId}
-    ) ORDER BY due_date`,
+    ) AND deleted_at IS NULL ORDER BY due_date`,
   ]);
 
   return {
@@ -212,6 +225,74 @@ export async function dbGetAccountTimeline(accountId: string) {
     matters: matters.map((r) => mapMatter(r as Record<string, unknown>)),
     tasks: tasks.map((r) => mapTask(r as Record<string, unknown>)),
   };
+}
+
+export type AccountPatch = Partial<{
+  name: string;
+  type: Account["type"];
+  region: string;
+  areaHa: number;
+  mainCrop: string;
+  owner: string;
+  relationshipStatus: Account["relationshipStatus"];
+}>;
+
+export async function dbCreateAccount(input: {
+  name: string;
+  type?: Account["type"];
+  region?: string;
+  areaHa?: number;
+  mainCrop?: string;
+  owner: string;
+  since?: string;
+}): Promise<Account> {
+  const sql = getSql();
+  const id = uuidPrefix("AC");
+  await sql`
+    INSERT INTO agro.accounts (
+      id, name, type, region, area_ha, main_crop, owner, since, relationship_status
+    )
+    VALUES (
+      ${id}, ${input.name}, ${input.type ?? "produtor"}, ${input.region ?? ""},
+      ${input.areaHa ?? 0}, ${input.mainCrop ?? null}, ${input.owner},
+      ${input.since ?? null}, ${null}
+    )
+  `;
+  const account = await dbGetAccount(id);
+  if (!account) throw new Error("Falha ao criar conta");
+  return account;
+}
+
+export async function dbUpdateAccount(
+  id: string,
+  patch: AccountPatch,
+): Promise<Account | null> {
+  const sql = getSql();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  if (patch.name !== undefined) { sets.push(`name = $${sets.length + 1}`); values.push(patch.name); }
+  if (patch.type !== undefined) { sets.push(`type = $${sets.length + 1}`); values.push(patch.type); }
+  if (patch.region !== undefined) { sets.push(`region = $${sets.length + 1}`); values.push(patch.region); }
+  if (patch.areaHa !== undefined) { sets.push(`area_ha = $${sets.length + 1}`); values.push(patch.areaHa); }
+  if (patch.mainCrop !== undefined) { sets.push(`main_crop = $${sets.length + 1}`); values.push(patch.mainCrop); }
+  if (patch.owner !== undefined) { sets.push(`owner = $${sets.length + 1}`); values.push(patch.owner); }
+  if (patch.relationshipStatus !== undefined) { sets.push(`relationship_status = $${sets.length + 1}`); values.push(patch.relationshipStatus); }
+  if (!sets.length) return dbGetAccount(id);
+  values.push(id);
+  await sql.query(
+    `UPDATE agro.accounts SET ${sets.join(", ")}, updated_at = now() WHERE id = $${values.length} AND deleted_at IS NULL`,
+    values,
+  );
+  return dbGetAccount(id);
+}
+
+export async function dbDeleteAccount(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.accounts SET deleted_at = now(), updated_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
 }
 
 export async function dbListOpportunities(
@@ -233,7 +314,9 @@ export async function dbListOpportunities(
     where.clauses.push(`(title ILIKE $${where.values.length + 1} OR account_name ILIKE $${where.values.length + 2})`);
     where.values.push(term, term);
   }
-  const whereSql = where.clauses.length ? `WHERE ${where.clauses.join(" AND ")}` : "";
+  const whereSql = where.clauses.length
+    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
+    : "WHERE deleted_at IS NULL";
   const countRows = await sql.query(`SELECT COUNT(*)::int AS c FROM agro.opportunities ${whereSql}`, where.values);
   const total = Number(countRows[0].c);
   const page = Math.max(1, params.page ?? 1);
@@ -247,7 +330,7 @@ export async function dbListOpportunities(
   const items = rows.map((r) => mapOpportunity(r as Record<string, unknown>));
   const result: PaginatedResult<Opportunity> = { items, total, page, pageSize };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.opportunities ORDER BY expected_close`;
+    const allRows = await sql`SELECT * FROM agro.opportunities WHERE deleted_at IS NULL ORDER BY expected_close`;
     const all = allRows.map((r) => mapOpportunity(r as Record<string, unknown>));
     result.facets = buildOpportunityFacets(all);
   }
@@ -256,7 +339,7 @@ export async function dbListOpportunities(
 
 export async function dbGetOpportunity(id: string): Promise<Opportunity | null> {
   const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.opportunities WHERE id = ${id}`;
+  const rows = await sql`SELECT * FROM agro.opportunities WHERE id = ${id} AND deleted_at IS NULL`;
   if (!rows.length) return null;
   return mapOpportunity(rows[0] as Record<string, unknown>);
 }
@@ -284,7 +367,9 @@ export async function dbListMatters(
     where.clauses.push(`(title ILIKE $${where.values.length + 1} OR account_name ILIKE $${where.values.length + 2})`);
     where.values.push(term, term);
   }
-  const whereSql = where.clauses.length ? `WHERE ${where.clauses.join(" AND ")}` : "";
+  const whereSql = where.clauses.length
+    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
+    : "WHERE deleted_at IS NULL";
   const countRows = await sql.query(`SELECT COUNT(*)::int AS c FROM agro.matters ${whereSql}`, where.values);
   const total = Number(countRows[0].c);
   const page = Math.max(1, params.page ?? 1);
@@ -298,7 +383,7 @@ export async function dbListMatters(
   const items = rows.map((r) => mapMatter(r as Record<string, unknown>));
   const result: PaginatedResult<Matter> = { items, total, page, pageSize };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.matters ORDER BY deadline`;
+    const allRows = await sql`SELECT * FROM agro.matters WHERE deleted_at IS NULL ORDER BY deadline`;
     const all = allRows.map((r) => mapMatter(r as Record<string, unknown>));
     result.facets = buildMatterFacets(all);
   }
@@ -307,7 +392,7 @@ export async function dbListMatters(
 
 export async function dbGetMatter(id: string): Promise<Matter | null> {
   const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.matters WHERE id = ${id}`;
+  const rows = await sql`SELECT * FROM agro.matters WHERE id = ${id} AND deleted_at IS NULL`;
   if (!rows.length) return null;
   return mapMatter(rows[0] as Record<string, unknown>);
 }
@@ -331,7 +416,9 @@ export async function dbListTasks(
     } else if (params.due === "atrasadas") { where.clauses.push(`due_date < $${where.values.length + 1}`); where.values.push(today); }
   }
   if (params.search?.trim()) { const term = sqlLikeTerm(params.search); where.clauses.push(`title ILIKE $${where.values.length + 1}`); where.values.push(term); }
-  const whereSql = where.clauses.length ? `WHERE ${where.clauses.join(" AND ")}` : "";
+  const whereSql = where.clauses.length
+    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
+    : "WHERE deleted_at IS NULL";
   const countRows = await sql.query(`SELECT COUNT(*)::int AS c FROM agro.tasks ${whereSql}`, where.values);
   const total = Number(countRows[0].c);
   const page = Math.max(1, params.page ?? 1);
@@ -345,7 +432,7 @@ export async function dbListTasks(
   const items = rows.map((r) => mapTask(r as Record<string, unknown>));
   const result: PaginatedResult<Task> = { items, total, page, pageSize };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.tasks ORDER BY due_date`;
+    const allRows = await sql`SELECT * FROM agro.tasks WHERE deleted_at IS NULL ORDER BY due_date`;
     const all = allRows.map((r) => mapTask(r as Record<string, unknown>));
     result.facets = buildTaskFacets(all);
   }
@@ -354,14 +441,14 @@ export async function dbListTasks(
 
 export async function dbGetTask(id: string): Promise<Task | null> {
   const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.tasks WHERE id = ${id}`;
+  const rows = await sql`SELECT * FROM agro.tasks WHERE id = ${id} AND deleted_at IS NULL`;
   if (!rows.length) return null;
   return mapTask(rows[0] as Record<string, unknown>);
 }
 
 export async function dbGetRelatedTasks(entityId: string): Promise<Task[]> {
   const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.tasks WHERE related_to = ${entityId} ORDER BY due_date`;
+  const rows = await sql`SELECT * FROM agro.tasks WHERE related_to = ${entityId} AND deleted_at IS NULL ORDER BY due_date`;
   return rows.map((r) => mapTask(r as Record<string, unknown>));
 }
 
@@ -379,6 +466,45 @@ export async function dbUpdateOpportunity(
   values.push(id);
   await sql.query(`UPDATE agro.opportunities SET ${sets.join(", ")}, updated_at = now() WHERE id = $${values.length}`, values);
   return dbGetOpportunity(id);
+}
+
+export async function dbCreateOpportunity(input: {
+  title: string;
+  accountName?: string;
+  accountId?: string;
+  stage?: Opportunity["stage"];
+  valueBrl?: number;
+  owner: string;
+  expectedClose?: string;
+  priority?: Opportunity["priority"];
+  practice?: string;
+}): Promise<Opportunity> {
+  const sql = getSql();
+  const id = uuidPrefix("OP");
+  await sql`
+    INSERT INTO agro.opportunities (
+      id, title, account_id, account_name, stage, value_brl, owner,
+      expected_close, next_contact, priority, practice
+    )
+    VALUES (
+      ${id}, ${input.title}, ${input.accountId ?? null}, ${input.accountName ?? ""},
+      ${input.stage ?? "novo_contato"}, ${input.valueBrl ?? 0}, ${input.owner},
+      ${input.expectedClose || null}, ${null}, ${input.priority ?? "normal"},
+      ${input.practice ?? null}
+    )
+  `;
+  const opp = await dbGetOpportunity(id);
+  if (!opp) throw new Error("Falha ao criar oportunidade");
+  return opp;
+}
+
+export async function dbDeleteOpportunity(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.opportunities SET deleted_at = now(), updated_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
 }
 
 export type MatterPatch = Partial<{
@@ -415,12 +541,57 @@ export async function dbUpdateMatter(
   return dbGetMatter(id);
 }
 
+export async function dbCreateMatter(input: {
+  title: string;
+  accountName?: string;
+  accountId?: string;
+  practice?: string;
+  status?: Matter["status"];
+  risk?: Matter["risk"];
+  deadline?: string;
+  owner: string;
+  description?: string;
+  urgency?: Matter["urgency"];
+  cnjNumber?: string;
+  court?: string;
+  opposingParty?: string;
+}): Promise<Matter> {
+  const sql = getSql();
+  const id = uuidPrefix("MT");
+  const fallbackDeadline = new Date().toISOString().slice(0, 10);
+  await sql`
+    INSERT INTO agro.matters (
+      id, title, account_id, account_name, practice, status, risk, deadline,
+      owner, description, urgency, cnj_number, court, opposing_party
+    )
+    VALUES (
+      ${id}, ${input.title}, ${input.accountId ?? null}, ${input.accountName ?? ""},
+      ${input.practice ?? ""}, ${input.status ?? "aberta"}, ${input.risk ?? "baixo"},
+      ${input.deadline || fallbackDeadline}, ${input.owner}, ${input.description ?? null},
+      ${input.urgency ?? null}, ${input.cnjNumber ?? null},
+      ${input.court ?? null}, ${input.opposingParty ?? null}
+    )
+  `;
+  const matter = await dbGetMatter(id);
+  if (!matter) throw new Error("Falha ao criar demanda");
+  return matter;
+}
+
+export async function dbDeleteMatter(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.matters SET deleted_at = now(), updated_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
+}
+
 export async function dbGetMattersByOpportunity(
   opportunityId: string,
 ): Promise<Matter[]> {
   const sql = getSql();
   const rows = await sql`
-    SELECT * FROM agro.matters WHERE opportunity_id = ${opportunityId} ORDER BY deadline
+    SELECT * FROM agro.matters WHERE opportunity_id = ${opportunityId} AND deleted_at IS NULL ORDER BY deadline
   `;
   return rows.map((r) => mapMatter(r as Record<string, unknown>));
 }
@@ -437,6 +608,66 @@ export async function dbUpdateTaskStatus(
   `;
   if (!rows.length) return null;
   return mapTask(rows[0] as Record<string, unknown>);
+}
+
+export type TaskPatch = Partial<{
+  status: Task["status"];
+  priority: Task["priority"];
+  title: string;
+  owner: string;
+  dueDate: string;
+}>;
+
+export async function dbCreateTask(input: {
+  title: string;
+  relatedTo?: string;
+  type?: Task["type"];
+  priority?: Task["priority"];
+  dueDate?: string;
+  owner: string;
+}): Promise<Task> {
+  const sql = getSql();
+  const id = uuidPrefix("TK");
+  const fallbackDue = new Date().toISOString().slice(0, 10);
+  const rows = await sql`
+    INSERT INTO agro.tasks (id, title, related_to, type, priority, status, due_date, owner)
+    VALUES (
+      ${id}, ${input.title}, ${input.relatedTo ?? ""}, ${input.type ?? "operacional"},
+      ${input.priority ?? "media"}, 'pendente', ${input.dueDate || fallbackDue}, ${input.owner}
+    )
+    RETURNING *
+  `;
+  return mapTask(rows[0] as Record<string, unknown>);
+}
+
+export async function dbUpdateTask(
+  id: string,
+  patch: TaskPatch,
+): Promise<Task | null> {
+  const sql = getSql();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  if (patch.status !== undefined) { sets.push(`status = $${sets.length + 1}`); values.push(patch.status); }
+  if (patch.priority !== undefined) { sets.push(`priority = $${sets.length + 1}`); values.push(patch.priority); }
+  if (patch.title !== undefined) { sets.push(`title = $${sets.length + 1}`); values.push(patch.title); }
+  if (patch.owner !== undefined) { sets.push(`owner = $${sets.length + 1}`); values.push(patch.owner); }
+  if (patch.dueDate !== undefined) { sets.push(`due_date = $${sets.length + 1}`); values.push(patch.dueDate); }
+  if (!sets.length) return dbGetTask(id);
+  values.push(id);
+  await sql.query(
+    `UPDATE agro.tasks SET ${sets.join(", ")}, updated_at = now() WHERE id = $${values.length} AND deleted_at IS NULL`,
+    values,
+  );
+  return dbGetTask(id);
+}
+
+export async function dbDeleteTask(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.tasks SET deleted_at = now(), updated_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
 }
 
 /* ---------------------------------------------------------------- Prazos */
@@ -577,11 +808,11 @@ export async function dbLoadAll(): Promise<CrmDataset> {
   const sql = getSql();
   const [leads, accounts, opportunities, matters, tasks, deadlines, activities] =
     await Promise.all([
-      sql`SELECT * FROM agro.leads ORDER BY created_at DESC`,
-      sql`SELECT * FROM agro.accounts ORDER BY name`,
-      sql`SELECT * FROM agro.opportunities ORDER BY expected_close`,
-      sql`SELECT * FROM agro.matters ORDER BY deadline`,
-      sql`SELECT * FROM agro.tasks ORDER BY due_date`,
+      sql`SELECT * FROM agro.leads WHERE deleted_at IS NULL ORDER BY created_at DESC`,
+      sql`SELECT * FROM agro.accounts WHERE deleted_at IS NULL ORDER BY name`,
+      sql`SELECT * FROM agro.opportunities WHERE deleted_at IS NULL ORDER BY expected_close`,
+      sql`SELECT * FROM agro.matters WHERE deleted_at IS NULL ORDER BY deadline`,
+      sql`SELECT * FROM agro.tasks WHERE deleted_at IS NULL ORDER BY due_date`,
       sql`SELECT * FROM agro.deadlines ORDER BY due_date`,
       sql`SELECT * FROM agro.activities ORDER BY date DESC, created_at DESC`,
     ]);

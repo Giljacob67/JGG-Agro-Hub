@@ -43,10 +43,43 @@ import {
 } from "../../shared/agro/convert.js";
 import { isDbEnabled } from "./db/client.js";
 import * as db from "./db/repository.js";
-import type { MatterPatch } from "./db/repository.js";
+import type { AccountPatch, MatterPatch, TaskPatch } from "./db/repository.js";
+import { assertWritableInProd, WritableGuardError } from "./guard.js";
 
 export { isDbEnabled };
-export type { ConvertLeadInput, ConvertLeadResult, MatterPatch };
+export type { ConvertLeadInput, ConvertLeadResult, MatterPatch, AccountPatch, TaskPatch };
+
+/** Bloqueia escritas memory-only em produção sem banco (perda silenciosa). */
+function requireWritableOrThrow(resource: string): void {
+  const g = assertWritableInProd(resource);
+  if (!g.ok) throw new WritableGuardError(g.message, g.status);
+}
+
+/** Mapeia patch livre → AccountPatch (descarta chaves sem coluna no DB). */
+function pickAccountPatch(patch: Record<string, unknown>): AccountPatch {
+  const result: AccountPatch = {};
+  if (patch.name !== undefined) result.name = String(patch.name);
+  if (patch.type !== undefined) result.type = patch.type as Account["type"];
+  if (patch.region !== undefined) result.region = String(patch.region);
+  if (patch.areaHa !== undefined) result.areaHa = Number(patch.areaHa);
+  if (patch.mainCrop !== undefined) result.mainCrop = String(patch.mainCrop);
+  if (patch.owner !== undefined) result.owner = String(patch.owner);
+  if (patch.relationshipStatus !== undefined) {
+    result.relationshipStatus = patch.relationshipStatus as Account["relationshipStatus"];
+  }
+  return result;
+}
+
+/** Mapeia patch livre → TaskPatch (descarta chaves sem coluna no DB). */
+function pickTaskPatch(patch: Record<string, unknown>): TaskPatch {
+  const result: TaskPatch = {};
+  if (patch.status !== undefined) result.status = patch.status as Task["status"];
+  if (patch.priority !== undefined) result.priority = patch.priority as Task["priority"];
+  if (patch.title !== undefined) result.title = String(patch.title);
+  if (patch.owner !== undefined) result.owner = String(patch.owner);
+  if (patch.dueDate !== undefined) result.dueDate = String(patch.dueDate);
+  return result;
+}
 
 export type CreateLeadInput = {
   name: string;
@@ -124,6 +157,8 @@ export async function updateLead(
 }
 
 export async function deleteLead(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteLead(id);
+  requireWritableOrThrow("leads");
   memory.patchLead(id, { deletedAt: new Date().toISOString() } as Partial<Lead>);
   return true;
 }
@@ -335,6 +370,7 @@ export async function convertLead(
   if (isDbEnabled()) {
     created = await db.dbConvertLead(safeLead, opportunity);
   } else {
+    requireWritableOrThrow("opportunities");
     memory.addOpportunity(opportunity);
     memory.patchLead(safeLead.id, {
       status: "qualificado",
@@ -418,7 +454,10 @@ export async function recordAudit(input: {
   entityId?: string | null;
   metadata?: Record<string, unknown>;
 }) {
-  if (!isDbEnabled()) return;
+  if (!isDbEnabled()) {
+    requireWritableOrThrow("audit");
+    return;
+  }
   await db.dbCreateAuditLog(input);
 }
 
@@ -435,6 +474,17 @@ export async function createAccount(input: {
   email?: string;
   address?: string;
 }) {
+  if (isDbEnabled()) {
+    return db.dbCreateAccount({
+      name: input.name,
+      type: input.type as Account["type"] | undefined,
+      region: input.region,
+      areaHa: input.areaHa,
+      mainCrop: input.mainCrop,
+      owner: input.owner,
+    });
+  }
+  requireWritableOrThrow("accounts");
   const today = new Date().toISOString().slice(0, 10);
   const id = `AC-${String(memory.listAccounts().length + 1).padStart(3, "0")}`;
   const account: Account = {
@@ -457,6 +507,11 @@ export async function updateAccount(
   id: string,
   patch: Record<string, unknown>,
 ): Promise<Account | undefined> {
+  if (isDbEnabled()) {
+    const updated = await db.dbUpdateAccount(id, pickAccountPatch(patch));
+    return updated ?? undefined;
+  }
+  requireWritableOrThrow("accounts");
   const existing = memory.getAccount(id);
   if (!existing) return undefined;
   const updated = { ...existing, ...patch, id };
@@ -465,6 +520,8 @@ export async function updateAccount(
 }
 
 export async function deleteAccount(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteAccount(id);
+  requireWritableOrThrow("accounts");
   memory.patchAccount(id, { deletedAt: new Date().toISOString() } as Partial<Account>);
   return true;
 }
@@ -481,6 +538,20 @@ export async function createOpportunity(input: {
   practice?: string;
   description?: string;
 }) {
+  if (isDbEnabled()) {
+    return db.dbCreateOpportunity({
+      title: input.title,
+      accountName: input.accountName,
+      accountId: input.accountId,
+      stage: input.stage as Opportunity["stage"] | undefined,
+      valueBrl: input.valueBrl,
+      owner: input.owner,
+      expectedClose: input.expectedClose,
+      priority: input.priority as Opportunity["priority"] | undefined,
+      practice: input.practice,
+    });
+  }
+  requireWritableOrThrow("opportunities");
   const id = `OP-${String(memory.listOpportunities().length + 1).padStart(3, "0")}`;
   const opp: Opportunity = {
     id,
@@ -500,6 +571,8 @@ export async function createOpportunity(input: {
 }
 
 export async function deleteOpportunity(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteOpportunity(id);
+  requireWritableOrThrow("opportunities");
   memory.patchOpportunity(id, { deletedAt: new Date().toISOString() } as Partial<Opportunity>);
   return true;
 }
@@ -523,6 +596,24 @@ export async function createMatter(input: {
   nextHearingDate?: string | null;
   jurisdiction?: string;
 }) {
+  if (isDbEnabled()) {
+    return db.dbCreateMatter({
+      title: input.title,
+      accountName: input.accountName,
+      accountId: input.accountId,
+      practice: input.practice,
+      status: input.status as Matter["status"] | undefined,
+      risk: input.risk as Matter["risk"] | undefined,
+      deadline: input.deadline,
+      owner: input.owner,
+      description: input.description,
+      urgency: input.urgency as Matter["urgency"] | undefined,
+      cnjNumber: input.cnjNumber,
+      court: input.court,
+      opposingParty: input.opposingParty,
+    });
+  }
+  requireWritableOrThrow("matters");
   const id = `MT-${String(memory.listMatters().length + 1).padStart(3, "0")}`;
   const matter: Matter = {
     id,
@@ -549,6 +640,8 @@ export async function createMatter(input: {
 }
 
 export async function deleteMatter(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteMatter(id);
+  requireWritableOrThrow("matters");
   memory.patchMatter(id, { deletedAt: new Date().toISOString() } as Partial<Matter>);
   return true;
 }
@@ -562,6 +655,17 @@ export async function createTask(input: {
   owner: string;
   description?: string;
 }) {
+  if (isDbEnabled()) {
+    return db.dbCreateTask({
+      title: input.title,
+      relatedTo: input.relatedTo,
+      type: input.type as Task["type"] | undefined,
+      priority: input.priority as Task["priority"] | undefined,
+      dueDate: input.dueDate,
+      owner: input.owner,
+    });
+  }
+  requireWritableOrThrow("tasks");
   const id = `TK-${String(memory.listTasks().length + 1).padStart(3, "0")}`;
   const task: Task = {
     id,
@@ -581,6 +685,11 @@ export async function updateTask(
   id: string,
   patch: Record<string, unknown>,
 ): Promise<Task | undefined> {
+  if (isDbEnabled()) {
+    const updated = await db.dbUpdateTask(id, pickTaskPatch(patch));
+    return updated ?? undefined;
+  }
+  requireWritableOrThrow("tasks");
   const existing = memory.getTask(id);
   if (!existing) return undefined;
   memory.patchTask(id, patch as Partial<Task>);
@@ -588,6 +697,8 @@ export async function updateTask(
 }
 
 export async function deleteTask(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteTask(id);
+  requireWritableOrThrow("tasks");
   memory.patchTask(id, { deletedAt: new Date().toISOString() } as Partial<Task>);
   return true;
 }

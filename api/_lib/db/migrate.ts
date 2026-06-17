@@ -133,6 +133,7 @@ export async function runMigrations(
   await sql`CREATE INDEX IF NOT EXISTS idx_tasks_due ON agro.tasks(due_date)`;
 
   await runEnrichedFieldMigrations(sql);
+  await runSoftDeleteMigrations(sql);
 }
 
 async function runEnrichedFieldMigrations(
@@ -294,4 +295,22 @@ async function runPhase1Migrations(sql: NeonQueryFunction<false, false>) {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON agro.audit_logs(entity_type, entity_id, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON agro.audit_logs(actor_email, created_at DESC)`;
+}
+
+/**
+ * Soft-delete (exclusão lógica) — entidades core do CRM.
+ * Coluna nullable sem default → adição não-travante no Neon.
+ */
+async function runSoftDeleteMigrations(sql: NeonQueryFunction<false, false>) {
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE agro.accounts ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE agro.matters ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
+  await sql`ALTER TABLE agro.tasks ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_leads_active ON agro.leads(deleted_at) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_accounts_active ON agro.accounts(deleted_at) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_opportunities_active ON agro.opportunities(deleted_at) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_matters_active ON agro.matters(deleted_at) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_tasks_active ON agro.tasks(deleted_at) WHERE deleted_at IS NULL`;
 }
