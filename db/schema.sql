@@ -248,3 +248,11 @@ CREATE TABLE agro.kb_embeddings (
 
 CREATE INDEX idx_kb_embeddings_vector
   ON agro.kb_embeddings USING hnsw (embedding vector_cosine_ops);
+
+-- Configuração de runtime (key→value JSONB)
+CREATE TABLE agro.app_config (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_by TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

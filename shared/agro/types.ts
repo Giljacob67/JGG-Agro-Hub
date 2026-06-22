@@ -600,6 +600,32 @@ export interface CopilotQueryRequest {
   history?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
+export type LlmProviderId =
+  | "openai"
+  | "anthropic"
+  | "google"
+  | "ollama"
+  | "groq"
+  | "openrouter";
+
+export interface CopilotConfigStatus {
+  providers: Array<{
+    id: LlmProviderId;
+    label: string;
+    /** true = credencial presente no servidor (env) */
+    available: boolean;
+  }>;
+  current: {
+    provider: LlmProviderId;
+    model: string;
+    temperature?: number;
+  } | null;
+  /** origem da config efetiva */
+  source: "db" | "env" | "none";
+  dbEnabled: boolean;
+  embeddings: { modelId: string; available: boolean };
+}
+
 export interface KnowledgeListResponse {
   categories: KnowledgeCategory[];
   documents: KnowledgeDocument[];

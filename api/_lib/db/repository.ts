@@ -2322,3 +2322,31 @@ async function dbInsertCreditInstrumentSeed(credit: CreditInstrument) {
     ON CONFLICT (id) DO NOTHING
   `;
 }
+
+// ── app_config (key→value JSONB) ───────────────────────────────────
+
+export async function dbGetAppConfig<T = unknown>(
+  key: string,
+): Promise<T | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT value FROM agro.app_config WHERE key = ${key}
+  `) as Array<{ value: T }>;
+  return rows.length > 0 ? rows[0].value : null;
+}
+
+export async function dbSetAppConfig(
+  key: string,
+  value: unknown,
+  updatedBy: string | null,
+): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO agro.app_config (key, value, updated_by, updated_at)
+    VALUES (${key}, ${toJsonValue(value)}, ${updatedBy}, now())
+    ON CONFLICT (key) DO UPDATE
+      SET value = EXCLUDED.value,
+          updated_by = EXCLUDED.updated_by,
+          updated_at = now()
+  `;
+}

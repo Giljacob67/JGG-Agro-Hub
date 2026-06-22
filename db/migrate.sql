@@ -282,3 +282,12 @@ CREATE TABLE IF NOT EXISTS agro.kb_embeddings (
 
 CREATE INDEX IF NOT EXISTS idx_kb_embeddings_vector
   ON agro.kb_embeddings USING hnsw (embedding vector_cosine_ops);
+
+-- Configuração de runtime (key→value JSONB). Override de defaults de env.
+-- Chaves de API NUNCA persistem aqui — só seleção provider/model/temperature.
+CREATE TABLE IF NOT EXISTS agro.app_config (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_by TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

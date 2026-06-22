@@ -159,6 +159,24 @@ export async function runMigrations(
   await runPgvectorMigrations(sql);
   await runSecondaryEntityMigrations(sql);
   await runTertiaryEntityMigrations(sql);
+  await runAppConfigMigrations(sql);
+}
+
+/**
+ * Configuração de runtime da aplicação (key→value JSONB). Usada para
+ * sobrescrever, em produção, defaults vindos de env — ex.: provider/model
+ * do Copilot. Chaves de API NUNCA são persistidas aqui (continuam em env);
+ * só seleção de provider/model/temperature entre os já habilitados.
+ */
+async function runAppConfigMigrations(sql: NeonQueryFunction<false, false>) {
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.app_config (
+      key TEXT PRIMARY KEY,
+      value JSONB NOT NULL,
+      updated_by TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
 }
 
 /**

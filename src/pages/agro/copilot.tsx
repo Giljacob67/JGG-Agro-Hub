@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 import { useLocation } from "wouter";
-import { AlertTriangle, Sparkles, Trash2 } from "lucide-react";
+import { AlertTriangle, Settings2, Sparkles, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CopilotPromptBox } from "@/components/copilot/copilot-prompt-box";
 import { CopilotResponseCard } from "@/components/copilot/copilot-response-card";
+import { CopilotSettings } from "@/components/copilot/copilot-settings";
 import { CopilotSuggestedPrompts } from "@/components/copilot/copilot-suggested-prompts";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/contexts/use-auth";
 import { useCopilotQuery } from "@/hooks/use-copilot";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmStats } from "@/hooks/use-crm-queries";
@@ -27,9 +29,12 @@ export default function AgroCopilotPage() {
   usePageTitle("Agro Copilot");
   const [location] = useLocation();
   const { data: stats, isLoading: statsLoading } = useCrmStats();
+  const { user } = useAuth();
   const copilot = useCopilotQuery();
   const [responses, setResponses] = useState<CopilotResponse[]>([]);
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
+  const [showSettings, setShowSettings] = useState(false);
+  const canEditConfig = user?.role === "gestao";
 
   const urlPrompt = useMemo(() => {
     const params = new URLSearchParams(location.split("?")[1] ?? "");
@@ -85,7 +90,23 @@ export default function AgroCopilotPage() {
                 da carteira Agro. Integra leituras do CRM e da Base de Conhecimento.
               </p>
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto shrink-0"
+              onClick={() => setShowSettings((v) => !v)}
+              aria-expanded={showSettings}
+            >
+              <Settings2 className="w-4 h-4 mr-1.5" />
+              {showSettings ? "Ocultar" : "Configurar IA"}
+            </Button>
           </div>
+
+          {showSettings && (
+            <div className="mt-5">
+              <CopilotSettings canEdit={canEditConfig} />
+            </div>
+          )}
 
           <div className="mt-5 grid md:grid-cols-2 gap-3">
             <div className="surface-inset px-4 py-3 flex gap-2">

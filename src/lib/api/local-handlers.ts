@@ -408,5 +408,32 @@ export async function handleLocalApi(
     return { status: 200, data: getKnowledgePayload(categoryId || undefined) };
   }
 
+  if (pathname === "/api/agro/copilot-config") {
+    const status = {
+      providers: [
+        { id: "openai", label: "OpenAI", available: false },
+        { id: "anthropic", label: "Anthropic (Claude)", available: false },
+        { id: "google", label: "Google Gemini", available: false },
+        { id: "ollama", label: "Ollama Cloud", available: false },
+        { id: "groq", label: "Groq", available: false },
+        { id: "openrouter", label: "OpenRouter", available: false },
+      ],
+      current: null,
+      source: "none" as const,
+      dbEnabled: false,
+      embeddings: { modelId: "openai:text-embedding-3-small", available: false },
+    };
+    if (init?.method === "PATCH") {
+      return {
+        status: 400,
+        data: {
+          error:
+            "Configuração runtime indisponível no modo local (sem provedores nem banco de dados).",
+        },
+      };
+    }
+    return { status: 200, data: status };
+  }
+
   return { status: 404, data: { error: "Rota não encontrada" } };
 }

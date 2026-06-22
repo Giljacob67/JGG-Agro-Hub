@@ -432,6 +432,21 @@ export const agroApi = {
       `/api/agro/knowledge${categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : ""}`,
     ),
 
+  getCopilotConfig: () =>
+    request<import("@shared/agro/types").CopilotConfigStatus>(
+      "/api/agro/copilot-config",
+    ),
+
+  updateCopilotConfig: (input: {
+    provider: string;
+    model: string;
+    temperature?: number;
+  }) =>
+    request<import("@shared/agro/types").CopilotConfigStatus>(
+      "/api/agro/copilot-config",
+      { method: "PATCH", body: JSON.stringify(input) },
+    ),
+
   dbHealth: () =>
     request<{ mode: string; connected: boolean }>("/api/health/db"),
 

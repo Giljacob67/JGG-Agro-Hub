@@ -772,8 +772,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       // Try LLM pipeline first; fall back to keyword engine
       try {
-        const { getDefaultConfig, createProvider } = await import("../_lib/llm/providers.js");
-        const llmConfig = getDefaultConfig();
+        const { createProvider } = await import("../_lib/llm/providers.js");
+        const { resolveLlmConfig } = await import("../_lib/llm/config.js");
+        const { config: llmConfig } = await resolveLlmConfig();
 
         if (llmConfig) {
           // RAG: semantic search on KB
@@ -874,6 +875,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
 
       return json(res, response);
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Copilot config (provider/model runtime) ────────────────────────
+  if (resource === "copilot-config") {
+    const user = requireAuth(req, res, "copilot");
+    if (!user) return;
+
+    const { getCopilotConfigStatus } = await import("../_lib/llm/config.js");
+
+    if (req.method === "GET") {
+      return json(res, await getCopilotConfigStatus());
+    }
+
+    if (req.method === "PATCH") {
+      const { hasPermission } = await import("../../shared/agro/auth.js");
+      if (!hasPermission(user.role, "copilot", "update")) {
+        return json(
+          res,
+          { error: "Apenas perfis de gestão podem alterar a configuração da IA" },
+          403,
+        );
+      }
+
+      const body = getBody(req.body) as {
+        provider?: string;
+        model?: string;
+        temperature?: number;
+      };
+      if (!body.provider || !body.model) {
+        return json(res, { error: "provider e model são obrigatórios" }, 400);
+      }
+
+      const { setLlmConfig } = await import("../_lib/llm/config.js");
+      const result = await setLlmConfig(
+        {
+          provider: body.provider,
+          model: body.model,
+          temperature: body.temperature,
+        },
+        user.email,
+      );
+      if (!result.ok) return json(res, { error: result.error }, 400);
+
+      await auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "config" as AuditEntityType,
+        "copilot.llm",
+        `${body.provider}:${body.model}`,
+        {},
+        { provider: body.provider, model: body.model, temperature: body.temperature },
+        { ip: clientIp(req) },
+      );
+
+      return json(res, await getCopilotConfigStatus());
     }
 
     return methodNotAllowed(res);
