@@ -6,11 +6,26 @@ CRM Jurídico Agrícola — plataforma completa para escritório de advocacia ru
 
 **URL**: https://jgg-agro-hub.vercel.app
 
-| Usuário | Email | Senha | Perfil |
-|---------|-------|-------|--------|
-| Gestão | agro@jgggroup.com.br | AgroHub2026! | gestao |
-| Comercial | comercial@jgggroup.com.br | AgroHub2026! | comercial |
-| Jurídico | juridico@jgggroup.com.br | AgroHub2026! | juridico |
+O acesso é por **SSO OIDC** (recomendado) ou por **senha individual** configurada
+via variáveis de ambiente (hashes scrypt, nunca em texto plano). Em produção
+com `AUTH_SECRET` ativo e sem hashes configurados, o login por senha fica
+desabilitado — resta o SSO.
+
+| Usuário | Email | Perfil |
+|---------|-------|--------|
+| Gestão | agro@jgggroup.com.br | gestao |
+| Comercial | comercial@jgggroup.com.br | comercial |
+| Jurídico | juridico@jgggroup.com.br | juridico |
+
+Para habilitar login por senha, gere um hash por usuário e defina as env vars
+`AUTH_PASSWORD_HASH_GESTAO/COMERCIAL/JURIDICO` (+ `AUTH_PASSWORD_SALT` aleatório):
+
+```bash
+npx tsx scripts/hash-password.ts "<senha forte e única por usuário>"
+```
+
+**Não committar senhas.** Girar as credenciais se qualquer senha foi exposta
+em versões anteriores deste documento.
 
 ## Funcionalidades
 
