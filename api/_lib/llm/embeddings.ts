@@ -20,10 +20,22 @@ export interface EmbeddingEntry {
 
 // ── Provider ───────────────────────────────────────────────────────
 
+function embeddingProviderId(): string {
+  return process.env.COPILOT_EMBEDDINGS_PROVIDER ?? "openai";
+}
+
+function embeddingModelName(): string {
+  return process.env.COPILOT_EMBEDDINGS_MODEL ?? "text-embedding-3-small";
+}
+
+/** Identificador estável do modelo para versionar embeddings persistidos. */
+export function getEmbeddingModelId(): string {
+  return `${embeddingProviderId()}:${embeddingModelName()}`;
+}
+
 function createEmbeddingModel() {
-  const provider = process.env.COPILOT_EMBEDDINGS_PROVIDER ?? "openai";
-  const modelId =
-    process.env.COPILOT_EMBEDDINGS_MODEL ?? "text-embedding-3-small";
+  const provider = embeddingProviderId();
+  const modelId = embeddingModelName();
 
   switch (provider) {
     case "openai": {

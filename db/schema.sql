@@ -232,3 +232,19 @@ CREATE INDEX idx_accounts_active ON agro.accounts(deleted_at) WHERE deleted_at I
 CREATE INDEX idx_opportunities_active ON agro.opportunities(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_matters_active ON agro.matters(deleted_at) WHERE deleted_at IS NULL;
 CREATE INDEX idx_tasks_active ON agro.tasks(deleted_at) WHERE deleted_at IS NULL;
+
+-- E-6 — pgvector: embeddings persistentes do Copilot RAG (1536 = text-embedding-3-small)
+CREATE EXTENSION IF NOT EXISTS vector;
+
+CREATE TABLE agro.kb_embeddings (
+  doc_id TEXT PRIMARY KEY,
+  model_id TEXT NOT NULL,
+  embedding vector(1536) NOT NULL,
+  text TEXT NOT NULL,
+  title TEXT,
+  category_id TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_kb_embeddings_vector
+  ON agro.kb_embeddings USING hnsw (embedding vector_cosine_ops);

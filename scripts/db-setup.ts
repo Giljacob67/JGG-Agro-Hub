@@ -8,6 +8,8 @@ import { neon } from "@neondatabase/serverless";
 import { runMigrations } from "../api/_lib/db/migrate";
 import { dbUpsertSeed, dbUpsertUsers } from "../api/_lib/db/repository";
 import { getSeedUsers } from "../api/_lib/auth-server";
+import { ensureKbEmbeddingsSeeded } from "../api/_lib/llm/rag";
+import { hasEmbeddingProvider } from "../api/_lib/llm/embeddings";
 import {
   SEED_ACCOUNTS,
   SEED_LEADS,
@@ -34,6 +36,18 @@ async function main() {
   // Identidade dos usuários (id/email/name/role) — senha continua env-driven.
   console.log("Semeando usuários (identidade)…");
   await dbUpsertUsers(getSeedUsers());
+
+  // E-6: embeddings da base de conhecimento (pgvector). Requer provider.
+  if (hasEmbeddingProvider()) {
+    console.log("Sincronizando embeddings KB (pgvector)…");
+    try {
+      await ensureKbEmbeddingsSeeded();
+    } catch (err) {
+      console.warn("[db:setup] seed de embeddings KB falhou (pode ser preguiçoso no primeiro uso do Copilot):", err);
+    }
+  } else {
+    console.warn("[db:setup] sem COPILOT_EMBEDDINGS_PROVIDER — embeddings KB serão gerados no primeiro uso do Copilot.");
+  }
 
   if (!force) {
     const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM agro.accounts`;

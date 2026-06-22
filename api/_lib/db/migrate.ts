@@ -42,6 +42,28 @@ export async function runMigrations(
     EXCEPTION WHEN duplicate_object THEN NULL; END $$
   `;
 
+  // E-11: identidade dos usuários em DB (senha continua env-driven por papel)
+  await sql`
+    DO $$ BEGIN
+      CREATE TYPE agro.user_role AS ENUM ('gestao','comercial','juridico');
+    EXCEPTION WHEN duplicate_object THEN NULL; END $$
+  `;
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      name TEXT NOT NULL,
+      role agro.user_role NOT NULL DEFAULT 'comercial',
+      password_hash TEXT,
+      salt TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS password_hash TEXT`;
+  await sql`ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS salt TEXT`;
+  await sql`ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`;
+
   await sql`
     CREATE TABLE IF NOT EXISTS agro.accounts (
       id TEXT PRIMARY KEY,
@@ -134,6 +156,7 @@ export async function runMigrations(
 
   await runEnrichedFieldMigrations(sql);
   await runSoftDeleteMigrations(sql);
+  await runPgvectorMigrations(sql);
 }
 
 async function runEnrichedFieldMigrations(
@@ -295,6 +318,19 @@ async function runPhase1Migrations(sql: NeonQueryFunction<false, false>) {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON agro.audit_logs(entity_type, entity_id, created_at DESC)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON agro.audit_logs(actor_email, created_at DESC)`;
+
+  // E-2: antes/depois/diff/IP/chain hash na auditoria
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS actor_name TEXT`;
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS actor_role TEXT`;
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS entity_name TEXT`;
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS before_state JSONB`;
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS after_state JSONB`;
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS changes JSONB DEFAULT '[]'::jsonb`;
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS ip TEXT`;
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS prev_hash TEXT`;
+  await sql`ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS hash TEXT`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON agro.audit_logs(action, created_at DESC)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON agro.audit_logs(created_at DESC)`;
 }
 
 /**
@@ -313,4 +349,26 @@ async function runSoftDeleteMigrations(sql: NeonQueryFunction<false, false>) {
   await sql`CREATE INDEX IF NOT EXISTS idx_opportunities_active ON agro.opportunities(deleted_at) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS idx_matters_active ON agro.matters(deleted_at) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS idx_tasks_active ON agro.tasks(deleted_at) WHERE deleted_at IS NULL`;
+}
+
+/**
+ * E-6 — pgvector: embeddings persistentes para o Copilot RAG.
+ * Substitui o cache efêmero module-level (perdido a cada cold start e
+ * regenerado com chamadas pagas). Vetor de dimensão 1536 (compatível com
+ * text-embedding-3-small); trocar de modelo exige reseed (db:reseed-kb).
+ */
+async function runPgvectorMigrations(sql: NeonQueryFunction<false, false>) {
+  await sql`CREATE EXTENSION IF NOT EXISTS vector`;
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.kb_embeddings (
+      doc_id TEXT PRIMARY KEY,
+      model_id TEXT NOT NULL,
+      embedding vector(1536) NOT NULL,
+      text TEXT NOT NULL,
+      title TEXT,
+      category_id TEXT,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_kb_embeddings_vector ON agro.kb_embeddings USING hnsw (embedding vector_cosine_ops)`;
 }

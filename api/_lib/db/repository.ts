@@ -1403,3 +1403,82 @@ export async function dbUpsertUsers(users: Array<AgroUser & { passwordHash?: str
     `;
   }
 }
+
+// ── KB embeddings (E-6 pgvector) ──────────────────────────────────────
+
+const KB_EMBEDDING_DIM = 1536;
+
+/** Serializa um vetor numérico para literal PostgreSQL `vector`. */
+export function vectorLiteral(vec: number[]): string {
+  return `[${vec.join(",")}]`;
+}
+
+export interface KbEmbeddingRow {
+  docId: string;
+  modelId: string;
+  embedding: number[];
+  text: string;
+  title: string | null;
+  categoryId: string | null;
+}
+
+function assertEmbeddingDim(vec: number[]) {
+  if (vec.length !== KB_EMBEDDING_DIM) {
+    throw new Error(
+      `Dimensão de embedding incompatível: esperada ${KB_EMBEDDING_DIM}, recebida ${vec.length}. ` +
+        `Trocar de modelo exige reseed (db:reseed-kb).`,
+    );
+  }
+}
+
+export async function dbUpsertKbEmbedding(row: KbEmbeddingRow): Promise<void> {
+  assertEmbeddingDim(row.embedding);
+  const sql = getSql();
+  const lit = vectorLiteral(row.embedding);
+  await sql`
+    INSERT INTO agro.kb_embeddings (doc_id, model_id, embedding, text, title, category_id, updated_at)
+    VALUES (${row.docId}, ${row.modelId}, ${lit}::vector, ${row.text}, ${row.title}, ${row.categoryId}, now())
+    ON CONFLICT (doc_id) DO UPDATE SET
+      model_id = EXCLUDED.model_id,
+      embedding = EXCLUDED.embedding,
+      text = EXCLUDED.text,
+      title = EXCLUDED.title,
+      category_id = EXCLUDED.category_id,
+      updated_at = now()
+  `;
+}
+
+export async function dbListKbEmbeddingDocIds(): Promise<Array<{ docId: string; modelId: string }>> {
+  const sql = getSql();
+  const rows = await sql`SELECT doc_id, model_id FROM agro.kb_embeddings`;
+  return rows.map((r) => ({ docId: String(r.doc_id), modelId: String(r.model_id) }));
+}
+
+export interface KbSearchHit {
+  docId: string;
+  title: string | null;
+  categoryId: string | null;
+  /** similaridade cosseno em [0,1] (1 - distância). */
+  score: number;
+}
+
+export async function dbSearchKbEmbeddings(
+  queryVector: number[],
+  topK: number,
+): Promise<KbSearchHit[]> {
+  assertEmbeddingDim(queryVector);
+  const sql = getSql();
+  const lit = vectorLiteral(queryVector);
+  const rows = await sql`
+    SELECT doc_id, title, category_id, 1 - (embedding <=> ${lit}::vector) AS score
+    FROM agro.kb_embeddings
+    ORDER BY embedding <=> ${lit}::vector
+    LIMIT ${topK}
+  `;
+  return rows.map((r) => ({
+    docId: String(r.doc_id),
+    title: (r.title as string | null) ?? null,
+    categoryId: (r.category_id as string | null) ?? null,
+    score: Number(r.score),
+  }));
+}
