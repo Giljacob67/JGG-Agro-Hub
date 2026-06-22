@@ -196,6 +196,17 @@ export function json<T>(res: VercelResponse, data: T, status = 200) {
   res.json(data);
 }
 
+/**
+ * IP do cliente para audit log. Vercel põe o real IP em `x-forwarded-for`
+ * (primeiro da lista); fallback para socket.
+ */
+export function clientIp(req: VercelRequest): string | null {
+  const xff = req.headers["x-forwarded-for"];
+  if (typeof xff === "string" && xff.length > 0) return xff.split(",")[0].trim();
+  if (Array.isArray(xff) && xff.length > 0) return String(xff[0]);
+  return req.socket?.remoteAddress ?? null;
+}
+
 export function methodNotAllowed(res: VercelResponse) {
   res.status(405).json({ error: "Método não permitido" });
 }

@@ -847,6 +847,137 @@ export async function dbCreateAuditLog(input: {
   `;
 }
 
+// ── Audit (E-2): persistência completa com before/after/changes/IP/chain hash ──
+
+interface AuditChange {
+  field: string;
+  oldValue: unknown;
+  newValue: unknown;
+}
+
+interface AuditLogRow {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  action: string;
+  before: Record<string, unknown> | null;
+  after: Record<string, unknown> | null;
+  changes: AuditChange[];
+  ip: string | null;
+  prevHash: string | null;
+  hash: string | null;
+}
+
+function mapAuditRow(r: Record<string, unknown>): AuditLogRow {
+  return {
+    id: String(r.id ?? ""),
+    timestamp: String(r.created_at ?? r.timestamp ?? ""),
+    userId: String(r.actor_id ?? ""),
+    userName: String(r.actor_name ?? r.actor_email ?? ""),
+    userRole: String(r.actor_role ?? ""),
+    entityType: String(r.entity_type ?? ""),
+    entityId: String(r.entity_id ?? ""),
+    entityName: String(r.entity_name ?? ""),
+    action: String(r.action ?? ""),
+    before: (r.before_state as Record<string, unknown> | null) ?? null,
+    after: (r.after_state as Record<string, unknown> | null) ?? null,
+    changes: (r.changes as AuditChange[] | null) ?? [],
+    ip: (r.ip as string | null) ?? null,
+    prevHash: (r.prev_hash as string | null) ?? null,
+    hash: (r.hash as string | null) ?? null,
+  };
+}
+
+export async function dbCreateAuditLogFull(input: {
+  actorId: string;
+  actorName: string;
+  actorRole: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  beforeState: Record<string, unknown> | null;
+  afterState: Record<string, unknown> | null;
+  changes: AuditChange[];
+  ip: string | null;
+  prevHash: string;
+  hash: string;
+}) {
+  const sql = getSql();
+  await sql`
+    INSERT INTO agro.audit_logs (
+      actor_id, actor_name, actor_role, action, entity_type, entity_id,
+      entity_name, before_state, after_state, changes, ip, prev_hash, hash, metadata
+    )
+    VALUES (
+      ${input.actorId}, ${input.actorName}, ${input.actorRole}, ${input.action},
+      ${input.entityType}, ${input.entityId}, ${input.entityName},
+      ${input.beforeState ? JSON.stringify(input.beforeState) : null}::jsonb,
+      ${input.afterState ? JSON.stringify(input.afterState) : null}::jsonb,
+      ${JSON.stringify(input.changes ?? [])}::jsonb,
+      ${input.ip}, ${input.prevHash}, ${input.hash},
+      '{}'::jsonb
+    )
+  `;
+}
+
+export async function dbQueryAuditLogs(filters: {
+  entityType?: string;
+  entityId?: string;
+  userId?: string;
+  action?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}): Promise<{ logs: AuditLogRow[]; total: number }> {
+  const sql = getSql();
+  const where: WhereParts = { clauses: [], values: [] };
+  if (filters.entityType) { where.clauses.push(`entity_type = $${where.values.length + 1}`); where.values.push(filters.entityType); }
+  if (filters.entityId) { where.clauses.push(`entity_id = $${where.values.length + 1}`); where.values.push(filters.entityId); }
+  if (filters.userId) { where.clauses.push(`actor_id = $${where.values.length + 1}`); where.values.push(filters.userId); }
+  if (filters.action) { where.clauses.push(`action = $${where.values.length + 1}`); where.values.push(filters.action); }
+  if (filters.from) { where.clauses.push(`created_at >= $${where.values.length + 1}`); where.values.push(filters.from); }
+  if (filters.to) { where.clauses.push(`created_at <= $${where.values.length + 1}`); where.values.push(filters.to); }
+  const whereSql = where.clauses.length ? `WHERE ${where.clauses.join(" AND ")}` : "";
+
+  const countRows = await sql.query(`SELECT COUNT(*)::int AS c FROM agro.audit_logs ${whereSql}`, where.values);
+  const total = Number(countRows[0].c);
+  const limit = filters.limit ?? 50;
+  const offset = filters.offset ?? 0;
+  const { text: pagText, values: pagValues } = appendPagination(limit, offset, where.values);
+  const rows = await sql.query(
+    `SELECT * FROM agro.audit_logs ${whereSql} ORDER BY created_at DESC ${pagText}`,
+    pagValues,
+  );
+  return { logs: rows.map((r) => mapAuditRow(r as Record<string, unknown>)), total };
+}
+
+export async function dbGetAuditStats(): Promise<{
+  totalLogs: number;
+  byEntityType: Record<string, number>;
+  byAction: Record<string, number>;
+  recentActivity: AuditLogRow[];
+}> {
+  const sql = getSql();
+  const totalRows = await sql`SELECT COUNT(*)::int AS c FROM agro.audit_logs`;
+  const totalLogs = Number(totalRows[0].c);
+  const entRows = await sql`SELECT entity_type, COUNT(*)::int AS c FROM agro.audit_logs GROUP BY entity_type`;
+  const actRows = await sql`SELECT action, COUNT(*)::int AS c FROM agro.audit_logs GROUP BY action`;
+  const recentRows = await sql`SELECT * FROM agro.audit_logs ORDER BY created_at DESC LIMIT 10`;
+  return {
+    totalLogs,
+    byEntityType: Object.fromEntries(entRows.map((r) => [String(r.entity_type), Number(r.c)])),
+    byAction: Object.fromEntries(actRows.map((r) => [String(r.action), Number(r.c)])),
+    recentActivity: recentRows.map((r) => mapAuditRow(r as Record<string, unknown>)),
+  };
+}
+
 export async function dbSeedEmpty(): Promise<boolean> {
   const sql = getSql();
   const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM agro.accounts`;

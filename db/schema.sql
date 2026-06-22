@@ -182,9 +182,18 @@ CREATE TABLE agro.audit_logs (
   id BIGSERIAL PRIMARY KEY,
   actor_id TEXT,
   actor_email TEXT,
+  actor_name TEXT,
+  actor_role TEXT,
   action TEXT NOT NULL,
   entity_type TEXT NOT NULL,
   entity_id TEXT,
+  entity_name TEXT,
+  before_state JSONB,
+  after_state JSONB,
+  changes JSONB DEFAULT '[]'::jsonb,
+  ip TEXT,
+  prev_hash TEXT,
+  hash TEXT,
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );

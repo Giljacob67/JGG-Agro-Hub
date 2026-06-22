@@ -35,7 +35,7 @@ import {
   parseMatterListQuery,
   parseTaskListQuery,
 } from "../_lib/list-query.js";
-import { json, methodNotAllowed, requireAuth, requireCsrf, guardWrite, applyCors } from "../_lib/http.js";
+import { json, methodNotAllowed, requireAuth, requireCsrf, guardWrite, applyCors, clientIp } from "../_lib/http.js";
 import { checkUserRateLimit, getRateLimitHeaders } from "../_lib/rate-limit.js";
 import {
   getBody,
@@ -204,10 +204,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 : "Lead descartado não pode ser convertido";
           return json(res, { error: message, reason: result.reason }, status);
         }
-        auditCreate(
+                await auditCreate(
           { userId: user.id, userName: user.name, userRole: user.role },
           "lead" as AuditEntityType,
           result.opportunity as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
         );
         return json(res, result, 201);
       }
@@ -215,10 +216,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const input = parseLeadCreate(body);
       if (!input.ok) return json(res, { error: input.error }, 400);
       const lead = await createLead(input.data);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "lead" as AuditEntityType,
         lead as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, lead, 201);
     }
@@ -232,13 +234,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!before) return json(res, { error: "Lead não encontrado" }, 404);
       const lead = await updateLead(id, patch.data);
       if (!lead) return json(res, { error: "Lead não encontrado" }, 404);
-      auditUpdate(
+            await auditUpdate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "lead" as AuditEntityType,
         id,
         lead.name,
         before as unknown as Record<string, unknown>,
         lead as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, lead);
     }
@@ -250,10 +253,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!lead) return json(res, { error: "Lead não encontrado" }, 404);
       const { deleteLead } = await import("../_lib/data-service.js");
       await deleteLead(id);
-      auditDelete(
+            await auditDelete(
         { userId: user.id, userName: user.name, userRole: user.role },
         "lead" as AuditEntityType,
         lead as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, { ok: true });
     }
@@ -316,10 +320,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!input.ok) return json(res, { error: input.error }, 400);
       const { createAccount } = await import("../_lib/data-service.js");
       const account = await createAccount(input.data as Parameters<typeof createAccount>[0]);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "account" as AuditEntityType,
         account as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, account, 201);
     }
@@ -335,13 +340,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { updateAccount } = await import("../_lib/data-service.js");
       const account = await updateAccount(id, input.data as Record<string, unknown>);
       if (!account) return json(res, { error: "Conta não encontrada" }, 404);
-      auditUpdate(
+            await auditUpdate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "account" as AuditEntityType,
         id,
         account.name,
         before as unknown as Record<string, unknown>,
         account as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, account);
     }
@@ -353,10 +359,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!account) return json(res, { error: "Conta não encontrada" }, 404);
       const { deleteAccount } = await import("../_lib/data-service.js");
       await deleteAccount(id);
-      auditDelete(
+            await auditDelete(
         { userId: user.id, userName: user.name, userRole: user.role },
           "account" as AuditEntityType,
           account as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
         );
       return json(res, { ok: true });
     }
@@ -413,10 +420,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!input.ok) return json(res, { error: input.error }, 400);
       const { createOpportunity } = await import("../_lib/data-service.js");
       const opp = await createOpportunity(input.data as Parameters<typeof createOpportunity>[0]);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "opportunity" as AuditEntityType,
         opp as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, opp, 201);
     }
@@ -430,13 +438,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!before) return json(res, { error: "Oportunidade não encontrada" }, 404);
       const opp = await updateOpportunity(id, patch.data);
       if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
-      auditUpdate(
+            await auditUpdate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "opportunity" as AuditEntityType,
         id,
         opp.title,
         before as unknown as Record<string, unknown>,
         opp as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, opp);
     }
@@ -448,10 +457,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!opp) return json(res, { error: "Oportunidade não encontrada" }, 404);
       const { deleteOpportunity } = await import("../_lib/data-service.js");
       await deleteOpportunity(id);
-      auditDelete(
+            await auditDelete(
         { userId: user.id, userName: user.name, userRole: user.role },
         "opportunity" as AuditEntityType,
         opp as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, { ok: true });
     }
@@ -513,10 +523,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!input.ok) return json(res, { error: input.error }, 400);
       const { createMatter } = await import("../_lib/data-service.js");
       const matter = await createMatter(input.data as Parameters<typeof createMatter>[0]);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "matter" as AuditEntityType,
         matter as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, matter, 201);
     }
@@ -530,13 +541,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!before) return json(res, { error: "Demanda não encontrada" }, 404);
       const matter = await updateMatter(id, patch.data);
       if (!matter) return json(res, { error: "Demanda não encontrada" }, 404);
-      auditUpdate(
+            await auditUpdate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "matter" as AuditEntityType,
         id,
         matter.title,
         before as unknown as Record<string, unknown>,
         matter as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, matter);
     }
@@ -548,10 +560,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!matter) return json(res, { error: "Demanda não encontrada" }, 404);
       const { deleteMatter } = await import("../_lib/data-service.js");
       await deleteMatter(id);
-      auditDelete(
+            await auditDelete(
         { userId: user.id, userName: user.name, userRole: user.role },
         "matter" as AuditEntityType,
         matter as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, { ok: true });
     }
@@ -610,10 +623,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!input.ok) return json(res, { error: input.error }, 400);
       const { createTask } = await import("../_lib/data-service.js");
       const task = await createTask(input.data as Parameters<typeof createTask>[0]);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "task" as AuditEntityType,
         task as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, task, 201);
     }
@@ -629,13 +643,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { updateTask } = await import("../_lib/data-service.js");
       const task = await updateTask(id, input.data as Record<string, unknown>);
       if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
-      auditUpdate(
+            await auditUpdate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "task" as AuditEntityType,
         id,
         task.title,
         before as unknown as Record<string, unknown>,
         task as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, task);
     }
@@ -647,10 +662,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!task) return json(res, { error: "Tarefa não encontrada" }, 404);
       const { deleteTask } = await import("../_lib/data-service.js");
       await deleteTask(id);
-      auditDelete(
+            await auditDelete(
         { userId: user.id, userName: user.name, userRole: user.role },
         "task" as AuditEntityType,
         task as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, { ok: true });
     }
@@ -908,7 +924,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const action = typeof req.query.action === "string" ? req.query.action : "list";
 
       if (action === "stats") {
-        return json(res, getAuditStats());
+        return json(res, await getAuditStats());
       }
 
       if (action === "export") {
@@ -921,7 +937,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           to: typeof req.query.to === "string" ? req.query.to : undefined,
           limit: typeof req.query.limit === "string" ? Number(req.query.limit) : undefined,
         };
-        const { logs } = queryAuditLogs(filters);
+        const { logs } = await queryAuditLogs(filters);
         const csv = exportAuditLogsCsv(logs);
         res.setHeader("Content-Type", "text/csv; charset=utf-8");
         res.setHeader("Content-Disposition", `attachment; filename="audit-${new Date().toISOString().slice(0, 10)}.csv"`);
@@ -939,7 +955,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         limit: typeof req.query.limit === "string" ? Number(req.query.limit) : undefined,
         offset: typeof req.query.offset === "string" ? Number(req.query.offset) : undefined,
       };
-      const { logs, total } = queryAuditLogs(filters);
+      const { logs, total } = await queryAuditLogs(filters);
       return json(res, { items: logs, total, limit: filters.limit ?? 50, offset: filters.offset ?? 0 });
     }
 
@@ -1064,10 +1080,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { addDocument } = await import("../../shared/agro/store.js");
       const doc = await addDocument(parsed.data as any);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "document",
         doc as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, doc, 201);
     }
@@ -1082,13 +1099,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!before) return json(res, { error: "Documento não encontrado" }, 404);
       const doc = patchDocument(id, parsed.data as any);
       if (!doc) return json(res, { error: "Documento não encontrado" }, 404);
-      auditUpdate(
+            await auditUpdate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "document",
         id,
         doc.name,
         before as unknown as Record<string, unknown>,
         doc as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, doc);
     }
@@ -1100,10 +1118,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const doc = getDocument(id);
       if (!doc) return json(res, { error: "Documento não encontrado" }, 404);
       await deleteDocument(id);
-      auditDelete(
+            await auditDelete(
         { userId: user.id, userName: user.name, userRole: user.role },
         "document",
         doc as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, { ok: true });
     }
@@ -1176,10 +1195,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { addTimeEntry } = await import("../../shared/agro/store.js");
       const entry = await addTimeEntry(parsed.data as any);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "time-entry",
         entry as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, entry, 201);
     }
@@ -1456,10 +1476,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { addCropSeason } = await import("../../shared/agro/store.js");
       const season = parsed.data;
       addCropSeason(season as any);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "crop-season",
         season as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, season, 201);
     }
@@ -1489,10 +1510,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { addTaxObligation } = await import("../../shared/agro/store.js");
       const tax = parsed.data;
       addTaxObligation(tax as any);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "tax-obligation",
         tax as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, tax, 201);
     }
@@ -1521,10 +1543,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { addEnvironmentalLicense } = await import("../../shared/agro/store.js");
       const license = parsed.data;
       addEnvironmentalLicense(license as any);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "environmental-license",
         license as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, license, 201);
     }
@@ -1553,10 +1576,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { addCreditInstrument } = await import("../../shared/agro/store.js");
       const instrument = parsed.data;
       addCreditInstrument(instrument as any);
-      auditCreate(
+            await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "credit-instrument",
         instrument as unknown as Record<string, unknown>,
+          { ip: clientIp(req) }
       );
       return json(res, instrument, 201);
     }

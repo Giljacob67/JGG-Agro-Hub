@@ -200,15 +200,37 @@ CREATE TABLE IF NOT EXISTS agro.audit_logs (
   id BIGSERIAL PRIMARY KEY,
   actor_id TEXT,
   actor_email TEXT,
+  actor_name TEXT,
+  actor_role TEXT,
   action TEXT NOT NULL,
   entity_type TEXT NOT NULL,
   entity_id TEXT,
+  entity_name TEXT,
+  before_state JSONB,
+  after_state JSONB,
+  changes JSONB DEFAULT '[]'::jsonb,
+  ip TEXT,
+  prev_hash TEXT,
+  hash TEXT,
   metadata JSONB DEFAULT '{}'::jsonb,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Colunas adicionadas em migrate posterior (E-2): antes/ depois/ diff/ IP/ chain hash
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS actor_name TEXT;
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS actor_role TEXT;
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS entity_name TEXT;
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS before_state JSONB;
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS after_state JSONB;
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS changes JSONB DEFAULT '[]'::jsonb;
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS ip TEXT;
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS prev_hash TEXT;
+ALTER TABLE agro.audit_logs ADD COLUMN IF NOT EXISTS hash TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON agro.audit_logs(entity_type, entity_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON agro.audit_logs(actor_email, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON agro.audit_logs(action, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON agro.audit_logs(created_at DESC);
 
 -- Normaliza stages legados
 UPDATE agro.opportunities SET stage = 'proposta_elaboracao' WHERE stage::text = 'proposta';
