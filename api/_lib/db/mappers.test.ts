@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   mapAccount,
+  mapContact,
+  mapDocument,
+  mapInvoice,
   mapLead,
   mapMatter,
   mapOpportunity,
+  mapProperty,
   mapTask,
 } from "./mappers.js";
 
@@ -147,5 +151,86 @@ describe("db mappers", () => {
       owner: "Ana",
     });
     expect(task.deletedAt).toBeUndefined();
+  });
+
+  it("mapDocument parseia versions (JSONB objeto) e tags", () => {
+    const doc = mapDocument({
+      id: "DOC-1",
+      name: "Contrato",
+      category: "contrato",
+      status: "recebido",
+      entity_type: "matter",
+      entity_id: "MT-1",
+      version: 2,
+      versions: [
+        { version: 1, fileName: "v1.pdf", uploadedBy: "Ana", uploadedAt: "2026-06-01T00:00:00.000Z" },
+        { version: 2, fileName: "v2.pdf", uploadedBy: "Ana", uploadedAt: "2026-06-02T00:00:00.000Z" },
+      ],
+      tags: '["urgente","revisar"]',
+      owner: "Ana",
+      created_at: "2026-06-01T00:00:00.000Z",
+      updated_at: "2026-06-02T00:00:00.000Z",
+      matter_id: "MT-1",
+    });
+    expect(doc.version).toBe(2);
+    expect(doc.versions).toHaveLength(2);
+    expect(doc.versions[1].fileName).toBe("v2.pdf");
+    expect(doc.tags).toEqual(["urgente", "revisar"]);
+    expect(doc.matterId).toBe("MT-1");
+  });
+
+  it("mapContact parseia accountIds e is_primary", () => {
+    const contact = mapContact({
+      id: "CT-1",
+      name: "João",
+      role: "proprietario",
+      is_primary: true,
+      account_ids: '["AC-1","AC-2"]',
+      owner: "Ana",
+      created_at: "2026-06-01T00:00:00.000Z",
+      email: "joao@demo.br",
+    });
+    expect(contact.isPrimary).toBe(true);
+    expect(contact.accountIds).toEqual(["AC-1", "AC-2"]);
+    expect(contact.email).toBe("joao@demo.br");
+  });
+
+  it("mapProperty mapeia gps→GPS e arrays", () => {
+    const property = mapProperty({
+      id: "PR-1",
+      name: "Fazenda Boa Vista",
+      type: "propriedade",
+      account_id: "AC-1",
+      area_ha: "1500.50",
+      gps: "-15.0,-47.0",
+      encumbrances: ["hipoteca"],
+      restrictions: '["reserva legal"]',
+      owner: "Ana",
+      created_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(property.areaHa).toBe(1500.5);
+    expect(property.GPS).toBe("-15.0,-47.0");
+    expect(property.encumbrances).toEqual(["hipoteca"]);
+    expect(property.restrictions).toEqual(["reserva legal"]);
+  });
+
+  it("mapInvoice mapeia datas e timeEntryIds", () => {
+    const invoice = mapInvoice({
+      id: "INV-1",
+      account_id: "AC-1",
+      number: "2026/001",
+      status: "emitida",
+      total_brl: "12500.00",
+      issued_at: "2026-06-01",
+      due_at: "2026-07-01",
+      time_entry_ids: '["TE-1","TE-2"]',
+      created_at: "2026-06-01T00:00:00.000Z",
+      matter_id: "MT-1",
+    });
+    expect(invoice.totalBrl).toBe(12500);
+    expect(invoice.issuedAt).toBe("2026-06-01");
+    expect(invoice.dueAt).toBe("2026-07-01");
+    expect(invoice.timeEntryIds).toEqual(["TE-1", "TE-2"]);
+    expect(invoice.matterId).toBe("MT-1");
   });
 });

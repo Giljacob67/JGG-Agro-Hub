@@ -9,13 +9,17 @@ import type {
 import type {
   Account,
   Activity,
+  Contact,
   CrmStats,
   Deadline,
+  Document,
   AgroUser,
+  Invoice,
   Lead,
   Matter,
   Opportunity,
   PracticeBreakdown,
+  Property,
   RegionPortfolio,
   Task,
   TaskStatus,
@@ -24,13 +28,17 @@ import { getSql } from "./client.js";
 import {
   mapAccount,
   mapActivity,
+  mapContact,
   mapDeadline,
+  mapDocument,
+  mapInvoice,
   mapLead,
   mapMatter,
   mapOpportunity,
+  mapProperty,
   mapTask,
 } from "./mappers.js";
-import { toJsonArray } from "./json-utils.js";
+import { toJsonArray, toJsonValue } from "./json-utils.js";
 import { OPPORTUNITY_STAGES } from "../../../shared/agro/seed.js";
 
 function uuidPrefix(prefix: string) {
@@ -1481,4 +1489,324 @@ export async function dbSearchKbEmbeddings(
     categoryId: (r.category_id as string | null) ?? null,
     score: Number(r.score),
   }));
+}
+
+// ── Documents ──────────────────────────────────────────────────────
+
+export async function dbListDocuments(
+  filters: { entityType?: string; entityId?: string; matterId?: string } = {},
+): Promise<Document[]> {
+  const sql = getSql();
+  const where: WhereParts = { clauses: [], values: [] };
+  if (filters.entityType) { where.clauses.push(`entity_type = $${where.values.length + 1}`); where.values.push(filters.entityType); }
+  if (filters.entityId) { where.clauses.push(`entity_id = $${where.values.length + 1}`); where.values.push(filters.entityId); }
+  if (filters.matterId) { where.clauses.push(`matter_id = $${where.values.length + 1}`); where.values.push(filters.matterId); }
+  const whereSql = where.clauses.length
+    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
+    : "WHERE deleted_at IS NULL";
+  const rows = await sql.query(`SELECT * FROM agro.documents ${whereSql} ORDER BY created_at DESC`, where.values);
+  return rows.map((r) => mapDocument(r as Record<string, unknown>));
+}
+
+export async function dbGetDocument(id: string): Promise<Document | null> {
+  const sql = getSql();
+  const rows = await sql`SELECT * FROM agro.documents WHERE id = ${id} AND deleted_at IS NULL`;
+  if (!rows.length) return null;
+  return mapDocument(rows[0] as Record<string, unknown>);
+}
+
+export async function dbCreateDocument(doc: Document): Promise<Document> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO agro.documents (
+      id, name, category, status, entity_type, entity_id, matter_id,
+      description, file_name, file_size, mime_type, version, versions,
+      tags, owner, due_date, created_at, updated_at
+    ) VALUES (
+      ${doc.id}, ${doc.name}, ${doc.category}, ${doc.status}, ${doc.entityType},
+      ${doc.entityId}, ${doc.matterId ?? null}, ${doc.description ?? null},
+      ${doc.fileName ?? null}, ${doc.fileSize ?? null}, ${doc.mimeType ?? null},
+      ${doc.version}, ${toJsonValue(doc.versions)}, ${toJsonValue(doc.tags ?? [])},
+      ${doc.owner}, ${doc.dueDate ?? null}, ${doc.createdAt}, ${doc.updatedAt}
+    )
+  `;
+  const created = await dbGetDocument(doc.id);
+  if (!created) throw new Error("Falha ao criar documento");
+  return created;
+}
+
+export async function dbUpdateDocument(
+  id: string,
+  patch: Partial<Document>,
+): Promise<Document | null> {
+  const sql = getSql();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  const set = (col: string, val: unknown) => { sets.push(`${col} = $${sets.length + 1}`); values.push(val); };
+  if (patch.name !== undefined) set("name", patch.name);
+  if (patch.category !== undefined) set("category", patch.category);
+  if (patch.status !== undefined) set("status", patch.status);
+  if (patch.entityType !== undefined) set("entity_type", patch.entityType);
+  if (patch.entityId !== undefined) set("entity_id", patch.entityId);
+  if (patch.matterId !== undefined) set("matter_id", patch.matterId ?? null);
+  if (patch.description !== undefined) set("description", patch.description ?? null);
+  if (patch.fileName !== undefined) set("file_name", patch.fileName ?? null);
+  if (patch.fileSize !== undefined) set("file_size", patch.fileSize ?? null);
+  if (patch.mimeType !== undefined) set("mime_type", patch.mimeType ?? null);
+  if (patch.version !== undefined) set("version", patch.version);
+  if (patch.versions !== undefined) set("versions", toJsonValue(patch.versions));
+  if (patch.tags !== undefined) set("tags", toJsonValue(patch.tags ?? []));
+  if (patch.dueDate !== undefined) set("due_date", patch.dueDate ?? null);
+  sets.push("updated_at = now()");
+  values.push(id);
+  await sql.query(`UPDATE agro.documents SET ${sets.join(", ")} WHERE id = $${values.length} AND deleted_at IS NULL`, values);
+  return dbGetDocument(id);
+}
+
+export async function dbDeleteDocument(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.documents SET deleted_at = now(), updated_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+// ── Contacts ───────────────────────────────────────────────────────
+
+export async function dbListContacts(
+  filters: { accountId?: string } = {},
+): Promise<Contact[]> {
+  const sql = getSql();
+  if (filters.accountId) {
+    const rows = await sql`
+      SELECT * FROM agro.contacts
+      WHERE deleted_at IS NULL AND account_ids @> ${toJsonValue([filters.accountId])}::jsonb
+      ORDER BY created_at DESC
+    `;
+    return rows.map((r) => mapContact(r as Record<string, unknown>));
+  }
+  const rows = await sql`SELECT * FROM agro.contacts WHERE deleted_at IS NULL ORDER BY created_at DESC`;
+  return rows.map((r) => mapContact(r as Record<string, unknown>));
+}
+
+export async function dbGetContact(id: string): Promise<Contact | null> {
+  const sql = getSql();
+  const rows = await sql`SELECT * FROM agro.contacts WHERE id = ${id} AND deleted_at IS NULL`;
+  if (!rows.length) return null;
+  return mapContact(rows[0] as Record<string, unknown>);
+}
+
+export async function dbCreateContact(contact: Contact): Promise<Contact> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO agro.contacts (
+      id, name, email, phone, whatsapp, cpf, role, department,
+      is_primary, account_ids, notes, owner, created_at
+    ) VALUES (
+      ${contact.id}, ${contact.name}, ${contact.email ?? null}, ${contact.phone ?? null},
+      ${contact.whatsapp ?? null}, ${contact.cpf ?? null}, ${contact.role},
+      ${contact.department ?? null}, ${contact.isPrimary}, ${toJsonValue(contact.accountIds)},
+      ${contact.notes ?? null}, ${contact.owner}, ${contact.createdAt}
+    )
+  `;
+  const created = await dbGetContact(contact.id);
+  if (!created) throw new Error("Falha ao criar contato");
+  return created;
+}
+
+export async function dbUpdateContact(
+  id: string,
+  patch: Partial<Contact>,
+): Promise<Contact | null> {
+  const sql = getSql();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  const set = (col: string, val: unknown) => { sets.push(`${col} = $${sets.length + 1}`); values.push(val); };
+  if (patch.name !== undefined) set("name", patch.name);
+  if (patch.email !== undefined) set("email", patch.email ?? null);
+  if (patch.phone !== undefined) set("phone", patch.phone ?? null);
+  if (patch.whatsapp !== undefined) set("whatsapp", patch.whatsapp ?? null);
+  if (patch.cpf !== undefined) set("cpf", patch.cpf ?? null);
+  if (patch.role !== undefined) set("role", patch.role);
+  if (patch.department !== undefined) set("department", patch.department ?? null);
+  if (patch.isPrimary !== undefined) set("is_primary", patch.isPrimary);
+  if (patch.accountIds !== undefined) set("account_ids", toJsonValue(patch.accountIds));
+  if (patch.notes !== undefined) set("notes", patch.notes ?? null);
+  if (!sets.length) return dbGetContact(id);
+  values.push(id);
+  await sql.query(`UPDATE agro.contacts SET ${sets.join(", ")} WHERE id = $${values.length} AND deleted_at IS NULL`, values);
+  return dbGetContact(id);
+}
+
+export async function dbDeleteContact(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.contacts SET deleted_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+// ── Properties ─────────────────────────────────────────────────────
+
+export async function dbListProperties(
+  filters: { accountId?: string } = {},
+): Promise<Property[]> {
+  const sql = getSql();
+  if (filters.accountId) {
+    const rows = await sql`
+      SELECT * FROM agro.properties
+      WHERE deleted_at IS NULL AND account_id = ${filters.accountId}
+      ORDER BY created_at DESC
+    `;
+    return rows.map((r) => mapProperty(r as Record<string, unknown>));
+  }
+  const rows = await sql`SELECT * FROM agro.properties WHERE deleted_at IS NULL ORDER BY created_at DESC`;
+  return rows.map((r) => mapProperty(r as Record<string, unknown>));
+}
+
+export async function dbGetProperty(id: string): Promise<Property | null> {
+  const sql = getSql();
+  const rows = await sql`SELECT * FROM agro.properties WHERE id = ${id} AND deleted_at IS NULL`;
+  if (!rows.length) return null;
+  return mapProperty(rows[0] as Record<string, unknown>);
+}
+
+export async function dbCreateProperty(property: Property): Promise<Property> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO agro.properties (
+      id, name, type, account_id, car_number, matricula, area_ha,
+      declared_area_ha, car_area_ha, matricula_area_ha, location,
+      municipality, state, gps, main_crop, encumbrances, restrictions,
+      notes, owner, created_at
+    ) VALUES (
+      ${property.id}, ${property.name}, ${property.type}, ${property.accountId},
+      ${property.carNumber ?? null}, ${property.matricula ?? null}, ${property.areaHa},
+      ${property.declaredAreaHa ?? null}, ${property.carAreaHa ?? null},
+      ${property.matriculaAreaHa ?? null}, ${property.location ?? null},
+      ${property.municipality ?? null}, ${property.state ?? null}, ${property.GPS ?? null},
+      ${property.mainCrop ?? null}, ${toJsonValue(property.encumbrances ?? [])},
+      ${toJsonValue(property.restrictions ?? [])}, ${property.notes ?? null},
+      ${property.owner}, ${property.createdAt}
+    )
+  `;
+  const created = await dbGetProperty(property.id);
+  if (!created) throw new Error("Falha ao criar propriedade");
+  return created;
+}
+
+export async function dbUpdateProperty(
+  id: string,
+  patch: Partial<Property>,
+): Promise<Property | null> {
+  const sql = getSql();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  const set = (col: string, val: unknown) => { sets.push(`${col} = $${sets.length + 1}`); values.push(val); };
+  if (patch.name !== undefined) set("name", patch.name);
+  if (patch.type !== undefined) set("type", patch.type);
+  if (patch.accountId !== undefined) set("account_id", patch.accountId);
+  if (patch.carNumber !== undefined) set("car_number", patch.carNumber ?? null);
+  if (patch.matricula !== undefined) set("matricula", patch.matricula ?? null);
+  if (patch.areaHa !== undefined) set("area_ha", patch.areaHa);
+  if (patch.declaredAreaHa !== undefined) set("declared_area_ha", patch.declaredAreaHa ?? null);
+  if (patch.carAreaHa !== undefined) set("car_area_ha", patch.carAreaHa ?? null);
+  if (patch.matriculaAreaHa !== undefined) set("matricula_area_ha", patch.matriculaAreaHa ?? null);
+  if (patch.location !== undefined) set("location", patch.location ?? null);
+  if (patch.municipality !== undefined) set("municipality", patch.municipality ?? null);
+  if (patch.state !== undefined) set("state", patch.state ?? null);
+  if (patch.GPS !== undefined) set("gps", patch.GPS ?? null);
+  if (patch.mainCrop !== undefined) set("main_crop", patch.mainCrop ?? null);
+  if (patch.encumbrances !== undefined) set("encumbrances", toJsonValue(patch.encumbrances ?? []));
+  if (patch.restrictions !== undefined) set("restrictions", toJsonValue(patch.restrictions ?? []));
+  if (patch.notes !== undefined) set("notes", patch.notes ?? null);
+  if (!sets.length) return dbGetProperty(id);
+  values.push(id);
+  await sql.query(`UPDATE agro.properties SET ${sets.join(", ")} WHERE id = $${values.length} AND deleted_at IS NULL`, values);
+  return dbGetProperty(id);
+}
+
+export async function dbDeleteProperty(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.properties SET deleted_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+// ── Invoices ───────────────────────────────────────────────────────
+
+export async function dbListInvoices(
+  filters: { accountId?: string; status?: string } = {},
+): Promise<Invoice[]> {
+  const sql = getSql();
+  const where: WhereParts = { clauses: [], values: [] };
+  if (filters.accountId) { where.clauses.push(`account_id = $${where.values.length + 1}`); where.values.push(filters.accountId); }
+  if (filters.status) { where.clauses.push(`status = $${where.values.length + 1}`); where.values.push(filters.status); }
+  const whereSql = where.clauses.length
+    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
+    : "WHERE deleted_at IS NULL";
+  const rows = await sql.query(`SELECT * FROM agro.invoices ${whereSql} ORDER BY issued_at DESC`, where.values);
+  return rows.map((r) => mapInvoice(r as Record<string, unknown>));
+}
+
+export async function dbGetInvoice(id: string): Promise<Invoice | null> {
+  const sql = getSql();
+  const rows = await sql`SELECT * FROM agro.invoices WHERE id = ${id} AND deleted_at IS NULL`;
+  if (!rows.length) return null;
+  return mapInvoice(rows[0] as Record<string, unknown>);
+}
+
+export async function dbCreateInvoice(invoice: Invoice): Promise<Invoice> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO agro.invoices (
+      id, account_id, matter_id, number, status, total_brl,
+      issued_at, due_at, paid_at, notes, time_entry_ids, created_at
+    ) VALUES (
+      ${invoice.id}, ${invoice.accountId}, ${invoice.matterId ?? null}, ${invoice.number},
+      ${invoice.status}, ${invoice.totalBrl}, ${invoice.issuedAt}, ${invoice.dueAt},
+      ${invoice.paidAt ?? null}, ${invoice.notes ?? null},
+      ${toJsonValue(invoice.timeEntryIds)}, ${invoice.createdAt}
+    )
+  `;
+  const created = await dbGetInvoice(invoice.id);
+  if (!created) throw new Error("Falha ao criar fatura");
+  return created;
+}
+
+export async function dbUpdateInvoice(
+  id: string,
+  patch: Partial<Invoice>,
+): Promise<Invoice | null> {
+  const sql = getSql();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  const set = (col: string, val: unknown) => { sets.push(`${col} = $${sets.length + 1}`); values.push(val); };
+  if (patch.accountId !== undefined) set("account_id", patch.accountId);
+  if (patch.matterId !== undefined) set("matter_id", patch.matterId ?? null);
+  if (patch.number !== undefined) set("number", patch.number);
+  if (patch.status !== undefined) set("status", patch.status);
+  if (patch.totalBrl !== undefined) set("total_brl", patch.totalBrl);
+  if (patch.issuedAt !== undefined) set("issued_at", patch.issuedAt);
+  if (patch.dueAt !== undefined) set("due_at", patch.dueAt);
+  if (patch.paidAt !== undefined) set("paid_at", patch.paidAt ?? null);
+  if (patch.notes !== undefined) set("notes", patch.notes ?? null);
+  if (patch.timeEntryIds !== undefined) set("time_entry_ids", toJsonValue(patch.timeEntryIds));
+  if (!sets.length) return dbGetInvoice(id);
+  values.push(id);
+  await sql.query(`UPDATE agro.invoices SET ${sets.join(", ")} WHERE id = $${values.length} AND deleted_at IS NULL`, values);
+  return dbGetInvoice(id);
+}
+
+export async function dbDeleteInvoice(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.invoices SET deleted_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
 }

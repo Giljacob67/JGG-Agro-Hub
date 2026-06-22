@@ -1,18 +1,29 @@
 import type {
   Account,
   Activity,
+  Contact,
   Deadline,
+  Document,
+  DocumentVersion,
+  Invoice,
   Lead,
   Matter,
   Opportunity,
+  Property,
   Task,
 } from "../../../shared/agro/types.js";
-import { parseStringArray } from "./json-utils.js";
+import { parseJsonValue, parseStringArray } from "./json-utils.js";
 
 function toDateStr(value: unknown): string {
   if (!value) return "";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return String(value).slice(0, 10);
+}
+
+function toIso(value: unknown): string {
+  if (!value) return "";
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
 }
 
 function mapLegacyOpportunityStage(stage: unknown): Opportunity["stage"] {
@@ -183,6 +194,100 @@ export function mapActivity(row: Record<string, unknown>): Activity {
         ? row.created_at.toISOString()
         : String(row.created_at ?? ""),
   };
+}
+
+export function mapDocument(row: Record<string, unknown>): Document {
+  const doc: Document = {
+    id: String(row.id),
+    name: String(row.name),
+    category: row.category as Document["category"],
+    status: row.status as Document["status"],
+    entityType: row.entity_type as Document["entityType"],
+    entityId: String(row.entity_id),
+    version: Number(row.version ?? 1),
+    versions: parseJsonValue<DocumentVersion[]>(row.versions, []),
+    owner: String(row.owner),
+    createdAt: toIso(row.created_at),
+    updatedAt: toIso(row.updated_at),
+  };
+  if (row.matter_id != null) doc.matterId = String(row.matter_id);
+  if (row.description != null) doc.description = String(row.description);
+  if (row.file_name != null) doc.fileName = String(row.file_name);
+  if (row.file_size != null) doc.fileSize = Number(row.file_size);
+  if (row.mime_type != null) doc.mimeType = String(row.mime_type);
+  const tags = parseStringArray(row.tags);
+  if (tags?.length) doc.tags = tags;
+  if (row.due_date != null) doc.dueDate = toDateStr(row.due_date);
+  if (row.deleted_at) doc.deletedAt = toIso(row.deleted_at);
+  return doc;
+}
+
+export function mapContact(row: Record<string, unknown>): Contact {
+  const contact: Contact = {
+    id: String(row.id),
+    name: String(row.name),
+    role: row.role as Contact["role"],
+    isPrimary: Boolean(row.is_primary),
+    accountIds: parseStringArray(row.account_ids) ?? [],
+    owner: String(row.owner),
+    createdAt: toIso(row.created_at),
+  };
+  if (row.email != null) contact.email = String(row.email);
+  if (row.phone != null) contact.phone = String(row.phone);
+  if (row.whatsapp != null) contact.whatsapp = String(row.whatsapp);
+  if (row.cpf != null) contact.cpf = String(row.cpf);
+  if (row.department != null) contact.department = String(row.department);
+  if (row.notes != null) contact.notes = String(row.notes);
+  if (row.deleted_at) contact.deletedAt = toIso(row.deleted_at);
+  return contact;
+}
+
+export function mapProperty(row: Record<string, unknown>): Property {
+  const property: Property = {
+    id: String(row.id),
+    name: String(row.name),
+    type: row.type as Property["type"],
+    accountId: String(row.account_id),
+    areaHa: Number(row.area_ha ?? 0),
+    owner: String(row.owner),
+    createdAt: toIso(row.created_at),
+  };
+  if (row.car_number != null) property.carNumber = String(row.car_number);
+  if (row.matricula != null) property.matricula = String(row.matricula);
+  if (row.declared_area_ha != null) property.declaredAreaHa = Number(row.declared_area_ha);
+  if (row.car_area_ha != null) property.carAreaHa = Number(row.car_area_ha);
+  if (row.matricula_area_ha != null) property.matriculaAreaHa = Number(row.matricula_area_ha);
+  if (row.location != null) property.location = String(row.location);
+  if (row.municipality != null) property.municipality = String(row.municipality);
+  if (row.state != null) property.state = String(row.state);
+  if (row.gps != null) property.GPS = String(row.gps);
+  if (row.main_crop != null) property.mainCrop = String(row.main_crop);
+  const encumbrances = parseStringArray(row.encumbrances);
+  if (encumbrances?.length) property.encumbrances = encumbrances;
+  const restrictions = parseStringArray(row.restrictions);
+  if (restrictions?.length) property.restrictions = restrictions;
+  if (row.notes != null) property.notes = String(row.notes);
+  if (row.deleted_at) property.deletedAt = toIso(row.deleted_at);
+  return property;
+}
+
+export function mapInvoice(row: Record<string, unknown>): Invoice {
+  const invoice: Invoice = {
+    id: String(row.id),
+    accountId: String(row.account_id),
+    number: String(row.number),
+    status: row.status as Invoice["status"],
+    totalBrl: Number(row.total_brl ?? 0),
+    issuedAt: toDateStr(row.issued_at),
+    dueAt: toDateStr(row.due_at),
+    timeEntryIds: parseStringArray(row.time_entry_ids) ?? [],
+    createdAt: toIso(row.created_at),
+  };
+  if (row.matter_id != null) invoice.matterId = String(row.matter_id);
+  if (row.paid_at != null) invoice.paidAt = toDateStr(row.paid_at);
+  if (row.notes != null) invoice.notes = String(row.notes);
+  if (row.deleted_at) invoice.deletedAt = toIso(row.deleted_at);
+  return invoice;
 }
 
 export function mapTask(row: Record<string, unknown>): Task {

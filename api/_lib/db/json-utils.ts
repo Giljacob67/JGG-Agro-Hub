@@ -20,3 +20,21 @@ export function toJsonArray(value: string[] | undefined): string | null {
   if (!value?.length) return null;
   return JSON.stringify(value);
 }
+
+/** Lê JSONB (já-parseado pelo driver) ou string JSON, com fallback. */
+export function parseJsonValue<T>(value: unknown, fallback: T): T {
+  if (value == null) return fallback;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch {
+      return fallback;
+    }
+  }
+  return value as T;
+}
+
+/** Serializa qualquer valor para coluna JSONB (text→jsonb no INSERT). */
+export function toJsonValue(value: unknown): string {
+  return JSON.stringify(value ?? null);
+}

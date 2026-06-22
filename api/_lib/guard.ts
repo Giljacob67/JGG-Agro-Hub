@@ -23,6 +23,10 @@ const DB_BACKED_RESOURCES = new Set([
   "deadlines",
   "activities",
   "audit",
+  "documents",
+  "contacts",
+  "properties",
+  "invoices",
 ]);
 
 /**

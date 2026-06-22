@@ -24,12 +24,16 @@ import type {
   Account,
   Activity,
   AgroUser,
+  Contact,
   Deadline,
+  Document,
+  Invoice,
   Lead,
   LeadPriority,
   LeadStatus,
   Matter,
   Opportunity,
+  Property,
   Task,
   TaskStatus,
 } from "../../shared/agro/types.js";
@@ -728,4 +732,138 @@ export async function deleteTask(id: string): Promise<boolean> {
   requireWritableOrThrow("tasks");
   memory.patchTask(id, { deletedAt: new Date().toISOString() } as Partial<Task>);
   return true;
+}
+
+// ── Documents ──────────────────────────────────────────────────────
+
+export async function listDocuments(
+  filters: { entityType?: string; entityId?: string; matterId?: string } = {},
+): Promise<Document[]> {
+  if (isDbEnabled()) return db.dbListDocuments(filters);
+  return memory.listDocuments(filters);
+}
+
+export async function getDocument(id: string): Promise<Document | undefined | null> {
+  if (isDbEnabled()) return db.dbGetDocument(id);
+  return memory.getDocument(id);
+}
+
+export async function createDocument(doc: Document): Promise<Document> {
+  if (isDbEnabled()) return db.dbCreateDocument(doc);
+  requireWritableOrThrow("documents");
+  return memory.addDocument(doc);
+}
+
+export async function updateDocument(
+  id: string,
+  patch: Partial<Document>,
+): Promise<Document | undefined | null> {
+  if (isDbEnabled()) return db.dbUpdateDocument(id, patch);
+  requireWritableOrThrow("documents");
+  return memory.patchDocument(id, patch);
+}
+
+export async function deleteDocument(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteDocument(id);
+  requireWritableOrThrow("documents");
+  return memory.deleteDocument(id);
+}
+
+// ── Contacts ───────────────────────────────────────────────────────
+
+export async function listContacts(
+  filters: { accountId?: string } = {},
+): Promise<Contact[]> {
+  if (isDbEnabled()) return db.dbListContacts(filters);
+  return memory.listContacts(filters);
+}
+
+export async function getContact(id: string): Promise<Contact | undefined | null> {
+  if (isDbEnabled()) return db.dbGetContact(id);
+  return memory.getContact(id);
+}
+
+export async function createContact(contact: Contact): Promise<Contact> {
+  if (isDbEnabled()) return db.dbCreateContact(contact);
+  requireWritableOrThrow("contacts");
+  return memory.addContact(contact);
+}
+
+export async function updateContact(
+  id: string,
+  patch: Partial<Contact>,
+): Promise<Contact | undefined | null> {
+  if (isDbEnabled()) return db.dbUpdateContact(id, patch);
+  requireWritableOrThrow("contacts");
+  return memory.patchContact(id, patch);
+}
+
+export async function deleteContact(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteContact(id);
+  requireWritableOrThrow("contacts");
+  return memory.deleteContact(id);
+}
+
+// ── Properties ─────────────────────────────────────────────────────
+
+export async function listProperties(
+  filters: { accountId?: string } = {},
+): Promise<Property[]> {
+  if (isDbEnabled()) return db.dbListProperties(filters);
+  return memory.listProperties(filters);
+}
+
+export async function getProperty(id: string): Promise<Property | undefined | null> {
+  if (isDbEnabled()) return db.dbGetProperty(id);
+  return memory.getProperty(id);
+}
+
+export async function createProperty(property: Property): Promise<Property> {
+  if (isDbEnabled()) return db.dbCreateProperty(property);
+  requireWritableOrThrow("properties");
+  return memory.addProperty(property);
+}
+
+export async function updateProperty(
+  id: string,
+  patch: Partial<Property>,
+): Promise<Property | undefined | null> {
+  if (isDbEnabled()) return db.dbUpdateProperty(id, patch);
+  requireWritableOrThrow("properties");
+  return memory.patchProperty(id, patch);
+}
+
+export async function deleteProperty(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteProperty(id);
+  requireWritableOrThrow("properties");
+  return memory.deleteProperty(id);
+}
+
+// ── Invoices ───────────────────────────────────────────────────────
+
+export async function listInvoices(
+  filters: { accountId?: string; status?: string } = {},
+): Promise<Invoice[]> {
+  if (isDbEnabled()) return db.dbListInvoices(filters);
+  return memory.listInvoices(filters);
+}
+
+export async function getInvoice(id: string): Promise<Invoice | undefined | null> {
+  if (isDbEnabled()) return db.dbGetInvoice(id);
+  return memory.getInvoice(id);
+}
+
+export async function createInvoice(invoice: Invoice): Promise<Invoice> {
+  if (isDbEnabled()) return db.dbCreateInvoice(invoice);
+  requireWritableOrThrow("invoices");
+  return memory.addInvoice(invoice);
+}
+
+export async function updateInvoice(
+  id: string,
+  patch: Partial<Invoice>,
+): Promise<Invoice | undefined | null> {
+  if (isDbEnabled()) return db.dbUpdateInvoice(id, patch);
+  requireWritableOrThrow("invoices");
+  return memory.patchInvoice(id, patch);
 }

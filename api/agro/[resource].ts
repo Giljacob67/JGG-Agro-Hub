@@ -1048,8 +1048,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "GET" && !guardWrite(res, "documents")) return;
 
     if (req.method === "GET") {
-      const { listDocuments } = await import("../../shared/agro/store.js");
-      const docs = listDocuments({
+      const { listDocuments } = await import("../_lib/data-service.js");
+      const docs = await listDocuments({
         entityType: req.query.entityType as string,
         entityId: req.query.entityId as string,
         matterId: req.query.matterId as string,
@@ -1060,8 +1060,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "POST") {
       const parsed = parseDocumentCreate(getBody(req.body), user.name);
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addDocument } = await import("../../shared/agro/store.js");
-      const doc = await addDocument(parsed.data as any);
+      const { createDocument } = await import("../_lib/data-service.js");
+      const doc = await createDocument(parsed.data as any);
             await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "document",
@@ -1076,10 +1076,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const parsed = parseDocumentPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { getDocument, patchDocument } = await import("../../shared/agro/store.js");
-      const before = getDocument(id);
+      const { getDocument, updateDocument } = await import("../_lib/data-service.js");
+      const before = await getDocument(id);
       if (!before) return json(res, { error: "Documento não encontrado" }, 404);
-      const doc = patchDocument(id, parsed.data as any);
+      const doc = await updateDocument(id, parsed.data as any);
       if (!doc) return json(res, { error: "Documento não encontrado" }, 404);
             await auditUpdate(
         { userId: user.id, userName: user.name, userRole: user.role },
@@ -1096,8 +1096,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "DELETE") {
       const id = req.query.id as string | undefined;
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
-      const { getDocument, deleteDocument } = await import("../../shared/agro/store.js");
-      const doc = getDocument(id);
+      const { getDocument, deleteDocument } = await import("../_lib/data-service.js");
+      const doc = await getDocument(id);
       if (!doc) return json(res, { error: "Documento não encontrado" }, 404);
       await deleteDocument(id);
             await auditDelete(
@@ -1216,8 +1216,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "GET" && !guardWrite(res, "invoices")) return;
 
     if (req.method === "GET") {
-      const { listInvoices } = await import("../../shared/agro/store.js");
-      return json(res, listInvoices({
+      const { listInvoices } = await import("../_lib/data-service.js");
+      return json(res, await listInvoices({
         accountId: req.query.accountId as string,
         status: req.query.status as string,
       }));
@@ -1226,8 +1226,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "POST") {
       const parsed = parseInvoiceCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addInvoice } = await import("../../shared/agro/store.js");
-      const invoice = await addInvoice(parsed.data as any);
+      const { createInvoice } = await import("../_lib/data-service.js");
+      const invoice = await createInvoice(parsed.data as any);
       return json(res, invoice, 201);
     }
 
@@ -1236,8 +1236,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const parsed = parseInvoicePatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { patchInvoice } = await import("../../shared/agro/store.js");
-      const invoice = patchInvoice(id, parsed.data as any);
+      const { updateInvoice } = await import("../_lib/data-service.js");
+      const invoice = await updateInvoice(id, parsed.data as any);
       if (!invoice) return json(res, { error: "Fatura não encontrada" }, 404);
       return json(res, invoice);
     }
@@ -1278,15 +1278,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "GET" && !guardWrite(res, "contacts")) return;
 
     if (req.method === "GET") {
-      const { listContacts } = await import("../../shared/agro/store.js");
-      return json(res, listContacts({ accountId: req.query.accountId as string }));
+      const { listContacts } = await import("../_lib/data-service.js");
+      return json(res, await listContacts({ accountId: req.query.accountId as string }));
     }
 
     if (req.method === "POST") {
       const parsed = parseContactCreate(getBody(req.body), user.name);
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addContact } = await import("../../shared/agro/store.js");
-      const contact = await addContact(parsed.data as any);
+      const { createContact } = await import("../_lib/data-service.js");
+      const contact = await createContact(parsed.data as any);
       return json(res, contact, 201);
     }
 
@@ -1295,8 +1295,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const parsed = parseContactPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { patchContact } = await import("../../shared/agro/store.js");
-      const contact = patchContact(id, parsed.data as any);
+      const { updateContact } = await import("../_lib/data-service.js");
+      const contact = await updateContact(id, parsed.data as any);
       if (!contact) return json(res, { error: "Contato não encontrado" }, 404);
       return json(res, contact);
     }
@@ -1304,7 +1304,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "DELETE") {
       const id = req.query.id as string | undefined;
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
-      const { deleteContact } = await import("../../shared/agro/store.js");
+      const { deleteContact } = await import("../_lib/data-service.js");
       await deleteContact(id);
       return json(res, { ok: true });
     }
@@ -1320,15 +1320,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "GET" && !guardWrite(res, "properties")) return;
 
     if (req.method === "GET") {
-      const { listProperties } = await import("../../shared/agro/store.js");
-      return json(res, listProperties({ accountId: req.query.accountId as string }));
+      const { listProperties } = await import("../_lib/data-service.js");
+      return json(res, await listProperties({ accountId: req.query.accountId as string }));
     }
 
     if (req.method === "POST") {
       const parsed = parsePropertyCreate(getBody(req.body), user.name);
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addProperty } = await import("../../shared/agro/store.js");
-      const property = await addProperty(parsed.data as any);
+      const { createProperty } = await import("../_lib/data-service.js");
+      const property = await createProperty(parsed.data as any);
       return json(res, property, 201);
     }
 
@@ -1337,8 +1337,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const parsed = parsePropertyPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { patchProperty } = await import("../../shared/agro/store.js");
-      const property = patchProperty(id, parsed.data as any);
+      const { updateProperty } = await import("../_lib/data-service.js");
+      const property = await updateProperty(id, parsed.data as any);
       if (!property) return json(res, { error: "Propriedade não encontrada" }, 404);
       return json(res, property);
     }
@@ -1346,7 +1346,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "DELETE") {
       const id = req.query.id as string | undefined;
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
-      const { deleteProperty } = await import("../../shared/agro/store.js");
+      const { deleteProperty } = await import("../_lib/data-service.js");
       await deleteProperty(id);
       return json(res, { ok: true });
     }

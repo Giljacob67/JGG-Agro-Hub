@@ -157,6 +157,112 @@ export async function runMigrations(
   await runEnrichedFieldMigrations(sql);
   await runSoftDeleteMigrations(sql);
   await runPgvectorMigrations(sql);
+  await runSecondaryEntityMigrations(sql);
+}
+
+/**
+ * Fase 1 da migração das entidades secundárias (antes só em memória):
+ * documentos, contatos, propriedades rurais e faturas. Arrays vão como
+ * JSONB; soft-delete via `deleted_at`. Mantém em sincronia com
+ * `DB_BACKED_RESOURCES` em `api/_lib/guard.ts`.
+ */
+async function runSecondaryEntityMigrations(
+  sql: NeonQueryFunction<false, false>,
+) {
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.documents (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pendente',
+      entity_type TEXT NOT NULL
+        CHECK (entity_type IN ('matter', 'account', 'opportunity', 'lead')),
+      entity_id TEXT NOT NULL,
+      matter_id TEXT,
+      description TEXT,
+      file_name TEXT,
+      file_size INTEGER,
+      mime_type TEXT,
+      version INTEGER NOT NULL DEFAULT 1,
+      versions JSONB NOT NULL DEFAULT '[]'::jsonb,
+      tags JSONB DEFAULT '[]'::jsonb,
+      owner TEXT NOT NULL,
+      due_date DATE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      deleted_at TIMESTAMPTZ
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.contacts (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      email TEXT,
+      phone TEXT,
+      whatsapp TEXT,
+      cpf TEXT,
+      role TEXT NOT NULL,
+      department TEXT,
+      is_primary BOOLEAN NOT NULL DEFAULT false,
+      account_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+      notes TEXT,
+      owner TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      deleted_at TIMESTAMPTZ
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.properties (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      type TEXT NOT NULL,
+      account_id TEXT NOT NULL,
+      car_number TEXT,
+      matricula TEXT,
+      area_ha NUMERIC(12, 2) NOT NULL DEFAULT 0,
+      declared_area_ha NUMERIC(12, 2),
+      car_area_ha NUMERIC(12, 2),
+      matricula_area_ha NUMERIC(12, 2),
+      location TEXT,
+      municipality TEXT,
+      state TEXT,
+      gps TEXT,
+      main_crop TEXT,
+      encumbrances JSONB DEFAULT '[]'::jsonb,
+      restrictions JSONB DEFAULT '[]'::jsonb,
+      notes TEXT,
+      owner TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      deleted_at TIMESTAMPTZ
+    )
+  `;
+
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.invoices (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL,
+      matter_id TEXT,
+      number TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'rascunho',
+      total_brl NUMERIC(14, 2) NOT NULL DEFAULT 0,
+      issued_at DATE NOT NULL,
+      due_at DATE NOT NULL,
+      paid_at DATE,
+      notes TEXT,
+      time_entry_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      deleted_at TIMESTAMPTZ
+    )
+  `;
+
+  await sql`CREATE INDEX IF NOT EXISTS idx_documents_entity ON agro.documents(entity_id) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_documents_matter ON agro.documents(matter_id) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_contacts_active ON agro.contacts(deleted_at) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_contacts_accounts ON agro.contacts USING gin (account_ids)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_properties_account ON agro.properties(account_id) WHERE deleted_at IS NULL`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_invoices_account ON agro.invoices(account_id) WHERE deleted_at IS NULL`;
 }
 
 async function runEnrichedFieldMigrations(

@@ -39,13 +39,19 @@ describe("assertWritableInProd", () => {
   it("bloqueia (503) recurso memory-only em produção mesmo com DATABASE_URL", () => {
     vi.stubEnv("VERCEL_ENV", "production");
     vi.stubEnv("DATABASE_URL", "postgresql://user:pass@host/db");
-    const g = assertWritableInProd("invoices");
+    const g = assertWritableInProd("fee-agreements");
     expect(g.ok).toBe(false);
     if (!g.ok) {
       expect(g.status).toBe(503);
-      expect(g.message).toContain("invoices");
+      expect(g.message).toContain("fee-agreements");
       expect(g.message).toContain("perda silenciosa");
     }
+  });
+
+  it("permite recursos secundários migrados (documents) em produção com DATABASE_URL", () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "postgresql://user:pass@host/db");
+    expect(assertWritableInProd("documents")).toEqual({ ok: true });
   });
 
   it("permite recurso memory-only em dev (não bloqueia local)", () => {
