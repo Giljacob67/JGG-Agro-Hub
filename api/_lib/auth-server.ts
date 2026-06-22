@@ -190,7 +190,11 @@ export function resolveSession(token: string | undefined): AgroUser | null {
     // que são forjáveis por qualquer cliente.
     return verifySignedToken(token, secret);
   }
-  // Dev local (sem AUTH_SECRET): aceita token dev-insecure e token legado
+  // Sem AUTH_SECRET: o fallback dev ("dev-insecure" / token legado) só é
+  // permitido em ambiente local (sem VERCEL_ENV). Em qualquer deployment
+  // Vercel (preview ou production) sem AUTH_SECRET, recusa — o secret
+  // "dev-insecure" é público e forjável, não pode autenticar em deploy.
+  if (process.env.VERCEL_ENV) return null;
   const devUser = verifySignedToken(token, "dev-insecure");
   if (devUser) return devUser;
   return resolveDevSession(token);

@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { authenticate, resolveSession } from "../_lib/auth-server.js";
-import { generateCsrfToken, validateCsrfToken, getSessionId } from "../_lib/csrf.js";
+import { generateCsrfToken } from "../_lib/csrf.js";
 import {
   buildSsoAuthorizeUrl,
   decodeStateWithNonce,
@@ -17,6 +17,7 @@ import {
   json,
   methodNotAllowed,
   readOAuthCookies,
+  setCsrfCookie,
   setOAuthStateCookie,
   setSessionCookie,
 } from "../_lib/http.js";
@@ -68,9 +69,9 @@ async function login(req: VercelRequest, res: VercelResponse) {
   await clearLoginRateLimit(req, normalizedEmail);
   setSessionCookie(res, result.token);
 
-  // Generate CSRF token
+  // Generate CSRF token (cookie preserva o de sessão — setCsrfCookie faz merge)
   const csrfToken = generateCsrfToken(result.token);
-  res.setHeader("Set-Cookie", `agro_csrf=${csrfToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=3600`);
+  setCsrfCookie(res, csrfToken);
 
   return json(res, { user: result.user, csrfToken });
 }
@@ -166,5 +167,8 @@ async function callback(req: VercelRequest, res: VercelResponse) {
   const from = sanitizeFrom(parsed.from);
   const redirect = new URL(from, process.env.APP_URL ?? "http://localhost:5173");
   setSessionCookie(res, result.token);
+  // CSRF cookie para usuários SSO: o header X-CSRF-Token não está disponível
+  // (SPA não recebe o token no body), então o fallback por cookie é necessário.
+  setCsrfCookie(res, generateCsrfToken(result.token));
   res.redirect(302, redirect.toString());
 }

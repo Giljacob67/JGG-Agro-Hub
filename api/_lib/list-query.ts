@@ -1,18 +1,17 @@
 import type { VercelRequest } from "@vercel/node";
-import type {
-  AccountListParams,
-  LeadListParams,
-  MatterListParams,
-  OpportunityListParams,
-  TaskListParams,
+import {
+  MAX_PAGE_SIZE,
+  type AccountListParams,
+  type LeadListParams,
+  type MatterListParams,
+  type OpportunityListParams,
+  type TaskListParams,
 } from "../../shared/agro/list-types.js";
 
 function str(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
   return value;
 }
-
-const MAX_PAGE_SIZE = 200;
 
 function num(value: string | string[] | undefined): number | undefined {
   const v = str(value);

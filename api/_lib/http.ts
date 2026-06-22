@@ -89,6 +89,59 @@ export function setSessionCookie(res: VercelResponse, token: string) {
   );
 }
 
+/**
+ * Adiciona o cookie CSRF preservando cookies já setados (e.g. o de sessão).
+ * `res.setHeader("Set-Cookie", ...)` substitui — sem este merge, setar o
+ * cookie CSRF logo após o de sessão apagaria a sessão.
+ */
+export function setCsrfCookie(res: VercelResponse, token: string) {
+  const name = csrfCookieName();
+  const csrf = `${name}=${encodeURIComponent(token)}; Max-Age=3600; ${cookieBase()}`;
+  const existing = res.getHeader("Set-Cookie");
+  if (Array.isArray(existing)) {
+    res.setHeader("Set-Cookie", [...existing, csrf]);
+  } else if (typeof existing === "string" && existing.length > 0) {
+    res.setHeader("Set-Cookie", [existing, csrf]);
+  } else {
+    res.setHeader("Set-Cookie", csrf);
+  }
+}
+
+/**
+ * Aplica headers CORS de forma segura: nunca combina `Allow-Origin: *` com
+ * `Allow-Credentials: true` (combinação inválida e insegura per spec CORS).
+ *
+ * - Produção com APP_URL: origin fixa + credentials true.
+ * - Produção sem APP_URL: não seta CORS (cross-origin bloqueado; same-origin
+ *   não exige CORS).
+ * - Dev/preview: reflete a origin do request + credentials; sem Origin
+ *   (same-origin / non-browser) usa `*` sem credentials.
+ */
+export function applyCors(req: VercelRequest, res: VercelResponse) {
+  const appUrl = process.env.APP_URL?.trim();
+  const isProd = process.env.VERCEL_ENV === "production";
+  let origin: string | undefined;
+  let credentials = false;
+  if (appUrl) {
+    origin = appUrl;
+    credentials = true;
+  } else if (!isProd) {
+    const requestOrigin = req.headers.origin as string | undefined;
+    if (requestOrigin) {
+      origin = requestOrigin;
+      credentials = true;
+    } else {
+      origin = "*";
+    }
+  }
+  if (!origin) return;
+  res.setHeader("Access-Control-Allow-Origin", origin);
+  if (credentials) {
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    res.setHeader("Vary", "Origin");
+  }
+}
+
 export function clearSessionCookie(res: VercelResponse) {
   const name = sessionCookieName();
   res.setHeader(

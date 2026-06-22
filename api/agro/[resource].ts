@@ -35,7 +35,7 @@ import {
   parseMatterListQuery,
   parseTaskListQuery,
 } from "../_lib/list-query.js";
-import { json, methodNotAllowed, requireAuth, requireCsrf, guardWrite } from "../_lib/http.js";
+import { json, methodNotAllowed, requireAuth, requireCsrf, guardWrite, applyCors } from "../_lib/http.js";
 import { checkUserRateLimit, getRateLimitHeaders } from "../_lib/rate-limit.js";
 import {
   getBody,
@@ -112,10 +112,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // ── CORS headers ──────────────────────────────────────────────────
-  res.setHeader("Access-Control-Allow-Origin", process.env.APP_URL || "*");
+  applyCors(req, res);
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-CSRF-Token");
-  res.setHeader("Access-Control-Allow-Credentials", "true");
   if (req.method === "OPTIONS") {
     return res.status(204).end();
   }
@@ -1046,7 +1045,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { addDocument } = await import("../../shared/agro/store.js");
       const now = new Date().toISOString();
       const doc = await addDocument({
-        id: `DOC-${Date.now()}`,
+        id: `DOC-${crypto.randomUUID()}`,
         name: String(body.name || ""),
         category: (body.category as string || "outro") as any,
         status: (body.status as string || "pendente") as any,

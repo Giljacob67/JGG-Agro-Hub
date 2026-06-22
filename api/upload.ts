@@ -1,15 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { requireAuth, json } from "./_lib/http.js";
+import { requireAuth, applyCors } from "./_lib/http.js";
 import { getPresignedUploadUrl, generateFileKey, isR2Configured } from "./_lib/r2.js";
 
-const CORS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-};
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  Object.entries(CORS).forEach(([k, v]) => res.setHeader(k, v));
+  applyCors(req, res);
+  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
   if (req.method === "OPTIONS") return res.status(200).end();
 
   if (req.method !== "POST") {
@@ -45,8 +41,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       fileUrl: result.fileUrl,
       key: result.key,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("R2 presign error:", err);
-    return res.status(500).json({ error: err.message || "Erro ao gerar URL de upload" });
+    const message = err instanceof Error ? err.message : "Erro ao gerar URL de upload";
+    return res.status(500).json({ error: message });
   }
 }

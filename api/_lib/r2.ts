@@ -10,6 +10,8 @@
  *   R2_PUBLIC_URL - Public URL for accessing files (e.g., "https://pub-xxx.r2.dev")
  */
 
+import { randomBytes } from "node:crypto";
+
 const R2_ENDPOINT = `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`;
 
 interface PresignedUrlResult {
@@ -83,16 +85,32 @@ export async function getPresignedUploadUrl(
 
 /**
  * Generate a unique file key for R2.
+ *
+ * `prefix` vem do cliente e é sanitizado: apenas segmentos `[a-zA-Z0-9_-]`
+ * separados por `/`, sem path traversal (`..`) ou caracteres arbitrários.
+ * O componente aleatório usa `crypto.randomBytes` (não `Math.random`).
  */
 export function generateFileKey(originalName: string, prefix = "docs"): string {
   const timestamp = Date.now();
-  const random = Math.random().toString(36).slice(2, 8);
-  const ext = originalName.split(".").pop() || "bin";
+  const random = randomBytes(4).toString("hex");
   const safeName = originalName
     .replace(/[^a-zA-Z0-9.-]/g, "_")
     .replace(/_+/g, "_")
     .slice(0, 50);
-  return `${prefix}/${timestamp}-${random}-${safeName}`;
+  const safePrefix = sanitizePrefix(prefix);
+  return `${safePrefix}/${timestamp}-${random}-${safeName}`;
+}
+
+/** Sanitiza prefixo de chave R2 vindo do cliente. */
+function sanitizePrefix(prefix: string): string {
+  const segments = String(prefix ?? "")
+    .split("/")
+    .map((segment) => segment.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32))
+    .filter((segment) => segment.length > 0 && segment !== ".");
+  // Remove segmentos ".." (path traversal) já coberto pelo filtro de chars,
+  // mas garante explicitamente.
+  const cleaned = segments.filter((segment) => segment !== "..").join("/");
+  return cleaned || "docs";
 }
 
 /**
