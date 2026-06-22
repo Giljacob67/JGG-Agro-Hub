@@ -25,17 +25,25 @@ import type {
   Activity,
   AgroUser,
   Contact,
+  CreditInstrument,
+  CropSeason,
   Deadline,
   Document,
+  DocumentChecklistItem,
+  EnvironmentalLicense,
+  FeeAgreement,
   Invoice,
   Lead,
   LeadPriority,
   LeadStatus,
   Matter,
   Opportunity,
+  OpposingParty,
   Property,
   Task,
   TaskStatus,
+  TaxObligation,
+  TimeEntry,
 } from "../../shared/agro/types.js";
 import {
   buildOpportunityFromLead,
@@ -451,6 +459,10 @@ export async function setupDatabase(options?: { force?: boolean }) {
     SEED_MATTERS,
     SEED_OPPORTUNITIES,
     SEED_TASKS,
+    SEED_CROP_SEASONS,
+    SEED_TAX_OBLIGATIONS,
+    SEED_ENVIRONMENTAL_LICENSES,
+    SEED_CREDIT_INSTRUMENTS,
   } = await import("../../shared/agro/seed.js");
 
   await runMigrations();
@@ -472,6 +484,13 @@ export async function setupDatabase(options?: { force?: boolean }) {
     tasks: SEED_TASKS,
     deadlines: SEED_DEADLINES,
     activities: SEED_ACTIVITIES,
+  });
+
+  await db.dbUpsertSecondarySeed({
+    cropSeasons: SEED_CROP_SEASONS,
+    taxObligations: SEED_TAX_OBLIGATIONS,
+    environmentalLicenses: SEED_ENVIRONMENTAL_LICENSES,
+    creditInstruments: SEED_CREDIT_INSTRUMENTS,
   });
 
   const leads = await listLeads();
@@ -866,4 +885,206 @@ export async function updateInvoice(
   if (isDbEnabled()) return db.dbUpdateInvoice(id, patch);
   requireWritableOrThrow("invoices");
   return memory.patchInvoice(id, patch);
+}
+
+// ── Document Checklist ─────────────────────────────────────────────
+
+export async function listDocumentChecklist(
+  matterId: string,
+): Promise<DocumentChecklistItem[]> {
+  if (isDbEnabled()) return db.dbListDocumentChecklist(matterId);
+  return memory.listDocumentChecklist(matterId);
+}
+
+export async function createDocumentChecklistItem(
+  item: DocumentChecklistItem,
+): Promise<DocumentChecklistItem> {
+  if (isDbEnabled()) return db.dbCreateDocumentChecklistItem(item);
+  requireWritableOrThrow("document-checklist");
+  return memory.addDocumentChecklistItem(item);
+}
+
+export async function updateDocumentChecklistItem(
+  id: string,
+  patch: Partial<DocumentChecklistItem>,
+): Promise<DocumentChecklistItem | undefined | null> {
+  if (isDbEnabled()) return db.dbUpdateDocumentChecklistItem(id, patch);
+  requireWritableOrThrow("document-checklist");
+  return memory.patchDocumentChecklistItem(id, patch);
+}
+
+export async function deleteDocumentChecklistItem(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteDocumentChecklistItem(id);
+  requireWritableOrThrow("document-checklist");
+  return memory.deleteDocumentChecklistItem(id);
+}
+
+// ── Time Entries ───────────────────────────────────────────────────
+
+export async function listTimeEntries(
+  filters: { matterId?: string; owner?: string; invoiced?: boolean } = {},
+): Promise<TimeEntry[]> {
+  if (isDbEnabled()) return db.dbListTimeEntries(filters);
+  return memory.listTimeEntries(filters);
+}
+
+export async function getTimeEntry(id: string): Promise<TimeEntry | undefined | null> {
+  if (isDbEnabled()) return db.dbGetTimeEntry(id);
+  return memory.listTimeEntries().find((t) => t.id === id);
+}
+
+export async function createTimeEntry(entry: TimeEntry): Promise<TimeEntry> {
+  if (isDbEnabled()) return db.dbCreateTimeEntry(entry);
+  requireWritableOrThrow("time-entries");
+  return memory.addTimeEntry(entry);
+}
+
+export async function updateTimeEntry(
+  id: string,
+  patch: Partial<TimeEntry>,
+): Promise<TimeEntry | undefined | null> {
+  if (isDbEnabled()) return db.dbUpdateTimeEntry(id, patch);
+  requireWritableOrThrow("time-entries");
+  return memory.patchTimeEntry(id, patch);
+}
+
+export async function deleteTimeEntry(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteTimeEntry(id);
+  requireWritableOrThrow("time-entries");
+  return memory.deleteTimeEntry(id);
+}
+
+// ── Fee Agreements ─────────────────────────────────────────────────
+
+export async function listFeeAgreements(
+  filters: { accountId?: string; matterId?: string } = {},
+): Promise<FeeAgreement[]> {
+  if (isDbEnabled()) return db.dbListFeeAgreements(filters);
+  return memory.listFeeAgreements(filters);
+}
+
+export async function getFeeAgreement(id: string): Promise<FeeAgreement | undefined | null> {
+  if (isDbEnabled()) return db.dbGetFeeAgreement(id);
+  return memory.listFeeAgreements().find((f) => f.id === id);
+}
+
+export async function createFeeAgreement(fee: FeeAgreement): Promise<FeeAgreement> {
+  if (isDbEnabled()) return db.dbCreateFeeAgreement(fee);
+  requireWritableOrThrow("fee-agreements");
+  return memory.addFeeAgreement(fee);
+}
+
+// ── Opposing Parties ───────────────────────────────────────────────
+
+export async function listOpposingParties(): Promise<OpposingParty[]> {
+  if (isDbEnabled()) return db.dbListOpposingParties();
+  return memory.listOpposingParties();
+}
+
+export async function getOpposingParty(id: string): Promise<OpposingParty | undefined | null> {
+  if (isDbEnabled()) return db.dbGetOpposingParty(id);
+  return memory.listOpposingParties().find((p) => p.id === id);
+}
+
+export async function createOpposingParty(party: OpposingParty): Promise<OpposingParty> {
+  if (isDbEnabled()) return db.dbCreateOpposingParty(party);
+  requireWritableOrThrow("opposing-parties");
+  return memory.addOpposingParty(party);
+}
+
+export async function updateOpposingParty(
+  id: string,
+  patch: Partial<OpposingParty>,
+): Promise<OpposingParty | undefined | null> {
+  if (isDbEnabled()) return db.dbUpdateOpposingParty(id, patch);
+  requireWritableOrThrow("opposing-parties");
+  return memory.patchOpposingParty(id, patch);
+}
+
+// ── Crop Seasons ───────────────────────────────────────────────────
+
+export async function listCropSeasons(
+  filters: { year?: number; region?: string } = {},
+): Promise<CropSeason[]> {
+  if (isDbEnabled()) return db.dbListCropSeasons(filters);
+  return memory.listCropSeasons(filters);
+}
+
+export async function getCropSeason(id: string): Promise<CropSeason | undefined | null> {
+  if (isDbEnabled()) return db.dbGetCropSeason(id);
+  return memory.listCropSeasons().find((c) => c.id === id);
+}
+
+export async function createCropSeason(season: CropSeason): Promise<CropSeason> {
+  if (isDbEnabled()) return db.dbCreateCropSeason(season);
+  requireWritableOrThrow("crop-seasons");
+  return memory.addCropSeason(season);
+}
+
+// ── Tax Obligations ────────────────────────────────────────────────
+
+export async function listTaxObligations(
+  filters: { propertyId?: string; accountId?: string; year?: number } = {},
+): Promise<TaxObligation[]> {
+  if (isDbEnabled()) return db.dbListTaxObligations(filters);
+  return memory.listTaxObligations(filters);
+}
+
+export async function getTaxObligation(id: string): Promise<TaxObligation | undefined | null> {
+  if (isDbEnabled()) return db.dbGetTaxObligation(id);
+  return memory.listTaxObligations().find((t) => t.id === id);
+}
+
+export async function createTaxObligation(tax: TaxObligation): Promise<TaxObligation> {
+  if (isDbEnabled()) return db.dbCreateTaxObligation(tax);
+  requireWritableOrThrow("tax-obligations");
+  return memory.addTaxObligation(tax);
+}
+
+// ── Environmental Licenses ─────────────────────────────────────────
+
+export async function listEnvironmentalLicenses(
+  filters: { propertyId?: string; accountId?: string } = {},
+): Promise<EnvironmentalLicense[]> {
+  if (isDbEnabled()) return db.dbListEnvironmentalLicenses(filters);
+  return memory.listEnvironmentalLicenses(filters);
+}
+
+export async function getEnvironmentalLicense(
+  id: string,
+): Promise<EnvironmentalLicense | undefined | null> {
+  if (isDbEnabled()) return db.dbGetEnvironmentalLicense(id);
+  return memory.listEnvironmentalLicenses().find((l) => l.id === id);
+}
+
+export async function createEnvironmentalLicense(
+  license: EnvironmentalLicense,
+): Promise<EnvironmentalLicense> {
+  if (isDbEnabled()) return db.dbCreateEnvironmentalLicense(license);
+  requireWritableOrThrow("environmental-licenses");
+  return memory.addEnvironmentalLicense(license);
+}
+
+// ── Credit Instruments ─────────────────────────────────────────────
+
+export async function listCreditInstruments(
+  filters: { accountId?: string; matterId?: string } = {},
+): Promise<CreditInstrument[]> {
+  if (isDbEnabled()) return db.dbListCreditInstruments(filters);
+  return memory.listCreditInstruments(filters);
+}
+
+export async function getCreditInstrument(
+  id: string,
+): Promise<CreditInstrument | undefined | null> {
+  if (isDbEnabled()) return db.dbGetCreditInstrument(id);
+  return memory.listCreditInstruments().find((c) => c.id === id);
+}
+
+export async function createCreditInstrument(
+  instrument: CreditInstrument,
+): Promise<CreditInstrument> {
+  if (isDbEnabled()) return db.dbCreateCreditInstrument(instrument);
+  requireWritableOrThrow("credit-instruments");
+  return memory.addCreditInstrument(instrument);
 }

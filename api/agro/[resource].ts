@@ -1121,15 +1121,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "GET") {
       const matterId = req.query.matterId as string;
       if (!matterId) return json(res, { error: "matterId é obrigatório" }, 400);
-      const { listDocumentChecklist } = await import("../../shared/agro/store.js");
-      return json(res, listDocumentChecklist(matterId));
+      const { listDocumentChecklist } = await import("../_lib/data-service.js");
+      return json(res, await listDocumentChecklist(matterId));
     }
 
     if (req.method === "POST") {
       const parsed = parseDocumentChecklistCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addDocumentChecklistItem } = await import("../../shared/agro/store.js");
-      const item = await addDocumentChecklistItem(parsed.data as any);
+      const { createDocumentChecklistItem } = await import("../_lib/data-service.js");
+      const item = await createDocumentChecklistItem(parsed.data as any);
       return json(res, item, 201);
     }
 
@@ -1138,8 +1138,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const parsed = parseDocumentChecklistPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { patchDocumentChecklistItem } = await import("../../shared/agro/store.js");
-      const item = patchDocumentChecklistItem(id, parsed.data as any);
+      const { updateDocumentChecklistItem } = await import("../_lib/data-service.js");
+      const item = await updateDocumentChecklistItem(id, parsed.data as any);
       if (!item) return json(res, { error: "Item não encontrado" }, 404);
       return json(res, item);
     }
@@ -1147,7 +1147,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "DELETE") {
       const id = req.query.id as string | undefined;
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
-      const { deleteDocumentChecklistItem } = await import("../../shared/agro/store.js");
+      const { deleteDocumentChecklistItem } = await import("../_lib/data-service.js");
       await deleteDocumentChecklistItem(id);
       return json(res, { ok: true });
     }
@@ -1163,8 +1163,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "GET" && !guardWrite(res, "time-entries")) return;
 
     if (req.method === "GET") {
-      const { listTimeEntries } = await import("../../shared/agro/store.js");
-      const entries = listTimeEntries({
+      const { listTimeEntries } = await import("../_lib/data-service.js");
+      const entries = await listTimeEntries({
         matterId: req.query.matterId as string,
         owner: req.query.owner as string,
         invoiced: req.query.invoiced === "true" ? true : req.query.invoiced === "false" ? false : undefined,
@@ -1175,8 +1175,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "POST") {
       const parsed = parseTimeEntryCreate(getBody(req.body), user.name);
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addTimeEntry } = await import("../../shared/agro/store.js");
-      const entry = await addTimeEntry(parsed.data as any);
+      const { createTimeEntry } = await import("../_lib/data-service.js");
+      const entry = await createTimeEntry(parsed.data as any);
             await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "time-entry",
@@ -1191,8 +1191,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const parsed = parseTimeEntryPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { patchTimeEntry } = await import("../../shared/agro/store.js");
-      const entry = patchTimeEntry(id, parsed.data as any);
+      const { updateTimeEntry } = await import("../_lib/data-service.js");
+      const entry = await updateTimeEntry(id, parsed.data as any);
       if (!entry) return json(res, { error: "Registro não encontrado" }, 404);
       return json(res, entry);
     }
@@ -1200,7 +1200,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "DELETE") {
       const id = req.query.id as string | undefined;
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
-      const { deleteTimeEntry } = await import("../../shared/agro/store.js");
+      const { deleteTimeEntry } = await import("../_lib/data-service.js");
       await deleteTimeEntry(id);
       return json(res, { ok: true });
     }
@@ -1252,8 +1252,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "GET" && !guardWrite(res, "fee-agreements")) return;
 
     if (req.method === "GET") {
-      const { listFeeAgreements } = await import("../../shared/agro/store.js");
-      return json(res, listFeeAgreements({
+      const { listFeeAgreements } = await import("../_lib/data-service.js");
+      return json(res, await listFeeAgreements({
         accountId: req.query.accountId as string,
         matterId: req.query.matterId as string,
       }));
@@ -1262,8 +1262,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method === "POST") {
       const parsed = parseFeeAgreementCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addFeeAgreement } = await import("../../shared/agro/store.js");
-      const agreement = await addFeeAgreement(parsed.data as any);
+      const { createFeeAgreement } = await import("../_lib/data-service.js");
+      const agreement = await createFeeAgreement(parsed.data as any);
       return json(res, agreement, 201);
     }
 
@@ -1361,15 +1361,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== "GET" && !guardWrite(res, "opposing-parties")) return;
 
     if (req.method === "GET") {
-      const { listOpposingParties } = await import("../../shared/agro/store.js");
-      return json(res, listOpposingParties());
+      const { listOpposingParties } = await import("../_lib/data-service.js");
+      return json(res, await listOpposingParties());
     }
 
     if (req.method === "POST") {
       const parsed = parseOpposingPartyCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addOpposingParty } = await import("../../shared/agro/store.js");
-      const party = await addOpposingParty(parsed.data as any);
+      const { createOpposingParty } = await import("../_lib/data-service.js");
+      const party = await createOpposingParty(parsed.data as any);
       return json(res, party, 201);
     }
 
@@ -1378,8 +1378,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!id) return json(res, { error: "id é obrigatório" }, 400);
       const parsed = parseOpposingPartyPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { patchOpposingParty } = await import("../../shared/agro/store.js");
-      const party = patchOpposingParty(id, parsed.data as any);
+      const { updateOpposingParty } = await import("../_lib/data-service.js");
+      const party = await updateOpposingParty(id, parsed.data as any);
       if (!party) return json(res, { error: "Parte contrária não encontrada" }, 404);
       return json(res, party);
     }
@@ -1396,11 +1396,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const name = (req.query.name as string || "").toLowerCase();
       if (!name) return json(res, { error: "name é obrigatório" }, 400);
 
-      const { listOpposingParties, listMatters, listLeads } = await import("../../shared/agro/store.js");
+      const { listOpposingParties, listLeads } = await import("../_lib/data-service.js");
       const conflicts: Array<{ type: string; entity: string; detail: string }> = [];
 
       // Check opposing parties
-      const parties = listOpposingParties();
+      const parties = await listOpposingParties();
       for (const p of parties) {
         if (p.name.toLowerCase().includes(name)) {
           conflicts.push({
@@ -1419,7 +1419,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       // Check if name appears as client (would be conflict)
-      const leads = listLeads();
+      const leads = (await listLeads({ pageSize: 100 })).items;
       for (const l of leads) {
         if (l.name.toLowerCase().includes(name)) {
           conflicts.push({
@@ -1447,17 +1447,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
 
     if (req.method === "GET") {
-      const { listCropSeasons } = await import("../../shared/agro/store.js");
+      const { listCropSeasons } = await import("../_lib/data-service.js");
       const year = req.query.year ? Number(req.query.year) : undefined;
       const region = req.query.region as string | undefined;
-      return json(res, listCropSeasons({ year, region }));
+      return json(res, await listCropSeasons({ year, region }));
     }
     if (req.method === "POST") {
       const parsed = parseCropSeasonCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addCropSeason } = await import("../../shared/agro/store.js");
+      const { createCropSeason } = await import("../_lib/data-service.js");
       const season = parsed.data;
-      addCropSeason(season as any);
+      await createCropSeason(season as any);
             await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "crop-season",
@@ -1480,18 +1480,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
 
     if (req.method === "GET") {
-      const { listTaxObligations } = await import("../../shared/agro/store.js");
+      const { listTaxObligations } = await import("../_lib/data-service.js");
       const propertyId = req.query.propertyId as string | undefined;
       const accountId = req.query.accountId as string | undefined;
       const year = req.query.year ? Number(req.query.year) : undefined;
-      return json(res, listTaxObligations({ propertyId, accountId, year }));
+      return json(res, await listTaxObligations({ propertyId, accountId, year }));
     }
     if (req.method === "POST") {
       const parsed = parseTaxObligationCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addTaxObligation } = await import("../../shared/agro/store.js");
+      const { createTaxObligation } = await import("../_lib/data-service.js");
       const tax = parsed.data;
-      addTaxObligation(tax as any);
+      await createTaxObligation(tax as any);
             await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "tax-obligation",
@@ -1514,17 +1514,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
 
     if (req.method === "GET") {
-      const { listEnvironmentalLicenses } = await import("../../shared/agro/store.js");
+      const { listEnvironmentalLicenses } = await import("../_lib/data-service.js");
       const propertyId = req.query.propertyId as string | undefined;
       const accountId = req.query.accountId as string | undefined;
-      return json(res, listEnvironmentalLicenses({ propertyId, accountId }));
+      return json(res, await listEnvironmentalLicenses({ propertyId, accountId }));
     }
     if (req.method === "POST") {
       const parsed = parseEnvironmentalLicenseCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addEnvironmentalLicense } = await import("../../shared/agro/store.js");
+      const { createEnvironmentalLicense } = await import("../_lib/data-service.js");
       const license = parsed.data;
-      addEnvironmentalLicense(license as any);
+      await createEnvironmentalLicense(license as any);
             await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "environmental-license",
@@ -1547,17 +1547,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rl.allowed) return json(res, { error: "Rate limit excedido" }, 429);
 
     if (req.method === "GET") {
-      const { listCreditInstruments } = await import("../../shared/agro/store.js");
+      const { listCreditInstruments } = await import("../_lib/data-service.js");
       const accountId = req.query.accountId as string | undefined;
       const matterId = req.query.matterId as string | undefined;
-      return json(res, listCreditInstruments({ accountId, matterId }));
+      return json(res, await listCreditInstruments({ accountId, matterId }));
     }
     if (req.method === "POST") {
       const parsed = parseCreditInstrumentCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
-      const { addCreditInstrument } = await import("../../shared/agro/store.js");
+      const { createCreditInstrument } = await import("../_lib/data-service.js");
       const instrument = parsed.data;
-      addCreditInstrument(instrument as any);
+      await createCreditInstrument(instrument as any);
             await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "credit-instrument",

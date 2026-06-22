@@ -2,15 +2,23 @@ import type {
   Account,
   Activity,
   Contact,
+  CreditInstrument,
+  CropSeason,
   Deadline,
   Document,
+  DocumentChecklistItem,
   DocumentVersion,
+  EnvironmentalLicense,
+  FeeAgreement,
   Invoice,
   Lead,
   Matter,
   Opportunity,
+  OpposingParty,
   Property,
   Task,
+  TaxObligation,
+  TimeEntry,
 } from "../../../shared/agro/types.js";
 import { parseJsonValue, parseStringArray } from "./json-utils.js";
 
@@ -288,6 +296,167 @@ export function mapInvoice(row: Record<string, unknown>): Invoice {
   if (row.notes != null) invoice.notes = String(row.notes);
   if (row.deleted_at) invoice.deletedAt = toIso(row.deleted_at);
   return invoice;
+}
+
+export function mapDocumentChecklistItem(
+  row: Record<string, unknown>,
+): DocumentChecklistItem {
+  const item: DocumentChecklistItem = {
+    id: String(row.id),
+    matterId: String(row.matter_id),
+    label: String(row.label),
+    category: row.category as DocumentChecklistItem["category"],
+    required: Boolean(row.required),
+    status: row.status as DocumentChecklistItem["status"],
+    createdAt: toIso(row.created_at),
+  };
+  item.documentId = row.document_id != null ? String(row.document_id) : null;
+  if (row.notes != null) item.notes = String(row.notes);
+  return item;
+}
+
+export function mapTimeEntry(row: Record<string, unknown>): TimeEntry {
+  const entry: TimeEntry = {
+    id: String(row.id),
+    matterId: String(row.matter_id),
+    description: String(row.description),
+    hours: Number(row.hours ?? 0),
+    hourlyRate: Number(row.hourly_rate ?? 0),
+    totalBrl: Number(row.total_brl ?? 0),
+    type: row.type as TimeEntry["type"],
+    date: toDateStr(row.date),
+    owner: String(row.owner),
+    billable: Boolean(row.billable),
+    invoiced: Boolean(row.invoiced),
+    createdAt: toIso(row.created_at),
+  };
+  if (row.task_id != null) entry.taskId = String(row.task_id);
+  if (row.invoice_id != null) entry.invoiceId = String(row.invoice_id);
+  if (row.deleted_at) entry.deletedAt = toIso(row.deleted_at);
+  return entry;
+}
+
+export function mapFeeAgreement(row: Record<string, unknown>): FeeAgreement {
+  const fee: FeeAgreement = {
+    id: String(row.id),
+    accountId: String(row.account_id),
+    type: row.type as FeeAgreement["type"],
+    description: String(row.description ?? ""),
+    signedAt: toDateStr(row.signed_at),
+    active: Boolean(row.active),
+    createdAt: toIso(row.created_at),
+  };
+  if (row.matter_id != null) fee.matterId = String(row.matter_id);
+  if (row.hourly_rate != null) fee.hourlyRate = Number(row.hourly_rate);
+  if (row.fixed_value != null) fee.fixedValue = Number(row.fixed_value);
+  if (row.percentage != null) fee.percentage = Number(row.percentage);
+  if (row.success_fee_percentage != null) fee.successFeePercentage = Number(row.success_fee_percentage);
+  if (row.cap_value != null) fee.capValue = Number(row.cap_value);
+  if (row.expires_at != null && row.expires_at !== "") fee.expiresAt = toDateStr(row.expires_at);
+  if (row.deleted_at) fee.deletedAt = toIso(row.deleted_at);
+  return fee;
+}
+
+export function mapOpposingParty(row: Record<string, unknown>): OpposingParty {
+  const party: OpposingParty = {
+    id: String(row.id),
+    name: String(row.name),
+    type: row.type as OpposingParty["type"],
+    matters: parseStringArray(row.matters) ?? [],
+    createdAt: toIso(row.created_at),
+  };
+  if (row.cpf != null) party.cpf = String(row.cpf);
+  if (row.cnpj != null) party.cnpj = String(row.cnpj);
+  if (row.lawyer != null) party.lawyer = String(row.lawyer);
+  if (row.lawyer_oab != null) party.lawyerOab = String(row.lawyer_oab);
+  if (row.phone != null) party.phone = String(row.phone);
+  if (row.email != null) party.email = String(row.email);
+  if (row.address != null) party.address = String(row.address);
+  if (row.notes != null) party.notes = String(row.notes);
+  if (row.deleted_at) party.deletedAt = toIso(row.deleted_at);
+  return party;
+}
+
+export function mapCropSeason(row: Record<string, unknown>): CropSeason {
+  const season: CropSeason = {
+    id: String(row.id),
+    name: String(row.name),
+    year: Number(row.year),
+    plantingStart: String(row.planting_start ?? ""),
+    plantingEnd: String(row.planting_end ?? ""),
+    harvestStart: String(row.harvest_start ?? ""),
+    harvestEnd: String(row.harvest_end ?? ""),
+    mainCrop: String(row.main_crop ?? ""),
+    createdAt: toIso(row.created_at),
+  };
+  if (row.region != null) season.region = String(row.region);
+  if (row.notes != null) season.notes = String(row.notes);
+  return season;
+}
+
+export function mapTaxObligation(row: Record<string, unknown>): TaxObligation {
+  const tax: TaxObligation = {
+    id: String(row.id),
+    propertyId: String(row.property_id),
+    accountId: String(row.account_id),
+    type: row.type as TaxObligation["type"],
+    year: Number(row.year),
+    valueBrl: Number(row.value_brl ?? 0),
+    dueDate: toDateStr(row.due_date),
+    status: row.status as TaxObligation["status"],
+    createdAt: toIso(row.created_at),
+  };
+  tax.paidDate = row.paid_date != null && row.paid_date !== "" ? toDateStr(row.paid_date) : null;
+  if (row.notes != null) tax.notes = String(row.notes);
+  if (row.deleted_at) tax.deletedAt = toIso(row.deleted_at);
+  return tax;
+}
+
+export function mapEnvironmentalLicense(
+  row: Record<string, unknown>,
+): EnvironmentalLicense {
+  const license: EnvironmentalLicense = {
+    id: String(row.id),
+    propertyId: String(row.property_id),
+    accountId: String(row.account_id),
+    type: String(row.type ?? ""),
+    number: String(row.number),
+    issuer: String(row.issuer ?? ""),
+    issuedAt: toDateStr(row.issued_at),
+    expiresAt: toDateStr(row.expires_at),
+    status: row.status as EnvironmentalLicense["status"],
+    createdAt: toIso(row.created_at),
+  };
+  const conditions = parseStringArray(row.conditions);
+  if (conditions?.length) license.conditions = conditions;
+  if (row.notes != null) license.notes = String(row.notes);
+  if (row.deleted_at) license.deletedAt = toIso(row.deleted_at);
+  return license;
+}
+
+export function mapCreditInstrument(
+  row: Record<string, unknown>,
+): CreditInstrument {
+  const credit: CreditInstrument = {
+    id: String(row.id),
+    accountId: String(row.account_id),
+    type: row.type as CreditInstrument["type"],
+    number: String(row.number ?? ""),
+    valueBrl: Number(row.value_brl ?? 0),
+    issueDate: toDateStr(row.issue_date),
+    maturityDate: toDateStr(row.maturity_date),
+    status: row.status as CreditInstrument["status"],
+    createdAt: toIso(row.created_at),
+  };
+  if (row.matter_id != null) credit.matterId = String(row.matter_id);
+  if (row.issuer != null) credit.issuer = String(row.issuer);
+  if (row.interest_rate != null) credit.interestRate = Number(row.interest_rate);
+  if (row.iof_rate != null) credit.iofRate = Number(row.iof_rate);
+  if (row.payment_method != null) credit.paymentMethod = String(row.payment_method);
+  if (row.installments != null) credit.installments = Number(row.installments);
+  if (row.notes != null) credit.notes = String(row.notes);
+  if (row.deleted_at) credit.deletedAt = toIso(row.deleted_at);
+  return credit;
 }
 
 export function mapTask(row: Record<string, unknown>): Task {

@@ -2,13 +2,21 @@ import { describe, expect, it } from "vitest";
 import {
   mapAccount,
   mapContact,
+  mapCreditInstrument,
+  mapCropSeason,
   mapDocument,
+  mapDocumentChecklistItem,
+  mapEnvironmentalLicense,
+  mapFeeAgreement,
   mapInvoice,
   mapLead,
   mapMatter,
   mapOpportunity,
+  mapOpposingParty,
   mapProperty,
   mapTask,
+  mapTaxObligation,
+  mapTimeEntry,
 } from "./mappers.js";
 
 describe("db mappers", () => {
@@ -232,5 +240,154 @@ describe("db mappers", () => {
     expect(invoice.dueAt).toBe("2026-07-01");
     expect(invoice.timeEntryIds).toEqual(["TE-1", "TE-2"]);
     expect(invoice.matterId).toBe("MT-1");
+  });
+
+  it("mapDocumentChecklistItem mapeia required/documentId/notes", () => {
+    const item = mapDocumentChecklistItem({
+      id: "DC-1",
+      matter_id: "MT-1",
+      label: "CAR",
+      category: "ambiental",
+      required: true,
+      status: "pendente",
+      document_id: null,
+      notes: "urgente",
+      created_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(item.required).toBe(true);
+    expect(item.documentId).toBeNull();
+    expect(item.notes).toBe("urgente");
+  });
+
+  it("mapTimeEntry converte numéricos e date, mapeia deleted_at", () => {
+    const entry = mapTimeEntry({
+      id: "TE-1",
+      matter_id: "MT-1",
+      description: "Audiência",
+      hours: "2.50",
+      hourly_rate: "400.00",
+      total_brl: "1000.00",
+      type: "horas",
+      date: "2026-06-10",
+      owner: "Ana",
+      billable: true,
+      invoiced: false,
+      task_id: "TK-9",
+      created_at: "2026-06-10T00:00:00.000Z",
+      deleted_at: new Date("2026-01-02T03:04:05.000Z"),
+    });
+    expect(entry.hours).toBe(2.5);
+    expect(entry.totalBrl).toBe(1000);
+    expect(entry.date).toBe("2026-06-10");
+    expect(entry.taskId).toBe("TK-9");
+    expect(entry.deletedAt).toBe("2026-01-02T03:04:05.000Z");
+  });
+
+  it("mapFeeAgreement gateia expiresAt vazio e campos opcionais", () => {
+    const fee = mapFeeAgreement({
+      id: "FA-1",
+      account_id: "AC-1",
+      type: "exito",
+      description: "",
+      signed_at: "2026-06-01",
+      active: true,
+      percentage: "12.500",
+      expires_at: "",
+      created_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(fee.percentage).toBe(12.5);
+    expect(fee.signedAt).toBe("2026-06-01");
+    expect(fee.expiresAt).toBeUndefined();
+  });
+
+  it("mapOpposingParty parseia matters (JSONB)", () => {
+    const party = mapOpposingParty({
+      id: "OPP-1",
+      name: "Fazenda Rival",
+      type: "pessoa_juridica",
+      matters: '["MT-1","MT-2"]',
+      lawyer: "Dr. X",
+      created_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(party.matters).toEqual(["MT-1", "MT-2"]);
+    expect(party.lawyer).toBe("Dr. X");
+  });
+
+  it("mapCropSeason mapeia ano e janelas", () => {
+    const season = mapCropSeason({
+      id: "CS-1",
+      name: "Safra 25/26",
+      year: 2026,
+      planting_start: "2025-10-01",
+      planting_end: "2025-12-15",
+      harvest_start: "2026-02-01",
+      harvest_end: "2026-04-30",
+      main_crop: "soja",
+      region: "MT",
+      created_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(season.year).toBe(2026);
+    expect(season.mainCrop).toBe("soja");
+    expect(season.region).toBe("MT");
+  });
+
+  it("mapTaxObligation define paidDate null quando vazio", () => {
+    const tax = mapTaxObligation({
+      id: "TX-1",
+      property_id: "PR-1",
+      account_id: "AC-1",
+      type: "itr",
+      year: 2026,
+      value_brl: "3500.00",
+      due_date: "2026-09-30",
+      paid_date: "",
+      status: "pendente",
+      created_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(tax.valueBrl).toBe(3500);
+    expect(tax.dueDate).toBe("2026-09-30");
+    expect(tax.paidDate).toBeNull();
+  });
+
+  it("mapEnvironmentalLicense parseia conditions (JSONB)", () => {
+    const license = mapEnvironmentalLicense({
+      id: "EL-1",
+      property_id: "PR-1",
+      account_id: "AC-1",
+      type: "outorga",
+      number: "LIC-2026/01",
+      issuer: "SEMA",
+      issued_at: "2026-01-10",
+      expires_at: "2028-01-10",
+      status: "vigente",
+      conditions: '["monitorar vazão","relatorio anual"]',
+      created_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(license.number).toBe("LIC-2026/01");
+    expect(license.expiresAt).toBe("2028-01-10");
+    expect(license.conditions).toEqual(["monitorar vazão", "relatorio anual"]);
+  });
+
+  it("mapCreditInstrument converte taxas e gateia opcionais", () => {
+    const credit = mapCreditInstrument({
+      id: "CI-1",
+      account_id: "AC-1",
+      type: "cpr",
+      number: "CPR-001",
+      value_brl: "250000.00",
+      interest_rate: "8.7500",
+      iof_rate: "0.3800",
+      issue_date: "2026-03-01",
+      maturity_date: "2026-12-01",
+      installments: 3,
+      status: "ativo",
+      matter_id: "MT-1",
+      created_at: "2026-06-01T00:00:00.000Z",
+    });
+    expect(credit.valueBrl).toBe(250000);
+    expect(credit.interestRate).toBe(8.75);
+    expect(credit.iofRate).toBe(0.38);
+    expect(credit.installments).toBe(3);
+    expect(credit.matterId).toBe("MT-1");
   });
 });

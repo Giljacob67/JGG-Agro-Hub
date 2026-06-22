@@ -27,6 +27,14 @@ const DB_BACKED_RESOURCES = new Set([
   "contacts",
   "properties",
   "invoices",
+  "document-checklist",
+  "time-entries",
+  "fee-agreements",
+  "opposing-parties",
+  "crop-seasons",
+  "tax-obligations",
+  "environmental-licenses",
+  "credit-instruments",
 ]);
 
 /**
