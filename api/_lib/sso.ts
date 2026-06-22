@@ -1,4 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { jwtVerify, createRemoteJWKSet } from "jose";
 import { findUserByEmail, issueSessionForUser } from "./auth-server.js";
 import type { AgroUser } from "../../shared/agro/types.js";
 
@@ -28,6 +29,21 @@ interface IdTokenClaims {
 
 const OIDC_META_CACHE = new Map<string, { meta: OidcMetadata; expiresAt: number }>();
 const OIDC_META_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * Cache de JWKS por issuer. `createRemoteJWKSet` mantém cache interno das chaves
+ * e faz refetch automático (com cooldown) quando o kid não é encontrado.
+ */
+const JWKS_CACHE = new Map<string, ReturnType<typeof createRemoteJWKSet>>();
+
+function getJwks(jwksUri: string) {
+  let key = JWKS_CACHE.get(jwksUri);
+  if (!key) {
+    key = createRemoteJWKSet(new URL(jwksUri));
+    JWKS_CACHE.set(jwksUri, key);
+  }
+  return key;
+}
 
 export function getSsoConfig(): SsoConfig | null {
   const issuer = process.env.SSO_ISSUER?.replace(/\/$/, "");
@@ -122,7 +138,7 @@ export async function exchangeSsoCode(
   const idToken = tokenJson.id_token;
   if (!idToken) return null;
 
-  const claims = await validateIdToken(idToken, cfg, expectedNonce);
+  const claims = await validateIdToken(idToken, cfg, meta, expectedNonce);
   if (!claims?.email) return null;
   if (!claims.email_verified) return null;
 
@@ -132,24 +148,31 @@ export async function exchangeSsoCode(
   return { token: issueSessionForUser(user), user };
 }
 
+/**
+ * Valida o id_token verificando a assinatura JWT contra o JWKS do issuer
+ * (`jose.jwtVerify` + `createRemoteJWKSet`). Isso fecha o bypass onde um
+ * atacante forjava um id_token com payload arbitrário — sem JWKS, iss/aud
+ * (públicos) eram a única barreira.
+ *
+ * `jwtVerify` valida: assinatura (RS/ES/PS, nunca `none`/HS), exp, iss, aud.
+ * Verificamos ainda o nonce (CSRF/anti-replay) e exigimos email_verified.
+ */
 async function validateIdToken(
   idToken: string,
   cfg: SsoConfig,
+  meta: OidcMetadata | null,
   expectedNonce?: string,
 ): Promise<IdTokenClaims | null> {
-  const [headerB64, payloadB64, signatureB64] = idToken.split(".");
-  if (!headerB64 || !payloadB64 || !signatureB64) return null;
-
+  if (!meta?.jwks_uri) return null;
   try {
-    const payload = JSON.parse(base64UrlDecode(payloadB64)) as IdTokenClaims;
-    if (payload.iss !== cfg.issuer) return null;
-    const audOk = Array.isArray(payload.aud)
-      ? payload.aud.includes(cfg.clientId)
-      : payload.aud === cfg.clientId;
-    if (!audOk) return null;
-    if (!payload.exp || payload.exp * 1000 < Date.now()) return null;
-    if (expectedNonce && payload.nonce !== expectedNonce) return null;
-    return payload;
+    const { payload } = await jwtVerify(idToken, getJwks(meta.jwks_uri), {
+      issuer: cfg.issuer,
+      audience: cfg.clientId,
+      algorithms: ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512"],
+    });
+    const claims = payload as unknown as IdTokenClaims;
+    if (expectedNonce && claims.nonce !== expectedNonce) return null;
+    return claims;
   } catch {
     return null;
   }
