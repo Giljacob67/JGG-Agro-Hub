@@ -67,7 +67,10 @@
     "minimatch": "^10.2.5",
     "smol-toml": "^1.6.1",
     "@vercel/node": {
-      "undici": "^5.28.5"
+      "undici": "^6.26.1"
+    },
+    "jsdom": {
+      "undici": "^7.27.3"
     },
     "@vercel/static-config": {
       "ajv": "^8.18.0"
