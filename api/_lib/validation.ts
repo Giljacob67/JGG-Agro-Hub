@@ -1,18 +1,26 @@
 import type {
   ActivityEntityType,
   ActivityType,
+  ContactRole,
+  CreditInstrumentType,
   DeadlineStatus,
   DeadlineType,
+  DocumentCategory,
+  DocumentEntityType,
+  DocumentStatus,
   LeadPriority,
   LeadStatus,
+  LicenseStatus,
   MatterPhase,
   MatterStatus,
   MatterUrgency,
   OpportunityPriority,
   OpportunityStage,
+  PropertyType,
   RiskLevel,
   TaskPriority,
   TaskStatus,
+  TimeEntryType,
 } from "../../shared/agro/types.js";
 
 export type ValidationResult<T> =
@@ -488,6 +496,600 @@ export function parseTaskPatch(body: Body) {
       ...(body.owner !== undefined ? { owner: String(body.owner) } : {}),
       ...(body.dueDate !== undefined ? { dueDate: dueDate.data ?? "" } : {}),
       ...(body.description !== undefined ? { description: optionalString(body.description) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+// ── 12 recursos restantes (E-5: validação de payload) ───────────────
+// Antes destes validators, os 12 recursos abaixo usavam `getBody(req.body) as
+// any` e aceitavam qualquer string em campos de enum (status/type/category/
+// risk), corrompendo dados que filtros/stats/audit assumem válidos.
+
+const DOCUMENT_CATEGORIES = [
+  "contrato", "peticao", "procuracao", "comprovante", "certidao",
+  "laudo", "parecer", "decisao", "despacho", "notificacao", "outro",
+] as const;
+const DOCUMENT_STATUSES = ["pendente", "recebido", "aprovado", "rejeitado", "arquivado"] as const;
+const DOCUMENT_ENTITY_TYPES = ["matter", "account", "opportunity", "lead"] as const;
+const TIME_ENTRY_TYPES = ["horas", "fixo", "contingencia"] as const;
+const INVOICE_STATUSES = ["rascunho", "emitida", "paga", "atrasada", "cancelada"] as const;
+const FEE_AGREEMENT_TYPES = ["hora", "fixo", "percentual", "contingencia"] as const;
+const CONTACT_ROLES = ["proprietario", "administrador", "gerente", "advogado", "contador", "parceiro", "outro"] as const;
+const PROPERTY_TYPES = ["propriedade", "posse", "area_de_interesse"] as const;
+const OPPOSING_PARTY_TYPES = ["pessoa_fisica", "pessoa_juridica", "orgao_publico"] as const;
+const TAX_TYPES = ["itr", "itbi", "ipva", "outro"] as const;
+const TAX_STATUSES = ["pendente", "pago", "atrasado", "isento"] as const;
+const LICENSE_STATUSES = ["vigente", "em_renovacao", "vencida", "suspensa"] as const;
+const CREDIT_INSTRUMENT_TYPES = ["cpr", "ccb", "penhor", "alienacao_fiduciaria", "contrato"] as const;
+const CREDIT_INSTRUMENT_STATUSES = ["ativo", "vencido", "quitado", "em_execucao"] as const;
+
+function optionalStringArray(value: unknown): string[] | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (Array.isArray(value)) return value.map((v) => String(v));
+  return undefined;
+}
+
+function numOrUndef(value: unknown, field: string): number | undefined {
+  const r = optionalNumber(value, field);
+  return r.ok ? (typeof r.data === "number" ? r.data : undefined) : undefined;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function entityId(prefix: string): string {
+  return `${prefix}-${crypto.randomUUID()}`;
+}
+
+export function parseDocumentCreate(body: Body, owner: string) {
+  const name = requiredString(body, "name");
+  if (!name.ok) return name;
+  const category = enumValue(body.category, DOCUMENT_CATEGORIES, "category");
+  if (!category.ok) return category;
+  const status = enumValue(body.status, DOCUMENT_STATUSES, "status");
+  if (!status.ok) return status;
+  const entityType = enumValue(body.entityType, DOCUMENT_ENTITY_TYPES, "entityType");
+  if (!entityType.ok) return entityType;
+  const entityIdValue = requiredString(body, "entityId");
+  if (!entityIdValue.ok) return entityIdValue;
+  const dueDate = optionalDate(body.dueDate, "dueDate");
+  if (!dueDate.ok) return dueDate;
+  const fileSize = optionalNumber(body.fileSize, "fileSize");
+  if (!fileSize.ok) return fileSize;
+  const now = nowIso();
+  return {
+    ok: true,
+    data: {
+      id: entityId("DOC"),
+      name: name.data,
+      category: (category.data ?? "outro") as DocumentCategory,
+      status: (status.data ?? "pendente") as DocumentStatus,
+      entityType: (entityType.data ?? "matter") as DocumentEntityType,
+      entityId: entityIdValue.data,
+      matterId: optionalNullableString(body.matterId) ?? null,
+      description: optionalString(body.description),
+      fileName: optionalString(body.fileName),
+      fileSize: fileSize.data ?? undefined,
+      mimeType: optionalString(body.mimeType),
+      version: 1,
+      versions: [{
+        version: 1,
+        fileName: optionalString(body.fileName) ?? name.data,
+        uploadedBy: owner,
+        uploadedAt: now,
+      }],
+      tags: optionalStringArray(body.tags),
+      owner,
+      dueDate: dueDate.data ?? null,
+      createdAt: now,
+      updatedAt: now,
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseDocumentPatch(body: Body) {
+  const category = enumValue(body.category, DOCUMENT_CATEGORIES, "category");
+  if (!category.ok) return category;
+  const status = enumValue(body.status, DOCUMENT_STATUSES, "status");
+  if (!status.ok) return status;
+  const entityType = enumValue(body.entityType, DOCUMENT_ENTITY_TYPES, "entityType");
+  if (!entityType.ok) return entityType;
+  const dueDate = optionalDate(body.dueDate, "dueDate");
+  if (!dueDate.ok) return dueDate;
+  return {
+    ok: true,
+    data: {
+      ...(category.data ? { category: category.data as DocumentCategory } : {}),
+      ...(status.data ? { status: status.data as DocumentStatus } : {}),
+      ...(entityType.data ? { entityType: entityType.data as DocumentEntityType } : {}),
+      ...(body.name !== undefined ? { name: String(body.name) } : {}),
+      ...(body.description !== undefined ? { description: optionalString(body.description) } : {}),
+      ...(body.matterId !== undefined ? { matterId: optionalNullableString(body.matterId) } : {}),
+      ...(body.dueDate !== undefined ? { dueDate: dueDate.data ?? null } : {}),
+      ...(body.tags !== undefined ? { tags: optionalStringArray(body.tags) } : {}),
+      updatedAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseDocumentChecklistCreate(body: Body) {
+  const matterId = requiredString(body, "matterId");
+  if (!matterId.ok) return matterId;
+  const label = requiredString(body, "label");
+  if (!label.ok) return label;
+  const category = enumValue(body.category, DOCUMENT_CATEGORIES, "category");
+  if (!category.ok) return category;
+  return {
+    ok: true,
+    data: {
+      id: entityId("DCL"),
+      matterId: matterId.data,
+      label: label.data,
+      category: (category.data ?? "outro") as DocumentCategory,
+      required: Boolean(body.required),
+      status: "pendente" as DocumentStatus,
+      documentId: null,
+      notes: optionalString(body.notes),
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseDocumentChecklistPatch(body: Body) {
+  const category = enumValue(body.category, DOCUMENT_CATEGORIES, "category");
+  if (!category.ok) return category;
+  const status = enumValue(body.status, DOCUMENT_STATUSES, "status");
+  if (!status.ok) return status;
+  return {
+    ok: true,
+    data: {
+      ...(category.data ? { category: category.data as DocumentCategory } : {}),
+      ...(status.data ? { status: status.data as DocumentStatus } : {}),
+      ...(body.label !== undefined ? { label: String(body.label) } : {}),
+      ...(body.required !== undefined ? { required: Boolean(body.required) } : {}),
+      ...(body.documentId !== undefined ? { documentId: optionalNullableString(body.documentId) } : {}),
+      ...(body.notes !== undefined ? { notes: optionalString(body.notes) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseTimeEntryCreate(body: Body, owner: string) {
+  const matterId = requiredString(body, "matterId");
+  if (!matterId.ok) return matterId;
+  const description = requiredString(body, "description");
+  if (!description.ok) return description;
+  const type = enumValue(body.type, TIME_ENTRY_TYPES, "type");
+  if (!type.ok) return type;
+  const hours = optionalNumber(body.hours, "hours");
+  if (!hours.ok) return hours;
+  const hourlyRate = optionalNumber(body.hourlyRate, "hourlyRate");
+  if (!hourlyRate.ok) return hourlyRate;
+  const date = optionalDate(body.date, "date");
+  if (!date.ok) return date;
+  const h = hours.data ?? 0;
+  const rate = hourlyRate.data ?? 0;
+  return {
+    ok: true,
+    data: {
+      id: entityId("TE"),
+      matterId: matterId.data,
+      taskId: optionalNullableString(body.taskId) ?? null,
+      description: description.data,
+      hours: h,
+      hourlyRate: rate,
+      totalBrl: h * rate,
+      type: (type.data ?? "horas") as TimeEntryType,
+      date: date.data ?? nowIso().slice(0, 10),
+      owner,
+      billable: body.billable !== false,
+      invoiced: false,
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseTimeEntryPatch(body: Body) {
+  const type = enumValue(body.type, TIME_ENTRY_TYPES, "type");
+  if (!type.ok) return type;
+  const hours = optionalNumber(body.hours, "hours");
+  if (!hours.ok) return hours;
+  const hourlyRate = optionalNumber(body.hourlyRate, "hourlyRate");
+  if (!hourlyRate.ok) return hourlyRate;
+  const date = optionalDate(body.date, "date");
+  if (!date.ok) return date;
+  const h = hours.data;
+  const rate = hourlyRate.data;
+  const hNum = typeof h === "number" ? h : undefined;
+  const rateNum = typeof rate === "number" ? rate : undefined;
+  return {
+    ok: true,
+    data: {
+      ...(type.data ? { type: type.data as TimeEntryType } : {}),
+      ...(body.description !== undefined ? { description: String(body.description) } : {}),
+      ...(hNum !== undefined ? { hours: hNum } : {}),
+      ...(rateNum !== undefined ? { hourlyRate: rateNum } : {}),
+      ...(hNum !== undefined && rateNum !== undefined ? { totalBrl: hNum * rateNum } : {}),
+      ...(date.data !== undefined ? { date: date.data ?? "" } : {}),
+      ...(body.billable !== undefined ? { billable: Boolean(body.billable) } : {}),
+      ...(body.invoiced !== undefined ? { invoiced: Boolean(body.invoiced) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseInvoiceCreate(body: Body) {
+  const accountId = requiredString(body, "accountId");
+  if (!accountId.ok) return accountId;
+  const status = enumValue(body.status, INVOICE_STATUSES, "status");
+  if (!status.ok) return status;
+  const totalBrl = optionalNumber(body.totalBrl, "totalBrl");
+  if (!totalBrl.ok) return totalBrl;
+  const dueAt = optionalDate(body.dueAt, "dueAt");
+  if (!dueAt.ok) return dueAt;
+  return {
+    ok: true,
+    data: {
+      id: entityId("INV"),
+      accountId: accountId.data,
+      matterId: optionalNullableString(body.matterId) ?? null,
+      number: optionalString(body.number) ?? `FAT-${Date.now()}`,
+      status: (status.data ?? "rascunho") as InvoiceStatus,
+      totalBrl: totalBrl.data ?? 0,
+      issuedAt: nowIso(),
+      dueAt: dueAt.data ?? "",
+      notes: optionalString(body.notes),
+      timeEntryIds: optionalStringArray(body.timeEntryIds) ?? [],
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+type InvoiceStatus = "rascunho" | "emitida" | "paga" | "atrasada" | "cancelada";
+
+export function parseInvoicePatch(body: Body) {
+  const status = enumValue(body.status, INVOICE_STATUSES, "status");
+  if (!status.ok) return status;
+  const totalBrl = optionalNumber(body.totalBrl, "totalBrl");
+  if (!totalBrl.ok) return totalBrl;
+  const dueAt = optionalDate(body.dueAt, "dueAt");
+  if (!dueAt.ok) return dueAt;
+  const paidAt = optionalDate(body.paidAt, "paidAt");
+  if (!paidAt.ok) return paidAt;
+  return {
+    ok: true,
+    data: {
+      ...(status.data ? { status: status.data as InvoiceStatus } : {}),
+      ...(totalBrl.data !== undefined ? { totalBrl: totalBrl.data } : {}),
+      ...(dueAt.data !== undefined ? { dueAt: dueAt.data ?? "" } : {}),
+      ...(paidAt.data !== undefined ? { paidAt: paidAt.data ?? null } : {}),
+      ...(body.notes !== undefined ? { notes: optionalString(body.notes) } : {}),
+      ...(body.number !== undefined ? { number: String(body.number) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseFeeAgreementCreate(body: Body) {
+  const accountId = requiredString(body, "accountId");
+  if (!accountId.ok) return accountId;
+  const type = enumValue(body.type, FEE_AGREEMENT_TYPES, "type");
+  if (!type.ok) return type;
+  const hourlyRate = optionalNumber(body.hourlyRate, "hourlyRate");
+  if (!hourlyRate.ok) return hourlyRate;
+  const fixedValue = optionalNumber(body.fixedValue, "fixedValue");
+  if (!fixedValue.ok) return fixedValue;
+  const percentage = optionalNumber(body.percentage, "percentage");
+  if (!percentage.ok) return percentage;
+  const successFeePercentage = optionalNumber(body.successFeePercentage, "successFeePercentage");
+  if (!successFeePercentage.ok) return successFeePercentage;
+  const capValue = optionalNumber(body.capValue, "capValue");
+  if (!capValue.ok) return capValue;
+  const expiresAt = optionalDate(body.expiresAt, "expiresAt");
+  if (!expiresAt.ok) return expiresAt;
+  return {
+    ok: true,
+    data: {
+      id: entityId("FA"),
+      accountId: accountId.data,
+      matterId: optionalNullableString(body.matterId) ?? null,
+      type: (type.data ?? "hora") as FeeAgreementType,
+      hourlyRate: hourlyRate.data ?? undefined,
+      fixedValue: fixedValue.data ?? undefined,
+      percentage: percentage.data ?? undefined,
+      successFeePercentage: successFeePercentage.data ?? undefined,
+      capValue: capValue.data ?? undefined,
+      description: optionalString(body.description) ?? "",
+      signedAt: optionalString(body.signedAt) ?? nowIso(),
+      expiresAt: expiresAt.data ?? null,
+      active: true,
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+type FeeAgreementType = "hora" | "fixo" | "percentual" | "contingencia";
+
+export function parseContactCreate(body: Body, owner: string) {
+  const name = requiredString(body, "name");
+  if (!name.ok) return name;
+  const role = enumValue(body.role, CONTACT_ROLES, "role");
+  if (!role.ok) return role;
+  return {
+    ok: true,
+    data: {
+      id: entityId("CT"),
+      name: name.data,
+      email: optionalString(body.email),
+      phone: optionalString(body.phone),
+      whatsapp: optionalString(body.whatsapp),
+      cpf: optionalString(body.cpf),
+      role: (role.data ?? "outro") as ContactRole,
+      department: optionalString(body.department),
+      isPrimary: Boolean(body.isPrimary),
+      accountIds: optionalStringArray(body.accountIds) ?? [],
+      notes: optionalString(body.notes),
+      owner,
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseContactPatch(body: Body) {
+  const role = enumValue(body.role, CONTACT_ROLES, "role");
+  if (!role.ok) return role;
+  return {
+    ok: true,
+    data: {
+      ...(role.data ? { role: role.data as ContactRole } : {}),
+      ...(body.name !== undefined ? { name: String(body.name) } : {}),
+      ...(body.email !== undefined ? { email: optionalString(body.email) } : {}),
+      ...(body.phone !== undefined ? { phone: optionalString(body.phone) } : {}),
+      ...(body.whatsapp !== undefined ? { whatsapp: optionalString(body.whatsapp) } : {}),
+      ...(body.cpf !== undefined ? { cpf: optionalString(body.cpf) } : {}),
+      ...(body.department !== undefined ? { department: optionalString(body.department) } : {}),
+      ...(body.isPrimary !== undefined ? { isPrimary: Boolean(body.isPrimary) } : {}),
+      ...(body.accountIds !== undefined ? { accountIds: optionalStringArray(body.accountIds) ?? [] } : {}),
+      ...(body.notes !== undefined ? { notes: optionalString(body.notes) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parsePropertyCreate(body: Body, owner: string) {
+  const name = requiredString(body, "name");
+  if (!name.ok) return name;
+  const accountId = requiredString(body, "accountId");
+  if (!accountId.ok) return accountId;
+  const type = enumValue(body.type, PROPERTY_TYPES, "type");
+  if (!type.ok) return type;
+  const areaHa = optionalNumber(body.areaHa, "areaHa");
+  if (!areaHa.ok) return areaHa;
+  return {
+    ok: true,
+    data: {
+      id: entityId("PR"),
+      name: name.data,
+      type: (type.data ?? "propriedade") as PropertyType,
+      accountId: accountId.data,
+      carNumber: optionalString(body.carNumber),
+      matricula: optionalString(body.matricula),
+      areaHa: areaHa.data ?? 0,
+      declaredAreaHa: numOrUndef(body.declaredAreaHa, "declaredAreaHa"),
+      carAreaHa: numOrUndef(body.carAreaHa, "carAreaHa"),
+      matriculaAreaHa: numOrUndef(body.matriculaAreaHa, "matriculaAreaHa"),
+      location: optionalString(body.location),
+      municipality: optionalString(body.municipality),
+      state: optionalString(body.state),
+      GPS: optionalString(body.GPS),
+      mainCrop: optionalString(body.mainCrop),
+      encumbrances: optionalStringArray(body.encumbrances),
+      restrictions: optionalStringArray(body.restrictions),
+      notes: optionalString(body.notes),
+      owner,
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parsePropertyPatch(body: Body) {
+  const type = enumValue(body.type, PROPERTY_TYPES, "type");
+  if (!type.ok) return type;
+  const areaHa = optionalNumber(body.areaHa, "areaHa");
+  if (!areaHa.ok) return areaHa;
+  return {
+    ok: true,
+    data: {
+      ...(type.data ? { type: type.data as PropertyType } : {}),
+      ...(body.name !== undefined ? { name: String(body.name) } : {}),
+      ...(areaHa.data !== undefined ? { areaHa: areaHa.data } : {}),
+      ...(body.carNumber !== undefined ? { carNumber: optionalString(body.carNumber) } : {}),
+      ...(body.matricula !== undefined ? { matricula: optionalString(body.matricula) } : {}),
+      ...(body.location !== undefined ? { location: optionalString(body.location) } : {}),
+      ...(body.municipality !== undefined ? { municipality: optionalString(body.municipality) } : {}),
+      ...(body.state !== undefined ? { state: optionalString(body.state) } : {}),
+      ...(body.mainCrop !== undefined ? { mainCrop: optionalString(body.mainCrop) } : {}),
+      ...(body.notes !== undefined ? { notes: optionalString(body.notes) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseOpposingPartyCreate(body: Body) {
+  const name = requiredString(body, "name");
+  if (!name.ok) return name;
+  const type = enumValue(body.type, OPPOSING_PARTY_TYPES, "type");
+  if (!type.ok) return type;
+  return {
+    ok: true,
+    data: {
+      id: entityId("OPP"),
+      name: name.data,
+      cpf: optionalString(body.cpf),
+      cnpj: optionalString(body.cnpj),
+      type: (type.data ?? "pessoa_fisica") as OpposingPartyType,
+      lawyer: optionalString(body.lawyer),
+      lawyerOab: optionalString(body.lawyerOab),
+      phone: optionalString(body.phone),
+      email: optionalString(body.email),
+      address: optionalString(body.address),
+      notes: optionalString(body.notes),
+      matters: optionalStringArray(body.matters) ?? [],
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+type OpposingPartyType = "pessoa_fisica" | "pessoa_juridica" | "orgao_publico";
+
+export function parseOpposingPartyPatch(body: Body) {
+  const type = enumValue(body.type, OPPOSING_PARTY_TYPES, "type");
+  if (!type.ok) return type;
+  return {
+    ok: true,
+    data: {
+      ...(type.data ? { type: type.data as OpposingPartyType } : {}),
+      ...(body.name !== undefined ? { name: String(body.name) } : {}),
+      ...(body.lawyer !== undefined ? { lawyer: optionalString(body.lawyer) } : {}),
+      ...(body.lawyerOab !== undefined ? { lawyerOab: optionalString(body.lawyerOab) } : {}),
+      ...(body.phone !== undefined ? { phone: optionalString(body.phone) } : {}),
+      ...(body.email !== undefined ? { email: optionalString(body.email) } : {}),
+      ...(body.notes !== undefined ? { notes: optionalString(body.notes) } : {}),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseTaxObligationCreate(body: Body) {
+  const propertyId = requiredString(body, "propertyId");
+  if (!propertyId.ok) return propertyId;
+  const accountId = requiredString(body, "accountId");
+  if (!accountId.ok) return accountId;
+  const type = enumValue(body.type, TAX_TYPES, "type");
+  if (!type.ok) return type;
+  if (!type.data) return { ok: false, error: "type é obrigatório" } as const;
+  const status = enumValue(body.status, TAX_STATUSES, "status");
+  if (!status.ok) return status;
+  const year = optionalNumber(body.year, "year");
+  if (!year.ok) return year;
+  const valueBrl = optionalNumber(body.valueBrl, "valueBrl");
+  if (!valueBrl.ok) return valueBrl;
+  const dueDate = optionalDate(body.dueDate, "dueDate");
+  if (!dueDate.ok) return dueDate;
+  const paidDate = optionalDate(body.paidDate, "paidDate");
+  if (!paidDate.ok) return paidDate;
+  return {
+    ok: true,
+    data: {
+      id: entityId("tax"),
+      propertyId: propertyId.data,
+      accountId: accountId.data,
+      type: type.data as TaxType,
+      year: year.data ?? new Date().getFullYear(),
+      valueBrl: valueBrl.data ?? 0,
+      dueDate: dueDate.data ?? "",
+      paidDate: paidDate.data ?? null,
+      status: (status.data ?? "pendente") as TaxObligationStatus,
+      notes: optionalString(body.notes),
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+type TaxType = "itr" | "itbi" | "ipva" | "outro";
+type TaxObligationStatus = "pendente" | "pago" | "atrasado" | "isento";
+
+export function parseEnvironmentalLicenseCreate(body: Body) {
+  const propertyId = requiredString(body, "propertyId");
+  if (!propertyId.ok) return propertyId;
+  const accountId = requiredString(body, "accountId");
+  if (!accountId.ok) return accountId;
+  const number = requiredString(body, "number");
+  if (!number.ok) return number;
+  const status = enumValue(body.status, LICENSE_STATUSES, "status");
+  if (!status.ok) return status;
+  const issuedAt = optionalDate(body.issuedAt, "issuedAt");
+  if (!issuedAt.ok) return issuedAt;
+  const expiresAt = optionalDate(body.expiresAt, "expiresAt");
+  if (!expiresAt.ok) return expiresAt;
+  return {
+    ok: true,
+    data: {
+      id: entityId("lic"),
+      propertyId: propertyId.data,
+      accountId: accountId.data,
+      type: optionalString(body.type) ?? "",
+      number: number.data,
+      issuer: optionalString(body.issuer) ?? "",
+      issuedAt: issuedAt.data ?? "",
+      expiresAt: expiresAt.data ?? "",
+      status: (status.data ?? "vigente") as LicenseStatus,
+      conditions: optionalStringArray(body.conditions) ?? [],
+      notes: optionalString(body.notes),
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseCreditInstrumentCreate(body: Body) {
+  const accountId = requiredString(body, "accountId");
+  if (!accountId.ok) return accountId;
+  const type = enumValue(body.type, CREDIT_INSTRUMENT_TYPES, "type");
+  if (!type.ok) return type;
+  if (!type.data) return { ok: false, error: "type é obrigatório" } as const;
+  const status = enumValue(body.status, CREDIT_INSTRUMENT_STATUSES, "status");
+  if (!status.ok) return status;
+  const valueBrl = optionalNumber(body.valueBrl, "valueBrl");
+  if (!valueBrl.ok) return valueBrl;
+  const interestRate = optionalNumber(body.interestRate, "interestRate");
+  if (!interestRate.ok) return interestRate;
+  const iofRate = optionalNumber(body.iofRate, "iofRate");
+  if (!iofRate.ok) return iofRate;
+  const installments = optionalNumber(body.installments, "installments");
+  if (!installments.ok) return installments;
+  const issueDate = optionalDate(body.issueDate, "issueDate");
+  if (!issueDate.ok) return issueDate;
+  const maturityDate = optionalDate(body.maturityDate, "maturityDate");
+  if (!maturityDate.ok) return maturityDate;
+  return {
+    ok: true,
+    data: {
+      id: entityId("cr"),
+      accountId: accountId.data,
+      matterId: optionalNullableString(body.matterId) ?? null,
+      type: type.data as CreditInstrumentType,
+      number: optionalString(body.number) ?? "",
+      issuer: optionalString(body.issuer),
+      valueBrl: valueBrl.data ?? 0,
+      interestRate: interestRate.data ?? undefined,
+      iofRate: iofRate.data ?? undefined,
+      issueDate: issueDate.data ?? "",
+      maturityDate: maturityDate.data ?? "",
+      paymentMethod: optionalString(body.paymentMethod),
+      installments: installments.data ?? undefined,
+      status: (status.data ?? "ativo") as CreditInstrumentStatus,
+      notes: optionalString(body.notes),
+      createdAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+type CreditInstrumentStatus = "ativo" | "vencido" | "quitado" | "em_execucao";
+
+export function parseCropSeasonCreate(body: Body) {
+  const name = requiredString(body, "name");
+  if (!name.ok) return name;
+  const year = optionalNumber(body.year, "year");
+  if (!year.ok) return year;
+  return {
+    ok: true,
+    data: {
+      id: `cs-${crypto.randomUUID()}`,
+      name: name.data,
+      year: year.data ?? new Date().getFullYear(),
+      plantingStart: optionalString(body.plantingStart) ?? "",
+      plantingEnd: optionalString(body.plantingEnd) ?? "",
+      harvestStart: optionalString(body.harvestStart) ?? "",
+      harvestEnd: optionalString(body.harvestEnd) ?? "",
+      mainCrop: optionalString(body.mainCrop) ?? "",
+      region: optionalString(body.region),
+      notes: optionalString(body.notes),
+      createdAt: nowIso(),
     },
   } satisfies ValidationResult<unknown>;
 }

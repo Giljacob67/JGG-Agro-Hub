@@ -14,7 +14,19 @@ export type AuditEntityType =
   | "matter"
   | "task"
   | "deadline"
-  | "activity";
+  | "activity"
+  | "document"
+  | "document-checklist"
+  | "time-entry"
+  | "invoice"
+  | "fee-agreement"
+  | "contact"
+  | "property"
+  | "opposing-party"
+  | "tax-obligation"
+  | "environmental-license"
+  | "credit-instrument"
+  | "crop-season";
 
 export type AuditAction = "create" | "update" | "delete";
 

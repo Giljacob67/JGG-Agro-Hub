@@ -183,7 +183,7 @@ export type DocumentCategory =
   | "laudo"
   | "parecer"
   | "decisao"
-  | " despacho"
+  | "despacho"
   | "notificacao"
   | "outro";
 
