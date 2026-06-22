@@ -291,3 +291,17 @@ CREATE TABLE IF NOT EXISTS agro.app_config (
   updated_by TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Documentos da base de conhecimento (CRUD gerenciável; categorias estáticas).
+-- Seed inicial vem do array estático via migrate.ts quando a tabela está vazia.
+CREATE TABLE IF NOT EXISTS agro.kb_documents (
+  id TEXT PRIMARY KEY,
+  category_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+  type TEXT NOT NULL,
+  status TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_kb_documents_category ON agro.kb_documents (category_id);

@@ -13,6 +13,7 @@
  */
 
 import { KNOWLEDGE_DOCUMENTS } from "../../../shared/agro/knowledge.js";
+import type { KnowledgeDocument } from "../../../shared/agro/types.js";
 import {
   generateEmbedding,
   hasEmbeddingProvider,
@@ -24,14 +25,22 @@ import {
   dbUpsertKbEmbedding,
   dbListKbEmbeddingDocIds,
   dbSearchKbEmbeddings,
+  dbListKnowledgeDocuments,
+  dbGetKnowledgeDocument,
   type KbSearchHit,
 } from "../db/repository.js";
+
+/** Fonte dos documentos a indexar: DB quando habilitado, senão array estático. */
+async function getKbDocs(): Promise<KnowledgeDocument[]> {
+  if (isDbEnabled()) return dbListKnowledgeDocuments();
+  return KNOWLEDGE_DOCUMENTS;
+}
 
 // ── In-memory vector store (fallback dev sem DB) ─────────────────────
 
 let embeddingCache: EmbeddingEntry[] | null = null;
 
-function kbDocText(doc: (typeof KNOWLEDGE_DOCUMENTS)[number]): string {
+function kbDocText(doc: KnowledgeDocument): string {
   return `${doc.title}: ${doc.summary}. Tags: ${doc.tags.join(", ")}. Categoria: ${doc.categoryId}`;
 }
 
@@ -72,12 +81,12 @@ function cosineSimilarity(a: number[], b: number[]): number {
 export async function ensureKbEmbeddingsSeeded(): Promise<void> {
   if (!hasEmbeddingProvider()) return;
   const currentModel = getEmbeddingModelId();
-  const existing = new Map(
-    (await dbListKbEmbeddingDocIds()).map((r) => [r.docId, r.modelId]),
-  );
-  const toSeed = KNOWLEDGE_DOCUMENTS.filter(
-    (doc) => existing.get(doc.id) !== currentModel,
-  );
+  const [docs, existingRows] = await Promise.all([
+    getKbDocs(),
+    dbListKbEmbeddingDocIds(),
+  ]);
+  const existing = new Map(existingRows.map((r) => [r.docId, r.modelId]));
+  const toSeed = docs.filter((doc) => existing.get(doc.id) !== currentModel);
   if (toSeed.length === 0) return;
   console.log(`[RAG] (re)gerando ${toSeed.length} embeddings KB (model=${currentModel})…`);
   for (const doc of toSeed) {
@@ -110,11 +119,12 @@ async function searchViaDb(query: string, topK: number): Promise<RagResult[]> {
     ensureKbEmbeddingsSeeded(),
   ]);
   const hits: KbSearchHit[] = await dbSearchKbEmbeddings(queryVector, topK);
-  const { getKnowledgeDocument, getKnowledgeCategory } = await import(
+  const { getKnowledgeCategory } = await import(
     "../../../shared/agro/knowledge.js"
   );
-  return hits.map((hit) => {
-    const doc = getKnowledgeDocument(hit.docId);
+  const docs = await Promise.all(hits.map((hit) => dbGetKnowledgeDocument(hit.docId)));
+  return hits.map((hit, i) => {
+    const doc = docs[i];
     const category = doc ? getKnowledgeCategory(doc.categoryId) : null;
     return {
       documentId: hit.docId,

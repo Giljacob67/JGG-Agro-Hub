@@ -58,7 +58,8 @@ import * as db from "./db/repository.js";
 import type { AccountPatch, MatterPatch, TaskPatch } from "./db/repository.js";
 import { assertWritableInProd, WritableGuardError } from "./guard.js";
 import { computeCrmStats } from "../../shared/agro/stats.js";
-import type { CrmStats } from "../../shared/agro/types.js";
+import type { CrmStats, KnowledgeDocument } from "../../shared/agro/types.js";
+import { KNOWLEDGE_DOCUMENTS } from "../../shared/agro/knowledge.js";
 
 export { isDbEnabled };
 export type { ConvertLeadInput, ConvertLeadResult, MatterPatch, AccountPatch, TaskPatch };
@@ -1087,4 +1088,100 @@ export async function createCreditInstrument(
   if (isDbEnabled()) return db.dbCreateCreditInstrument(instrument);
   requireWritableOrThrow("credit-instruments");
   return memory.addCreditInstrument(instrument);
+}
+
+// ── Knowledge Documents ────────────────────────────────────────────
+//
+// Documentos da base de conhecimento. DB quando habilitado; senão um
+// espelho mutável em memória semeado do array estático (modo dev). Em
+// produção sem banco a escrita é bloqueada (perda silenciosa). Após cada
+// escrita o embedding correspondente é invalidado para o RAG regenerá-lo.
+
+let memoryKbDocs: KnowledgeDocument[] | null = null;
+function getMemoryKbDocs(): KnowledgeDocument[] {
+  if (!memoryKbDocs) {
+    memoryKbDocs = KNOWLEDGE_DOCUMENTS.map((d) => ({ ...d, tags: [...d.tags] }));
+  }
+  return memoryKbDocs;
+}
+
+/** Invalida cache de embeddings após escrita (DB row ou cache em memória). */
+async function invalidateKbEmbedding(docId: string): Promise<void> {
+  try {
+    if (isDbEnabled()) {
+      await db.dbDeleteKbEmbedding(docId);
+    } else {
+      const { clearEmbeddingCache } = await import("./llm/rag.js");
+      clearEmbeddingCache();
+    }
+  } catch (err) {
+    console.error("[KB] falha ao invalidar embedding:", err);
+  }
+}
+
+export async function listKnowledgeDocuments(
+  categoryId?: string,
+): Promise<KnowledgeDocument[]> {
+  if (isDbEnabled()) return db.dbListKnowledgeDocuments(categoryId);
+  const docs = getMemoryKbDocs().filter((d) =>
+    categoryId ? d.categoryId === categoryId : true,
+  );
+  return [...docs].sort(
+    (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  );
+}
+
+export async function getKnowledgeDoc(id: string): Promise<KnowledgeDocument | null> {
+  if (isDbEnabled()) return db.dbGetKnowledgeDocument(id);
+  return getMemoryKbDocs().find((d) => d.id === id) ?? null;
+}
+
+export async function createKnowledgeDocument(
+  doc: KnowledgeDocument,
+): Promise<KnowledgeDocument> {
+  let created: KnowledgeDocument;
+  if (isDbEnabled()) {
+    created = await db.dbCreateKnowledgeDocument(doc);
+  } else {
+    requireWritableOrThrow("knowledge");
+    getMemoryKbDocs().unshift(doc);
+    created = doc;
+  }
+  await invalidateKbEmbedding(doc.id);
+  return created;
+}
+
+export async function updateKnowledgeDocument(
+  id: string,
+  patch: Partial<Omit<KnowledgeDocument, "id">>,
+): Promise<KnowledgeDocument | null> {
+  let updated: KnowledgeDocument | null;
+  if (isDbEnabled()) {
+    updated = await db.dbUpdateKnowledgeDocument(id, patch);
+  } else {
+    requireWritableOrThrow("knowledge");
+    const docs = getMemoryKbDocs();
+    const idx = docs.findIndex((d) => d.id === id);
+    if (idx < 0) return null;
+    docs[idx] = { ...docs[idx], ...patch, id };
+    updated = docs[idx];
+  }
+  if (updated) await invalidateKbEmbedding(id);
+  return updated;
+}
+
+export async function deleteKnowledgeDocument(id: string): Promise<boolean> {
+  if (isDbEnabled()) {
+    const existing = await db.dbGetKnowledgeDocument(id);
+    if (!existing) return false;
+    await db.dbDeleteKnowledgeDocument(id);
+  } else {
+    requireWritableOrThrow("knowledge");
+    const docs = getMemoryKbDocs();
+    const idx = docs.findIndex((d) => d.id === id);
+    if (idx < 0) return false;
+    docs.splice(idx, 1);
+  }
+  await invalidateKbEmbedding(id);
+  return true;
 }

@@ -626,6 +626,15 @@ export interface CopilotConfigStatus {
   embeddings: { modelId: string; available: boolean };
 }
 
+export interface KnowledgeDocumentInput {
+  categoryId: string;
+  title: string;
+  summary: string;
+  tags: string[];
+  type: KnowledgeDocType;
+  status: KnowledgeDocStatus;
+}
+
 export interface KnowledgeListResponse {
   categories: KnowledgeCategory[];
   documents: KnowledgeDocument[];

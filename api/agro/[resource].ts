@@ -26,7 +26,7 @@ import {
   getCrmStats,
 } from "../_lib/data-service.js";
 import { resolveCopilotQuery } from "../../shared/agro/copilot.js";
-import { getKnowledgePayload } from "../../shared/agro/knowledge.js";
+import { KNOWLEDGE_CATEGORIES } from "../../shared/agro/knowledge.js";
 import {
   parseLeadListQuery,
   parseAccountListQuery,
@@ -72,6 +72,8 @@ import {
   parseEnvironmentalLicenseCreate,
   parseCreditInstrumentCreate,
   parseCropSeasonCreate,
+  parseKnowledgeDocCreate,
+  parseKnowledgeDocUpdate,
 } from "../_lib/validation.js";
 import { auditCreate, auditUpdate, auditDelete, type AuditEntityType } from "../_lib/audit.js";
 
@@ -939,12 +941,88 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Knowledge ──────────────────────────────────────────────────────
   if (resource === "knowledge") {
-    if (!requireAuth(req, res, "knowledge")) return;
+    const user = requireAuth(req, res, "knowledge");
+    if (!user) return;
+
+    const isWrite = req.method !== "GET";
+    if (isWrite && !guardWrite(res, "knowledge")) return;
+
+    const {
+      listKnowledgeDocuments,
+      getKnowledgeDoc,
+      createKnowledgeDocument,
+      updateKnowledgeDocument,
+      deleteKnowledgeDocument,
+    } = await import("../_lib/data-service.js");
 
     if (req.method === "GET") {
       const categoryId =
         typeof req.query.categoryId === "string" ? req.query.categoryId : undefined;
-      return json(res, getKnowledgePayload(categoryId));
+      return json(res, {
+        categories: KNOWLEDGE_CATEGORIES,
+        documents: await listKnowledgeDocuments(categoryId),
+      });
+    }
+
+    // Escrita: apenas perfis de gestão (hasPermission cobre wildcard de gestao).
+    const { hasPermission } = await import("../../shared/agro/auth.js");
+    const action =
+      req.method === "POST" ? "create" : req.method === "DELETE" ? "delete" : "update";
+    if (!hasPermission(user.role, "knowledge", action)) {
+      return json(
+        res,
+        { error: "Apenas perfis de gestão podem gerenciar a base de conhecimento" },
+        403,
+      );
+    }
+
+    if (req.method === "POST") {
+      const parsed = parseKnowledgeDocCreate(getBody(req.body));
+      if (!parsed.ok) return json(res, { error: parsed.error }, 400);
+      const doc = await createKnowledgeDocument(parsed.data as never);
+      await auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "knowledge" as AuditEntityType,
+        doc as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, doc, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const parsed = parseKnowledgeDocUpdate(getBody(req.body));
+      if (!parsed.ok) return json(res, { error: parsed.error }, 400);
+      const before = await getKnowledgeDoc(id);
+      if (!before) return json(res, { error: "Documento não encontrado" }, 404);
+      const doc = await updateKnowledgeDocument(id, parsed.data as never);
+      if (!doc) return json(res, { error: "Documento não encontrado" }, 404);
+      await auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "knowledge" as AuditEntityType,
+        id,
+        doc.title,
+        before as unknown as Record<string, unknown>,
+        doc as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, doc);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const before = await getKnowledgeDoc(id);
+      if (!before) return json(res, { error: "Documento não encontrado" }, 404);
+      await deleteKnowledgeDocument(id);
+      await auditDelete(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "knowledge" as AuditEntityType,
+        before as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, { ok: true });
     }
 
     return methodNotAllowed(res);

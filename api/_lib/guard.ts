@@ -35,6 +35,7 @@ const DB_BACKED_RESOURCES = new Set([
   "tax-obligations",
   "environmental-licenses",
   "credit-instruments",
+  "knowledge",
 ]);
 
 /**

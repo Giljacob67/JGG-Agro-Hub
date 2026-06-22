@@ -22,6 +22,7 @@ import type {
   TaskStatus,
   TimeEntryType,
 } from "../../shared/agro/types.js";
+import { KNOWLEDGE_CATEGORIES } from "../../shared/agro/knowledge.js";
 
 export type ValidationResult<T> =
   | { ok: true; data: T }
@@ -1092,4 +1093,77 @@ export function parseCropSeasonCreate(body: Body) {
       createdAt: nowIso(),
     },
   } satisfies ValidationResult<unknown>;
+}
+
+const KNOWLEDGE_DOC_TYPES = ["guia", "checklist", "nota_tecnica", "modelo", "faq"] as const;
+const KNOWLEDGE_DOC_STATUSES = ["publicado", "rascunho", "em_revisao"] as const;
+const KNOWLEDGE_CATEGORY_IDS = KNOWLEDGE_CATEGORIES.map((c) => c.id) as readonly string[];
+
+function validCategory(value: unknown): ValidationResult<string> {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) return { ok: false, error: "categoryId é obrigatório" };
+  if (!KNOWLEDGE_CATEGORY_IDS.includes(text)) {
+    return { ok: false, error: "categoryId inválido" };
+  }
+  return { ok: true, data: text };
+}
+
+export function parseKnowledgeDocCreate(body: Body) {
+  const title = requiredString(body, "title");
+  if (!title.ok) return title;
+  const summary = requiredString(body, "summary");
+  if (!summary.ok) return summary;
+  const category = validCategory(body.categoryId);
+  if (!category.ok) return category;
+  const type = enumValue(body.type, KNOWLEDGE_DOC_TYPES, "type");
+  if (!type.ok) return type;
+  const status = enumValue(body.status, KNOWLEDGE_DOC_STATUSES, "status");
+  if (!status.ok) return status;
+  return {
+    ok: true,
+    data: {
+      id: entityId("kb"),
+      categoryId: category.data,
+      title: title.data,
+      summary: summary.data,
+      tags: optionalStringArray(body.tags) ?? [],
+      type: type.data ?? "guia",
+      status: status.data ?? "rascunho",
+      updatedAt: nowIso(),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseKnowledgeDocUpdate(body: Body) {
+  const patch: Record<string, unknown> = {};
+  if (body.title !== undefined) {
+    const title = requiredString(body, "title");
+    if (!title.ok) return title;
+    patch.title = title.data;
+  }
+  if (body.summary !== undefined) {
+    const summary = requiredString(body, "summary");
+    if (!summary.ok) return summary;
+    patch.summary = summary.data;
+  }
+  if (body.categoryId !== undefined) {
+    const category = validCategory(body.categoryId);
+    if (!category.ok) return category;
+    patch.categoryId = category.data;
+  }
+  if (body.type !== undefined) {
+    const type = enumValue(body.type, KNOWLEDGE_DOC_TYPES, "type");
+    if (!type.ok) return type;
+    if (type.data) patch.type = type.data;
+  }
+  if (body.status !== undefined) {
+    const status = enumValue(body.status, KNOWLEDGE_DOC_STATUSES, "status");
+    if (!status.ok) return status;
+    if (status.data) patch.status = status.data;
+  }
+  if (body.tags !== undefined) {
+    patch.tags = optionalStringArray(body.tags) ?? [];
+  }
+  patch.updatedAt = nowIso();
+  return { ok: true, data: patch } satisfies ValidationResult<unknown>;
 }

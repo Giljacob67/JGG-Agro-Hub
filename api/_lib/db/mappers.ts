@@ -11,6 +11,9 @@ import type {
   EnvironmentalLicense,
   FeeAgreement,
   Invoice,
+  KnowledgeDocument,
+  KnowledgeDocStatus,
+  KnowledgeDocType,
   Lead,
   Matter,
   Opportunity,
@@ -392,6 +395,19 @@ export function mapCropSeason(row: Record<string, unknown>): CropSeason {
   if (row.region != null) season.region = String(row.region);
   if (row.notes != null) season.notes = String(row.notes);
   return season;
+}
+
+export function mapKnowledgeDocument(row: Record<string, unknown>): KnowledgeDocument {
+  return {
+    id: String(row.id),
+    categoryId: String(row.category_id),
+    title: String(row.title),
+    summary: String(row.summary),
+    tags: parseStringArray(row.tags) ?? [],
+    type: String(row.type) as KnowledgeDocType,
+    status: String(row.status) as KnowledgeDocStatus,
+    updatedAt: toIso(row.updated_at),
+  };
 }
 
 export function mapTaxObligation(row: Record<string, unknown>): TaxObligation {

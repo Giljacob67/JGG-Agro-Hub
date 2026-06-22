@@ -20,6 +20,7 @@ import type {
   EnvironmentalLicense,
   FeeAgreement,
   Invoice,
+  KnowledgeDocument,
   Lead,
   Matter,
   Opportunity,
@@ -45,6 +46,7 @@ import {
   mapEnvironmentalLicense,
   mapFeeAgreement,
   mapInvoice,
+  mapKnowledgeDocument,
   mapLead,
   mapMatter,
   mapOpportunity,
@@ -1505,6 +1507,76 @@ export async function dbSearchKbEmbeddings(
     categoryId: (r.category_id as string | null) ?? null,
     score: Number(r.score),
   }));
+}
+
+/** Remove a linha de embedding de um doc (ex.: após edição/remoção do doc). */
+export async function dbDeleteKbEmbedding(docId: string): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM agro.kb_embeddings WHERE doc_id = ${docId}`;
+}
+
+// ── Knowledge Documents ────────────────────────────────────────────
+
+export async function dbListKnowledgeDocuments(
+  categoryId?: string,
+): Promise<KnowledgeDocument[]> {
+  const sql = getSql();
+  const rows = categoryId
+    ? await sql`SELECT * FROM agro.kb_documents WHERE category_id = ${categoryId} ORDER BY updated_at DESC`
+    : await sql`SELECT * FROM agro.kb_documents ORDER BY updated_at DESC`;
+  return rows.map((r) => mapKnowledgeDocument(r as Record<string, unknown>));
+}
+
+export async function dbGetKnowledgeDocument(id: string): Promise<KnowledgeDocument | null> {
+  const sql = getSql();
+  const rows = await sql`SELECT * FROM agro.kb_documents WHERE id = ${id}`;
+  if (!rows.length) return null;
+  return mapKnowledgeDocument(rows[0] as Record<string, unknown>);
+}
+
+export async function dbCreateKnowledgeDocument(doc: KnowledgeDocument): Promise<KnowledgeDocument> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO agro.kb_documents (id, category_id, title, summary, tags, type, status, updated_at)
+    VALUES (
+      ${doc.id}, ${doc.categoryId}, ${doc.title}, ${doc.summary},
+      ${toJsonValue(doc.tags ?? [])}, ${doc.type}, ${doc.status}, ${doc.updatedAt}
+    )
+  `;
+  const created = await dbGetKnowledgeDocument(doc.id);
+  if (!created) throw new Error("Falha ao criar documento");
+  return created;
+}
+
+export async function dbUpdateKnowledgeDocument(
+  id: string,
+  patch: Partial<Omit<KnowledgeDocument, "id">>,
+): Promise<KnowledgeDocument | null> {
+  const sql = getSql();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  const set = (col: string, val: unknown) => {
+    sets.push(`${col} = $${values.length + 1}`);
+    values.push(val);
+  };
+  if (patch.categoryId !== undefined) set("category_id", patch.categoryId);
+  if (patch.title !== undefined) set("title", patch.title);
+  if (patch.summary !== undefined) set("summary", patch.summary);
+  if (patch.tags !== undefined) set("tags", toJsonValue(patch.tags ?? []));
+  if (patch.type !== undefined) set("type", patch.type);
+  if (patch.status !== undefined) set("status", patch.status);
+  set("updated_at", patch.updatedAt ?? new Date().toISOString());
+  values.push(id);
+  await sql.query(
+    `UPDATE agro.kb_documents SET ${sets.join(", ")} WHERE id = $${values.length}`,
+    values,
+  );
+  return dbGetKnowledgeDocument(id);
+}
+
+export async function dbDeleteKnowledgeDocument(id: string): Promise<void> {
+  const sql = getSql();
+  await sql`DELETE FROM agro.kb_documents WHERE id = ${id}`;
 }
 
 // ── Documents ──────────────────────────────────────────────────────

@@ -41,7 +41,8 @@ export type AuditEntityType =
   | "tax-obligation"
   | "environmental-license"
   | "credit-instrument"
-  | "crop-season";
+  | "crop-season"
+  | "knowledge";
 
 export type AuditAction = "create" | "update" | "delete";
 

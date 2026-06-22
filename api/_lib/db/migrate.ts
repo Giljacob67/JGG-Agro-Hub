@@ -1,5 +1,6 @@
 import type { NeonQueryFunction } from "@neondatabase/serverless";
 import { getSql } from "./client.js";
+import { KNOWLEDGE_DOCUMENTS } from "../../../shared/agro/knowledge.js";
 
 export async function runMigrations(
   sql: NeonQueryFunction<false, false> = getSql(),
@@ -160,6 +161,46 @@ export async function runMigrations(
   await runSecondaryEntityMigrations(sql);
   await runTertiaryEntityMigrations(sql);
   await runAppConfigMigrations(sql);
+  await runKnowledgeMigrations(sql);
+}
+
+/**
+ * Documentos da base de conhecimento (antes hardcoded em
+ * `shared/agro/knowledge.ts`). Persistir habilita gestão (CRUD) em runtime.
+ * As categorias permanecem estáticas (taxonomia estrutural). Seed idempotente
+ * a partir do array estático apenas quando a tabela está vazia — não
+ * sobrescreve edições feitas via app. Embeddings (`agro.kb_embeddings`) são
+ * regenerados sob demanda pelo RAG a partir desta tabela.
+ */
+async function runKnowledgeMigrations(sql: NeonQueryFunction<false, false>) {
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.kb_documents (
+      id TEXT PRIMARY KEY,
+      category_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      summary TEXT NOT NULL,
+      tags JSONB NOT NULL DEFAULT '[]'::jsonb,
+      type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_kb_documents_category ON agro.kb_documents (category_id)`;
+
+  const countRows = (await sql`SELECT COUNT(*)::int AS n FROM agro.kb_documents`) as Array<{ n: number }>;
+  if (countRows[0]?.n > 0) return;
+
+  console.log(`[migrate] semeando ${KNOWLEDGE_DOCUMENTS.length} documentos KB…`);
+  for (const doc of KNOWLEDGE_DOCUMENTS) {
+    await sql`
+      INSERT INTO agro.kb_documents (id, category_id, title, summary, tags, type, status, updated_at)
+      VALUES (
+        ${doc.id}, ${doc.categoryId}, ${doc.title}, ${doc.summary},
+        ${JSON.stringify(doc.tags)}::jsonb, ${doc.type}, ${doc.status}, ${doc.updatedAt}
+      )
+      ON CONFLICT (id) DO NOTHING
+    `;
+  }
 }
 
 /**

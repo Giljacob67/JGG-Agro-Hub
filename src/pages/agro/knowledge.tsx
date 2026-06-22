@@ -1,10 +1,13 @@
 import { useMemo, useState } from "react";
-import { Library } from "lucide-react";
+import { Library, Settings2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { KnowledgeCategoryCard } from "@/components/knowledge/knowledge-category-card";
 import { KnowledgeDocumentCard } from "@/components/knowledge/knowledge-document-card";
+import { KnowledgeManager } from "@/components/knowledge/knowledge-manager";
 import { CrmLoadingState } from "@/components/crm/loading-state";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useAuth } from "@/contexts/use-auth";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useKnowledge } from "@/hooks/use-knowledge";
 import { COPILOT_KNOWLEDGE_NOTICE } from "@shared/agro/copilot";
@@ -13,6 +16,9 @@ export default function KnowledgePage() {
   usePageTitle("Base de Conhecimento Agro");
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [search, setSearch] = useState("");
+  const [showManager, setShowManager] = useState(false);
+  const { user } = useAuth();
+  const canManage = user?.role === "gestao";
   const { data, isLoading } = useKnowledge(categoryId);
 
   const documents = useMemo(() => {
@@ -68,7 +74,28 @@ export default function KnowledgePage() {
                 {COPILOT_KNOWLEDGE_NOTICE}
               </p>
             </div>
+            {canManage && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="ml-auto shrink-0"
+                onClick={() => setShowManager((v) => !v)}
+                aria-expanded={showManager}
+              >
+                <Settings2 className="w-4 h-4 mr-1.5" />
+                {showManager ? "Ocultar gestão" : "Gerenciar base"}
+              </Button>
+            )}
           </div>
+
+          {canManage && showManager && (
+            <div className="mt-5">
+              <KnowledgeManager
+                categories={data.categories}
+                documents={data.documents}
+              />
+            </div>
+          )}
         </header>
 
         <section>

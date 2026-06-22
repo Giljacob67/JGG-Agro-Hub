@@ -20,9 +20,12 @@ import {
   parseTaskParams,
 } from "@shared/agro/list-params";
 import { resolveCopilotQuery } from "@shared/agro/copilot";
-import { getKnowledgePayload } from "@shared/agro/knowledge";
+import { KNOWLEDGE_CATEGORIES, KNOWLEDGE_DOCUMENTS } from "@shared/agro/knowledge";
 import { computeCrmStats } from "@shared/agro/stats";
-import type { CopilotQueryRequest } from "@shared/agro/types";
+import type {
+  CopilotQueryRequest,
+  KnowledgeDocument,
+} from "@shared/agro/types";
 import {
   addActivity,
   addDeadline,
@@ -71,6 +74,15 @@ function parseQuery(path: string) {
   const [pathname, search] = path.split("?");
   const params = new URLSearchParams(search ?? "");
   return { pathname, params };
+}
+
+// Espelho mutável da base de conhecimento para o modo mock (preview).
+let mockKbDocs: KnowledgeDocument[] | null = null;
+function getMockKbDocs(): KnowledgeDocument[] {
+  if (!mockKbDocs) {
+    mockKbDocs = KNOWLEDGE_DOCUMENTS.map((d) => ({ ...d, tags: [...d.tags] }));
+  }
+  return mockKbDocs;
 }
 
 export async function handleLocalApi(
@@ -404,8 +416,76 @@ export async function handleLocalApi(
   }
 
   if (pathname === "/api/agro/knowledge") {
-    const categoryId = params.get("categoryId") ?? undefined;
-    return { status: 200, data: getKnowledgePayload(categoryId || undefined) };
+    const docs = getMockKbDocs();
+
+    if (!init?.method || init.method === "GET") {
+      const categoryId = params.get("categoryId") ?? undefined;
+      const filtered = categoryId
+        ? docs.filter((d) => d.categoryId === categoryId)
+        : docs;
+      const sorted = [...filtered].sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+      return {
+        status: 200,
+        data: { categories: KNOWLEDGE_CATEGORIES, documents: sorted },
+      };
+    }
+
+    if (user.role !== "gestao") {
+      return {
+        status: 403,
+        data: {
+          error: "Apenas perfis de gestão podem gerenciar a base de conhecimento",
+        },
+      };
+    }
+
+    if (init.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      const doc: KnowledgeDocument = {
+        id: `kb-${crypto.randomUUID()}`,
+        categoryId: String(body.categoryId),
+        title: String(body.title),
+        summary: String(body.summary),
+        tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
+        type: body.type ?? "guia",
+        status: body.status ?? "rascunho",
+        updatedAt: new Date().toISOString(),
+      };
+      docs.unshift(doc);
+      return { status: 201, data: doc };
+    }
+
+    const id = params.get("id") ?? undefined;
+    if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+    const idx = docs.findIndex((d) => d.id === id);
+    if (idx < 0) return { status: 404, data: { error: "Documento não encontrado" } };
+
+    if (init.method === "PATCH") {
+      const body = JSON.parse(String(init.body));
+      const next: KnowledgeDocument = {
+        ...docs[idx],
+        ...(body.categoryId !== undefined ? { categoryId: String(body.categoryId) } : {}),
+        ...(body.title !== undefined ? { title: String(body.title) } : {}),
+        ...(body.summary !== undefined ? { summary: String(body.summary) } : {}),
+        ...(body.tags !== undefined
+          ? { tags: Array.isArray(body.tags) ? body.tags.map(String) : [] }
+          : {}),
+        ...(body.type !== undefined ? { type: body.type } : {}),
+        ...(body.status !== undefined ? { status: body.status } : {}),
+        updatedAt: new Date().toISOString(),
+      };
+      docs[idx] = next;
+      return { status: 200, data: next };
+    }
+
+    if (init.method === "DELETE") {
+      docs.splice(idx, 1);
+      return { status: 200, data: { ok: true } };
+    }
+
+    return { status: 405, data: { error: "Método não permitido" } };
   }
 
   if (pathname === "/api/agro/copilot-config") {

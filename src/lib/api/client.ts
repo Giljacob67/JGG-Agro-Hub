@@ -432,6 +432,28 @@ export const agroApi = {
       `/api/agro/knowledge${categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : ""}`,
     ),
 
+  createKnowledgeDocument: (
+    input: import("@shared/agro/types").KnowledgeDocumentInput,
+  ) =>
+    request<import("@shared/agro/types").KnowledgeDocument>("/api/agro/knowledge", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateKnowledgeDocument: (
+    id: string,
+    input: Partial<import("@shared/agro/types").KnowledgeDocumentInput>,
+  ) =>
+    request<import("@shared/agro/types").KnowledgeDocument>(
+      `/api/agro/knowledge?id=${encodeURIComponent(id)}`,
+      { method: "PATCH", body: JSON.stringify(input) },
+    ),
+
+  deleteKnowledgeDocument: (id: string) =>
+    request<{ ok: true }>(`/api/agro/knowledge?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+
   getCopilotConfig: () =>
     request<import("@shared/agro/types").CopilotConfigStatus>(
       "/api/agro/copilot-config",
