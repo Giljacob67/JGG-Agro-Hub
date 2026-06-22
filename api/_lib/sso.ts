@@ -207,5 +207,10 @@ export function decodeStateWithNonce(encoded: string): {
 }
 
 function authSecretOrDev(): string {
-  return process.env.AUTH_SECRET?.trim() || "dev-insecure";
+  const secret = process.env.AUTH_SECRET?.trim();
+  if (secret) return secret;
+  if (process.env.VERCEL_ENV) {
+    throw new Error("AUTH_SECRET ausente em deploy Vercel — SSO não pode operar");
+  }
+  return "dev-insecure";
 }

@@ -755,9 +755,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Copilot ────────────────────────────────────────────────────────
   if (resource === "copilot") {
-    if (!requireAuth(req, res, "copilot")) return;
+    const user = requireAuth(req, res, "copilot");
+    if (!user) return;
 
     if (req.method === "POST") {
+      const rl = await checkUserRateLimit(user.id, "copilot");
+      res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+      if (!rl.allowed) {
+        return json(res, { error: "Rate limit excedido — copilot" }, 429);
+      }
+
       const body = (req.body ?? {}) as {
         query?: string;
         contextEntity?: import("../../shared/agro/types.js").CopilotContextEntity | null;
@@ -1082,7 +1089,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Email ──────────────────────────────────────────────────────────
   if (resource === "email") {
-    if (!requireAuth(req, res, "email")) return;
+    const user = requireAuth(req, res, "email");
+    if (!user) return;
 
     const { sendEmail, fetchEmails, getEmailFolders, getEmailStatus } =
       await import("../_lib/email.js");
@@ -1107,6 +1115,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
+      const rl = await checkUserRateLimit(user.id, "write");
+      res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+      if (!rl.allowed) {
+        return json(res, { error: "Rate limit excedido" }, 429);
+      }
+
       const body = (req.body ?? {}) as {
         to?: string | string[];
         subject?: string;
@@ -1136,9 +1150,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── CNPJ/CPF Lookup ───────────────────────────────────────────────
   if (resource === "lookup") {
-    if (!requireAuth(req, res, "leads")) return;
+    const user = requireAuth(req, res, "leads");
+    if (!user) return;
 
     if (req.method === "GET") {
+      const rl = await checkUserRateLimit(user.id, "default");
+      res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+      if (!rl.allowed) {
+        return json(res, { error: "Rate limit excedido" }, 429);
+      }
+
       const type = typeof req.query.type === "string" ? req.query.type : "";
       const document = typeof req.query.document === "string" ? req.query.document : "";
 
@@ -1178,7 +1199,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Documents ─────────────────────────────────────────────────────
   if (resource === "documents") {
-    const user = requireAuth(req, res, "leads");
+    const user = requireAuth(req, res, "documents");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
     if (req.method !== "GET" && !guardWrite(res, "documents")) return;
@@ -1250,7 +1271,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Document Checklist ────────────────────────────────────────────
   if (resource === "document-checklist") {
-    const user = requireAuth(req, res, "leads");
+    const user = requireAuth(req, res, "document-checklist");
     if (!user) return;
     if (req.method !== "GET" && !guardWrite(res, "document-checklist")) return;
 
@@ -1293,7 +1314,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Time Entries ──────────────────────────────────────────────────
   if (resource === "time-entries") {
-    const user = requireAuth(req, res, "leads");
+    const user = requireAuth(req, res, "time-entries");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
     if (req.method !== "GET" && !guardWrite(res, "time-entries")) return;
@@ -1346,7 +1367,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Invoices ──────────────────────────────────────────────────────
   if (resource === "invoices") {
-    const user = requireAuth(req, res, "leads");
+    const user = requireAuth(req, res, "invoices");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
     if (req.method !== "GET" && !guardWrite(res, "invoices")) return;
@@ -1383,7 +1404,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Fee Agreements ────────────────────────────────────────────────
   if (resource === "fee-agreements") {
-    const user = requireAuth(req, res, "leads");
+    const user = requireAuth(req, res, "fee-agreements");
     if (!user) return;
     if (req.method !== "GET" && !guardWrite(res, "fee-agreements")) return;
 
@@ -1408,7 +1429,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Contacts ──────────────────────────────────────────────────────
   if (resource === "contacts") {
-    const user = requireAuth(req, res, "leads");
+    const user = requireAuth(req, res, "contacts");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
     if (req.method !== "GET" && !guardWrite(res, "contacts")) return;
@@ -1450,7 +1471,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Properties ────────────────────────────────────────────────────
   if (resource === "properties") {
-    const user = requireAuth(req, res, "leads");
+    const user = requireAuth(req, res, "properties");
     if (!user) return;
     if (!requireCsrf(req, res)) return;
     if (req.method !== "GET" && !guardWrite(res, "properties")) return;
@@ -1492,7 +1513,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // ── Opposing Parties ──────────────────────────────────────────────
   if (resource === "opposing-parties") {
-    const user = requireAuth(req, res, "leads");
+    const user = requireAuth(req, res, "opposing-parties");
     if (!user) return;
     if (req.method !== "GET" && !guardWrite(res, "opposing-parties")) return;
 

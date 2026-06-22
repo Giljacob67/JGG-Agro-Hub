@@ -89,6 +89,20 @@ export async function sendEmail(options: {
   }
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
+function sanitizeUrl(url: string): string {
+  if (/^https?:\/\//i.test(url)) return escapeHtml(url);
+  return "#";
+}
+
 /**
  * Send a notification email about CRM events (lead created, task due, etc.)
  */
@@ -99,16 +113,21 @@ export async function sendCrmNotification(options: {
   description: string;
   url?: string;
 }): Promise<{ success: boolean; error?: string }> {
+  const safeEvent = escapeHtml(options.event);
+  const safeTitle = escapeHtml(options.title);
+  const safeDescription = escapeHtml(options.description);
+  const safeUrl = options.url ? sanitizeUrl(options.url) : undefined;
+
   const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="background: #1a1a2e; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
         <h1 style="margin: 0; font-size: 18px;">JGG Agro Hub</h1>
-        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.8;">${options.event}</p>
+        <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.8;">${safeEvent}</p>
       </div>
       <div style="background: #f8f9fa; padding: 20px; border: 1px solid #e9ecef; border-top: none; border-radius: 0 0 8px 8px;">
-        <h2 style="margin: 0 0 12px; font-size: 16px; color: #1a1a2e;">${options.title}</h2>
-        <p style="margin: 0 0 16px; color: #495057; font-size: 14px; line-height: 1.5;">${options.description}</p>
-        ${options.url ? `<a href="${options.url}" style="display: inline-block; background: #1a1a2e; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Ver detalhes</a>` : ""}
+        <h2 style="margin: 0 0 12px; font-size: 16px; color: #1a1a2e;">${safeTitle}</h2>
+        <p style="margin: 0 0 16px; color: #495057; font-size: 14px; line-height: 1.5;">${safeDescription}</p>
+        ${safeUrl ? `<a href="${safeUrl}" style="display: inline-block; background: #1a1a2e; color: white; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">Ver detalhes</a>` : ""}
       </div>
       <div style="padding: 12px 20px; text-align: center; font-size: 11px; color: #6c757d;">
         JGG Agro Hub — CRM Jurídico Agrícola

@@ -1,6 +1,7 @@
 import { lazy, Suspense, type ComponentType } from "react";
 import { Route, Switch, Redirect } from "wouter";
 import { ProtectedRoute } from "./components/auth/protected-route";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { ROUTES } from "./lib/routes";
 
 // Lazy-loaded pages for code splitting
@@ -45,9 +46,11 @@ function AgroRoute({
 }) {
   return (
     <ProtectedRoute resource={resource}>
-      <Suspense fallback={<PageLoader />}>
-        <Component />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<PageLoader />}>
+          <Component />
+        </Suspense>
+      </ErrorBoundary>
     </ProtectedRoute>
   );
 }

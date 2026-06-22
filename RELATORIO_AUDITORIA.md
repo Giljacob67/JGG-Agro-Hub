@@ -1,327 +1,782 @@
-# RELATÓRIO DE AUDITORIA — JGG Agro Hub
+# Relatório de Auditoria Completa — JGG Agro Hub
 
-**Data:** 22/06/2026 · **Base:** `/home/gilberto-jacob/Documentos/JGG-Agro-Hub` · **Escopo:** `api/`, `src/`, `shared/`, `db/`, `scripts/`, `e2e/`, configs · **Tipo:** read-only (nenhuma alteração ao código)
-
----
-
-## Sumário executivo
-
-CRM jurídico agrícola verticalizado (React 19 + Vite 8 + Tailwind 4 + TanStack Query · Vercel Serverless · Neon Postgres · AI SDK v6 · R2 · Resend · scrypt+HMAC). Evoluiu muito desde a auditoria de 12/06: **9 de 12 itens corrigidos** (auth bypass, senhas individuais, SSO open-redirect, token em cookie HttpOnly, CSRF, enum validation, rate limit, headers CSP, pageSize cap, CI, conteúdo de contencioso bancário-rural). Restam **3 itens da auditoria anterior** + **novos achados**.
-
-| Frente | Crítica | Alta | Média | Baixa |
-|---|---|---|---|---|
-| Segurança | 1 | 1 | 4 | 3 |
-| Qualidade | 0 | 5 | 10 | 9 |
-| Arquitetura | 0 | 3 | 5 | 6 |
-
-**Top 5 a corrigir agora:**
-1. **CRÍTICA** — `api/_lib/sso.ts:135-156` id_token JWT sem verificação de assinatura (JWKS) → SSO forjável.
-2. **ALTA** — `README.md:9-13` senha `AgroHub2026!` documentada em repo público.
-3. **ALTA** — `api/_lib/audit.ts` audit log in-memory nunca persiste em prod (handler chama módulo errado; `recordAudit` do data-service não é invocado).
-4. **ALTA** — 12 recursos sem validação de payload (`documents`, `time-entries`, `tax-obligations`, `environmental-licenses`, `credit-instruments`, `crop-seasons`, `contacts`, `properties`, `opposing-parties`, `invoices`, `fee-agreements`, `document-checklist`) — aceitam enums arbitrários.
-5. **ALTA** — 12 recursos ainda em memory store em produção (bypassam `data-service` + guard, perdem escrita em serverless).
+**Data:** 2026-06-22
+**Escopo:** varredura completa (segurança, qualidade/consistência, arquitetura/evolução)
+**Método:** leitura direta de todos os módulos + 3 agentes paralelos (frontend, backend, shared/scripts). Nenhum arquivo foi alterado.
 
 ---
 
-## 1. SEGURANÇA
+## Sumário Executivo
 
-### 1.1 Status dos itens da auditoria anterior
+| Frente | Achados | Críticos | Altos | Médios | Baixos |
+|---|---|---|---|---|---|
+| Segurança | 16 | 2 | 4 | 5 | 5 |
+| Qualidade/Consistência | 18 | 2 | 4 | 7 | 5 |
+| Arquitetura e Evolução | 14 | 2 | 4 | 5 | 3 |
+| **Total** | **48** | **6** | **12** | **17** | **13** |
 
-| # | Item | Estado |
+## Legenda de Severidade
+
+| Nível | Significado |
+|---|---|
+| 🔴 CRÍTICA | Exploração direta, perda de dado ou quebra de negócio core. Corrigir imediatamente. |
+| 🟠 ALTA | Risco real sob condição plausível; corrigir no curto prazo (1-2 sprints). |
+| 🟡 MÉDIA | Fragilidade ou dívida técnica que vai morder; planejar correção. |
+| 🔵 BAIXA | Higiene, footgun latente ou melhoria de DX. |
+
+## Stack e Métricas
+
+```
+Frontend: React 19 + Vite 8 + TailwindCSS 4 + wouter + TanStack Query v5
+Backend:  Vercel Serverless Functions (4 rotas consolidadas)
+Database: Neon PostgreSQL (memory fallback)
+AI:       Vercel AI SDK v6 (OpenAI, Anthropic, Google, Ollama)
+Storage:  Cloudflare R2 (presigned URLs)
+Email:    Resend API
+Auth:     scrypt + HMAC-SHA256 tokens
+Cache:    Upstash Redis (fallback in-memory)
+
+LOC total: ~24.200 (13.7k frontend + 8.7k API + 1.8k shared)
+Arquivos >300 linhas: 19
+Dependências npm: 22 (prod) + 17 (dev)
+Testes: 43 unit + 3 e2e (cobertura estimada: ~15%)
+```
+
+---
+
+# PARTE 1 — SEGURANÇA
+
+## 🔴 SEC-01 — Token de sessão forjável em dev/staging
+`shared/agro/auth.ts:43-46` · `api/_lib/auth-server.ts:194-197`
+
+O token de sessão no browser é `btoa(JSON.stringify(payload))` — sem assinatura. Qualquer pessoa pode forjar um token `{"role":"gestao","exp":9999999999999}` em uma linha de console. O `resolveSession` do servidor cai neste path quando `AUTH_SECRET` está ausente e não está em produção Vercel (linha 194-197):
+
+```ts
+if (process.env.VERCEL_ENV) return null;
+const devUser = verifySignedToken(token, "dev-insecure");
+if (devUser) return devUser;
+return resolveDevSession(token); // ← aceita token base64 puro
+```
+
+Em **preview deployments** (`VERCEL_ENV=preview`) o código retorna `null` — correto. Mas em staging não-Vercel (Docker, VM local com `VERCEL_ENV` ausente), o token é forjável.
+
+**Correção:** remover `resolveDevSession` do fallback. Em qualquer ambiente sem `AUTH_SECRET`, recusar autenticar. O `DEV_PASSWORD` em `auth.ts:11` (`"jgg-agro-dev"`) é público no repositório.
+
+**Esforço:** Pequeno (~1h) · **Prazo:** Imediato
+
+---
+
+## 🔴 SEC-02 — Injeção de HTML em templates de email
+`api/_lib/email.ts:106-111`
+
+`options.event`, `options.title`, `options.description` e `options.url` são interpolados diretamente em HTML sem escaping:
+
+```ts
+`<p style="...">${options.event}</p>`
+`<h2 ...>${options.title}</h2>`
+`<a href="${options.url}" ...>`
+```
+
+Se dados controlados pelo usuário fluem para esses campos, um atacante pode injetar HTML/JavaScript arbitrário em notificações email. O campo `url` é particularmente perigoso — pode injetar `javascript:` URIs ou quebrar o atributo `href`.
+
+**Correção:** escapar HTML em todos os campos interpolados (`&` → `&amp;`, `<` → `&lt;`, `"` → `&quot;`). Validar que `url` começa com `https://`.
+
+**Esforço:** Pequeno (~1h) · **Prazo:** Imediato
+
+---
+
+## 🟠 SEC-03 — Rate-limit ausente em endpoints caros/sensíveis
+`api/agro/[resource].ts`
+
+`checkUserRateLimit` é aplicado em leads, accounts, opportunities, matters, tasks, deadlines, crop-seasons, tax-obligations, environmental-licenses e credit-instruments. Porém os seguintes recursos **não têm rate-limit por usuário**:
+
+| Recurso | Risco | Config existe? |
 |---|---|---|
-| 1 | `resolveSession` aceita dev tokens com AUTH_SECRET set | ✅ CORRIGIDO (`auth-server.ts:184-197`) |
-| 2 | Senha compartilhada hardcoded / README público | ⚠️ PARCIAL (código OK; README ainda vaza senha) |
-| 3 | SSO open redirect `?from=` | ✅ CORRIGIDO (`sanitizeFrom` `[action].ts:94-99`) |
-| 4 | Token em query string | ✅ CORRIGIDO (cookie `__Host-agro_session` HttpOnly+Secure) |
-| 5 | SSO sem CSRF/nonce/PKCE/validação id_token | ⚠️ PARCIAL (CSRF/nonce/PKCE OK; assinatura JWT não validada) |
-| 6 | PATCH/POST sem validação de enums | ✅ CORRIGIDO para 7 recursos CRM (`validation.ts:72-85`) |
-| 7 | `db-setup.ts` não timing-safe | ✅ CORRIGIDO (HMAC + `timingSafeEqual`) |
-| 8 | Rate limiting no login | ✅ CORRIGIDO (`rate-limit.ts:42-74`, Upstash + fallback) |
-| 9 | Security headers no `vercel.json` | ✅ CORRIGIDO (CSP/HSTS/X-Frame-Options DENY, `vercel.json:38-64`) |
-| 10 | pageSize sem cap server-side | ✅ CORRIGIDO (`list-query.ts:15` MAX 200 + repository `Math.min` 100) |
-| 11 | CSRF protection | ✅ CORRIGIDO (`csrf.ts` + `http.ts:requireCsrf`) |
-| 12 | Token em localStorage | ✅ CORRIGIDO (cookie HttpOnly; `credentials:"include"`; legacy deprecated) |
+| `copilot` (linha 757) | Chamadas LLM custosas | `copilot: 10 req/min` definido mas **nunca usado** |
+| `email` (linha 1084) | Envio de email em massa | ❌ |
+| `lookup` (linha 1138) | Chamada a APIs externas (CNPJ/CPF) | ❌ |
+| `documents` (linha 1180) | Upload/storage | ❌ |
+| `time-entries` (linha 1295) | Escrita financeira | ❌ |
+| `invoices` (linha 1348) | Escrita financeira | ❌ |
+| `knowledge` (linha 943) | Embeddings LLM | ❌ |
+| `audit` (linha 1032) | Leitura potencialmente pesada | ❌ |
 
-### 1.2 Achados novos — Segurança
+**Correção:** aplicar `checkUserRateLimit(user.id, "copilot")` no copilot; criar tiers `email`, `lookup`, `financeiro` e aplicar nos demais.
 
-**🔴 CRÍTICA · S-1 · `api/_lib/sso.ts:135-156` — id_token sem verificação de assinatura (JWKS)**
-
-`validateIdToken` extrai `signatureB64` mas nunca valida contra JWKS. `OidcMetadata.jwks_uri` é declarado no tipo (linha 15) mas nunca fetchado/usado. `iss`/`aud` são públicos. Consequência: quem conhece `SSO_ISSUER` + `SSO_CLIENT_ID` (necessários para iniciar o fluxo legítimo) pode forjar um id_token com `email=agro@jgggroup.com.br`, `email_verified=true` e bypassar o SSO inteiro → loga como qualquer usuário mapeado em `findUserByEmail`. O `expectedNonce` não protege (atacante controla o payload inteiro).
-
-**Fix:** usar `jose` (`jwtVerify` + `createRemoteJWKSet(meta.jwks_uri)`); validar `alg`/`kid`/`iss`/`aud`/`exp`/`nonce`. Cache de JWKS. Esforço S.
-
-**🟠 ALTA · S-2 · `README.md:9-13` — senha `AgroHub2026!` em repo público**
-
-O código exige hashes individuais via env (`AUTH_PASSWORD_HASH_GESTAO/COMERCIAL/JURIDICO`) quando `AUTH_SECRET` está setado; sem hashes, login por senha fica desabilitado (resta SSO). Mas o README documenta a senha em texto plano. Se os hashes de produção derivam de `AgroHub2026!`, qualquer um loga como gestão.
-
-**Fix:** remover tabela de senhas do README; girar senhas de produção; confirmar hashes ≠ `AgroHub2026!`. Esforço XS.
-
-**🟡 MÉDIA · S-3 · `auth-server.ts:184-197` — `resolveSession` sem guard de produção**
-
-`authenticate` e `issueSessionForUser` têm guard `isProduction()`, mas `resolveSession` não. Em deployment Vercel `preview` sem `AUTH_SECRET`, atacante forja token com `signToken({role:"gestao"}, "dev-insecure")` (secret público).
-
-**Fix:** `if (isProduction()) return null;` antes do fallback dev. Esforço XS.
-
-**🟡 MÉDIA · S-4 · `api/agro/[resource].ts:115` — CORS `Allow-Origin: *` com `Allow-Credentials: true` quando `APP_URL` ausente**
-
-Combinação inválida per spec CORS. Misconfiguration; quebra requests autenticados se `APP_URL` faltar. Mesmo padrão em `api/upload.ts:5-9`.
-
-**Fix:** nunca fallback `*` com credentials; usar a origin do request se válida, ou 503. Esforço XS.
-
-**🟡 MÉDIA · S-5 · `api/_lib/r2.ts:87-96` — `prefix` do body não sanitizado em `generateFileKey`**
-
-`originalName` é sanitizado, mas `prefix` (vindo do cliente) não. Permite chaves arbitrárias no bucket R2 (`prefix="admin/private"`, `prefix="../../../x"`). R2 é object storage (sem path traversal no FS), mas escreve fora do namespace `docs/` esperado.
-
-**Fix:** sanitizar `prefix` com a mesma regex aplicada a `originalName`; ou whitelist de prefixos. Esforço XS.
-
-**🟡 MÉDIA · S-6 · `api/_lib/audit.ts:43` — audit log in-memory, sem integridade/durabilidade**
-
-`auditLogs[]` module-level, MAX 10000, per-instance. Em serverless, perdido entre invocações. Sem IP, sem chain hash, sem persistência. CRM jurídico exige compliance. O handler chama `auditCreate/Update/Delete` (in-memory) — **nunca** `recordAudit` (`data-service.ts:450`, que chama `db.dbCreateAuditLog`). Em produção com DB, `agro.audit_logs` fica vazio.
-
-**Fix:** rotear audit por `recordAudit`; estender `agro.audit_logs` com `before/after/changes` JSONB + IP + chain hash; migrar `queryAuditLogs`/`getAuditStats` para SQL. Esforço M.
-
-**🟢 BAIXA · S-7 · `sso.ts:187` `authSecretOrDev()` fallback `"dev-insecure"`** — state assinado com chave pública se `AUTH_SECRET` ausente (preview/edge).
-
-**🟢 BAIXA · S-8 · `llm/providers.ts:66` `OLLAMA_BASE_URL` default `https://ollama.com/v1`** — URL incorreta (Ollama Cloud, não API local). Funcional, não segurança.
-
-**🟢 BAIXA · S-9 · `csrf.ts:8` `CSRF_SECRET` fallback `"jgg-csrf-dev-secret"`** — tokens CSRF forjáveis em dev; OK se produção sempre seta `CSRF_SECRET`/`AUTH_SECRET`. Store in-memory por instância → tokens podem falhar entre instâncias serverless; migrar para Upstash.
-
-### 1.3 Pontos verificados — limpos
-
-- **SQL injection:** `repository.ts` usa placeholders `$N` + array `values`; tagged template `sql` parametrizada pelo Neon; LIKE escapado via `sqlLikeTerm` (`repository.ts:43-45`). **Sem injection.**
-- **Secrets hardcoded:** apenas refs `process.env`; literais dev-only (`"dev-insecure"`, `"agro-jgg-salt-v1"`, `"jgg-csrf-dev-secret"`). Nenhuma chave real no código.
-- **.env committed:** `.gitignore:8` ignora `.vercel/`; `.vercel/.env.development.local` ignorado; só `.env.example` (template) rastreado. **OK.**
-- **CI secrets:** `.github/workflows/ci.yml` só typecheck/lint/test/build; sem `secrets.` expostos.
-- **LLM prompt injection:** input do usuário entra em `buildUserMessage` sem escaping; mitigado por output estruturado (`Output.object(CopilotResponseSchema)`), disclaimer fixo, resposta não executa ações. API keys server-side only (`providers.ts:44-89`); nenhuma `VITE_` expõe chave.
-- **R2 SigV4:** assinatura HMAC encadeada correta (kDate→kRegion→kService→kSigning); `expiresIn` 3600s. **Atenção:** `r2.ts:89` usa `Math.random()` (não crypto-secure) no componente aleatório da chave — usar `crypto.randomBytes`. Se `R2_PUBLIC_URL` configurado público, docs jurídicos ficam acessíveis por URL (chave timestamp+random não criptograficamente unguessable).
-
-### 1.4 Dependências
-
-`ai@^6`, `@ai-sdk/*@3`, `@neondatabase/serverless@^1.1.0`, `@vercel/node@^5.8.17`, `react@^19.1`, `zod@^3.25`, `resend@^6.12` — todos atuais. `overrides`: `undici@^5.28.5` sob `@vercel/node` — **verificar CVE-2025-22150** (proxy-authorization leak); considerar bump 5.29+ se compatível. `esbuild@^0.28.1`, `path-to-regexp@^6.3`, `minimatch@^10.2` — overrides anti-ReDoS/CVE transitivos, OK.
+**Esforço:** Pequeno (~2h) · **Prazo:** Esta semana
 
 ---
 
-## 2. QUALIDADE / CONSISTÊNCIA
+## 🟠 SEC-04 — Upload R2 sem CSRF e sem validação de tipo/tamanho
+`api/upload.ts`
 
-### 2.1 Itens da auditoria anterior — status
+1. **Sem `requireCsrf()`** — um site malicioso pode fazer upload em nome de usuário autenticado
+2. **Sem allowlist de `contentType`** — aceita qualquer MIME type
+3. **Sem limite de tamanho** — permite upload arbitrário
+4. `fileName` e `prefix` não são validados contra path traversal
 
-| Item | Estado |
-|---|---|
-| `roleCanAccess` duplicado | ✅ CORRIGIDO (import de `@shared/agro/auth`) |
-| `dbCreateLead` ID por `COUNT(*)+1` | ✅ CORRIGIDO (`uuidPrefix("LD")` = `crypto.randomUUID()`) |
-| Filtros in-memory `SELECT *` | ⚠️ PARCIAL (`dbList*` têm WHERE/LIMIT/OFFSET; mas `facets=true` re-SELECT * + JS) |
-| Lint `react-refresh` 3 warnings | ✅ CORRIGIDO (split context/value + `button-variants`) |
-| `formatDate`/`isOverdue` hack `T12:00:00` | ⚠️ PARCIAL (`format-utils.ts:18` reescrito; `date-utils.ts:6,12` ainda usa) |
+**Correção:** adicionar `requireCsrf()`, allowlist de MIME types, limite de tamanho (ex: 50MB), sanitizar `prefix`.
 
-### 2.2 Achados — Qualidade
-
-**Duplicação**
-
-- **ALTA · Q-1 · `api/agro/[resource].ts` (1705 linhas, 26 branches `if(resource==="X")`)** — cada bloco repete `requireAuth`/`requireCsrf`/`guardWrite` + dispatch por método. Impossível de revisar. **Fix:** extrair `api/_lib/resources/<name>.ts` com interface `{list,get,create,update,remove}` + dispatcher table-driven. Esforço M.
-- **MÉDIA · Q-2 · 5 `create-*-form.tsx` copy-paste** — mesmo esqueleto `useState`+`handleSubmit`+`toast`. **Fix:** hook `useCreateEntityForm` + `<CreateEntityFormShell>`. Esforço M.
-- **MÉDIA · Q-3 · 4 `*-detail.tsx` repetem scaffold** (lead/account/opportunity/matter-detail). **Fix:** `<DetailPageScaffold>`. Esforço M.
-- **ALTA · Q-4 · Audit `entityType` errado para 8 recursos** — `[resource].ts:1075,1092,1110,1208,1560,1604,1648,1696` chamam `auditCreate(..., "lead" as AuditEntityType, ...)` para document/time-entry/tax/license/credit/crop. `AuditEntityType` não inclui esses; `as` força cast e o log registra tipo errado. **Fix:** estender union + remover casts. Esforço S.
-- **BAIXA · Q-5 · `TOKEN_TTL_MS` duplicado** em `shared/agro/auth.ts:73` e `auth-server.ts:64`. Mover para `shared/agro/auth-config.ts`.
-
-**Dead code**
-
-- **BAIXA · Q-6 · `src/lib/navigation.ts:98` `MAIN_NAV`** — `@deprecated`, sem uso. Remover.
-- **BAIXA · Q-7 · `src/lib/api/client.ts:20` `setAuthToken`** — `@deprecated`, sem chamadores. Remover.
-- **BAIXA · Q-8 · `src/lib/crm-filter-helpers.ts:3,21` `uniqueSorted`/`matchesValueRange`** — sem uso. Remover.
-- **BAIXA · Q-9 · `auth-context-value.ts:8` `acceptToken`** — `@deprecated` (cookie HttpOnly). Remover após confirmar.
-- **BAIXA · Q-10 · `llm/providers.ts:141-164` `generateStructured`** — dead; handler usa `generateText + Output.object` direto.
-
-**Tipagem**
-
-- **ALTA · Q-11 · 81 ocorrências `: any`/`as any`/`!.`** — hot spots: `[resource].ts` ~20 casts nos 12 recursos sem validator; `src/pages/agro/*.tsx` `(X as any)` em query results (`tax-obligations:43`, `crop-seasons:29`, `productivity:17,19`, `environmental-licenses:50`, `credit-instruments:56`, `reports:23,25`, `calendar:59`); `src/components/crm/*` `(item:any)` em reduce/map.
-- **ALTA · Q-12 · Hooks de lista com tipo ambíguo** — `useAllMatters` retorna às vezes `PaginatedResult<Matter>` às vezes `Matter[]`; componentes fundem com `as any` (`create-matter-form.tsx:30`, `calendar.tsx:59`, `productivity.tsx:17`, `reports.tsx:23`). **Fix:** padronizar retorno dos hooks.
-- **MÉDIA · Q-13 · `repository.ts` `rows.map((r) => mapX(r as Record<string, unknown>))`** ~20x — tipar retorno de `getSql()` uma vez.
-- **BAIXA · Q-14 · `api/upload.ts:48` `catch (err: any)`** — único `err:any` da API. Usar `unknown`.
-
-**Erros / error handling**
-
-- **MÉDIA · Q-15 · 9 blocos `} catch {` silenciosos** — `sso.ts:52,153,181` (metadata/state/id_token → null sem log); `auth-context.tsx:24` (restoreSession zera sem logar); `document-manager.tsx:147` (R2 falha → "save metadata only", usuário não sabe); `rate-limit.ts:59,82,117`; `json-utils.ts:12`. **Fix:** `console.warn` estruturado nos fallbacks.
-- **MÉDIA · Q-16 · `rag.ts:118` fallback vazio silencioso** — embedding search falha → `[]` → Copilot responde sem contexto sem indicar degradação ao usuário.
-- **ALTA · Q-17 · Cookie CSRF inconsistente** — `[action].ts:74` grava `agro_csrf; SameSite=Strict` hardcoded; `http.ts:26,28` `csrfCookieName()` = `__Host-agro_csrf` em prod + `SameSite=Lax`. Em prod, `getCsrfCookie` procura `__Host-agro_csrf` → não encontra o cookie gravado. Header `X-CSRF-Token` ainda funciona (cliente lê `csrfToken` da resposta), então impacto limitado ao fallback por cookie. **Fix:** `setCsrfCookie(res, token)` centralizado em `http.ts`.
-- **MÉDIA · Q-18 · `[resource].ts:1058` ID `DOC-${Date.now()}`** — colisão em mesmo ms; outras entidades usam `uuidPrefix`. **Fix:** `uuidPrefix("DOC")`. Esforço XS.
-- **BAIXA · Q-19 · `console.error` sem logger estruturado** — `upload.ts:48`, `cnpj.ts:115,167,197`. Dívida de observabilidade.
-
-**Inconsistências**
-
-- **MÉDIA · Q-20 · Dois `MAX_PAGE_SIZE`** — `list-query.ts:15`=200 (DB), `list-types.ts:3`=100 (memória). Dev retorna max 100, prod 200. Unificar.
-- **ALTA · Q-21 · 12 recursos sem validação de payload** — `documents, document-checklist, time-entries, invoices, fee-agreements, contacts, properties, opposing-parties, tax-obligations, environmental-licenses, credit-instruments, crop-seasons` usam `getBody(req.body) as any`; aceitam enums arbitrários (`status`, `type`, `category`, `phase`, `risk`) corrompendo dados que filtros/stats/audit assumem. Mesma classe do item 2.4 anterior (agora corrigido só para os 7 CRM). **Fix:** estender `validation.ts` aos 12. Esforço M.
-- **MÉDIA · Q-22 · Dois padrões de acesso a dados** — 7 CRM usam `data-service` (memory vs db + guard); 12 agrícolas/documentos fazem `await import("../../shared/agro/store.js")` direto (58 dynamic imports), bypassando `data-service`, `assertWritableInProd` e repositório Postgres. Em produção com DB, esses 12 gravam só na memória da instância — perdidos. **Fix:** estender `data-service` aos 12. Esforço L.
-- **BAIXA · Q-23 · Políticas de cookie mistas** — `cookieBase()` `SameSite=Lax`; CSRF login `SameSite=Strict`. Unificar.
-
-**Magic numbers**
-
-- **BAIXA · Q-24 · `store.ts` offsets mágicos** — `DL-${length+501}`, `ACT-${length+601}`, `OP-${length+201}` sem constantes nomeadas.
-- **BAIXA · Q-25 · `audit.ts:34` `MAX_LOGS=10000`** hardcoded.
-- **BAIXA · Q-26 · `DOC-${Date.now()}`** (ver Q-18).
-
-**Store / Serverless**
-
-- **MÉDIA · Q-27 · `store.ts:558` estado mutável module-level** — em serverless: dev (sem DB) cold start recria seed, warm compartilha estado entre usuários; prod com DB popula seed por `structuredClone` (desperdício) e nunca usado pelos 7 CRM, mas usado pelos 12 de Q-22. `auditLogs`, `OIDC_META_CACHE`, `memoryBucket` (rate-limit) também module-level → rate limit por IP por instância (trivial de contornar). `assertWritableInProd` só cobre recursos que passam por `data-service`; os 12 de Q-22 **não passam pelo guard** — gravam na memória em produção sem erro.
-
-**Copilot**
-
-- **MÉDIA · Q-28 · `copilot.ts:522` keyword matcher if-else chain** — `matchPromptId` O(n) por prompt, frágil a sinônimos. **Fix:** tabela `Map<PromptId, string[]>` + scoring, ou RAG real sobre `KNOWLEDGE_DOCUMENTS` (handler já tenta LLM primeiro com fallback keywords).
-
-**Tamanho (linhas)**
-
-| Linhas | Arquivo |
-|---|---|
-| 1705 | `api/agro/[resource].ts` (Q-1) |
-| 1000 | `shared/agro/seed.ts` (OK) |
-| 983 | `api/_lib/db/repository.ts` (monolítico) |
-| 704 | `api/_lib/data-service.ts` |
-| 642 | `src/lib/api/client.ts` |
-| 605 | `shared/agro/types.ts` (catálogo, OK) |
-| 558 | `shared/agro/store.ts` (Q-27) |
-| 522 | `shared/agro/copilot.ts` (Q-28) |
-| 508 | `src/hooks/use-crm-queries.ts` |
-| 493 | `api/_lib/validation.ts` (17 validators) |
-
-**Testes**
-
-- **ALTA · Q-29 · Lacunas críticas** — sem cobertura para `auth-server.ts` (210 linhas, fix sem regressão), `sso.ts` (188), `csrf.ts`, `rate-limit.ts`, `validation.ts` (493), `audit.ts`, `cnpj.ts` (272), `list-query.ts`, `repository.ts` (983, só mappers testados), `data-service.ts` (704), `date-utils.ts`, todos hooks/components/pages. Existentes: 9 unit + 1 e2e.
-- **MÉDIA · Q-30 · E2E só cobre leads** — faltam matter, opportunity (conversão), RBAC negativo (comercial→matters 403).
-- **ALTA · Q-31 · Lint já falha no main (139 erros)** — `npm run lint` reporta 139 erros `@typescript-eslint/no-explicit-any` concentrados em `src/pages/agro/*` (productivity, reports, tax-obligations, crop-seasons, environmental-licenses, credit-instruments, calendar) e `api/agro/[resource].ts` (casts dos 12 recursos sem validator, Q-21). A auditoria anterior (12/06) citava "3 warnings" — defasada; os commits P2/P3 adicionaram páginas agro com `as any` e o gate de lint não impediu. Verificar se `.github/workflows/ci.yml` falha o job em erros (aparentemente não está gateando). Recomendação: (a) aplicar E-5/E-20 (validators + schemas tipados) elimina a maioria; (b) garantir que CI falhe em `npm run lint` com erro.
+**Esforço:** Pequeno (~2h) · **Prazo:** Esta semana
 
 ---
 
-## 3. ARQUITETURA E EVOLUÇÃO
+## 🟠 SEC-05 — Autorização genérica: 10 recursos sob permissão `"leads"`
+`api/agro/[resource].ts`
 
-### 3.1 O que o projeto faz
+Recursos sensíveis usam `requireAuth(req, res, "leads")` para autorização:
 
-CRM jurídico verticalizado para o agronegócio brasileiro. SPA React 19 na Vercel + Serverless Functions. O domínio cobre o funil completo: **Leads → Oportunidades → Contas → Demandas (matters) → Tarefas**, com rastreabilidade (`lead_id` → `opportunity_id` → `converted_opportunity_id`) e entidades complementares: prazos processuais, timeline de atividades, documentos (versionamento + checklist), horas/faturamento, contatos, propriedades rurais, partes contrárias, obrigações tributárias (ITR/ITBI/IPVA), licenças ambientais (LP/LI/LO), crédito rural (CPR/CCB/penhor/alienação fiduciária).
+- `documents`, `document-checklist`, `time-entries`, `invoices`, `fee-agreements`, `contacts`, `properties`, `opposing-parties`, `conflict-check`, `lookup`
 
-A camada de IA entrega o **Agro Copilot** com pipeline RAG — embeddings sobre `KNOWLEDGE_DOCUMENTS` (23 docs, 10 categorias), similaridade cosseno, prompt com contexto CRM (stats + entidade em foco + resultados RAG), saída estruturada Zod + `Output.object()` (AI SDK v6), fallback determinístico para keyword engine quando nenhum provider LLM está configurado. Há ainda SSO OIDC com PKCE, CSRF tokens, rate limiting, audit log com diff before/after, export CSV por entidade e uma landing institucional em `/institucional`.
+Isso significa que mudanças na lógica de permissão de "leads" afetam inadvertidamente dados financeiros e jurídicos. O perfil `comercial` ganha acesso a faturas, honorários e documentos.
 
-A arquitetura é **dual-store**: `shared/agro/store.ts` (memória + seed fictício) e `api/_lib/db/repository.ts` (Neon Postgres), selecionados em runtime por `isDbEnabled()`. O domínio é totalmente compartilhado entre front e back através de `shared/agro/types.ts` (~600 linhas canônicas), eliminando drift de tipos.
+**Correção:** criar recursos dedicados no `PERMISSIONS` matrix: `financeiro`, `documentos`, `contatos`, `propriedades`, `conflitos`.
 
-### 3.2 Como está estruturado
+**Esforço:** Médio (~1-2 dias) · **Prazo:** Esta semana
 
+---
+
+## 🟠 SEC-06 — `upload.ts` aceita `contentType` do usuário para presign R2
+`api/upload.ts` · `api/_lib/r2.ts`
+
+O `contentType` do body é passado diretamente para a geração da presigned URL. Um usuário pode presignar URLs para upload de executáveis, HTML (para stored XSS via R2), ou outros tipos perigosos.
+
+**Correção:** allowlist de tipos permitidos (PDF, DOC, DOCX, JPG, PNG, XLS, XLSX, CSV).
+
+**Esforço:** Pequeno (~30min) · **Prazo:** Esta semana
+
+---
+
+## 🟡 SEC-07 — Segredos com fallback hardcoded
+`api/_lib/csrf.ts:26` · `api/_lib/sso.ts:210` · `api/_lib/auth-server.ts:54,76,161`
+
+| Arquivo | Segredo hardcoded | Quando usado |
+|---|---|---|
+| `csrf.ts:26` | `"jgg-csrf-dev-secret"` | `CSRF_SECRET` ausente |
+| `sso.ts:210` | `"dev-insecure"` | `AUTH_SECRET` ausente |
+| `auth-server.ts:54` | `"agro-jgg-salt-v1"` | `AUTH_PASSWORD_SALT` ausente + sem `AUTH_SECRET` |
+| `auth-server.ts:76` | hash de `"jgg-agro-dev"` | Sem `AUTH_SECRET` |
+| `auth-server.ts:161` | `"dev-insecure"` | Sem `AUTH_SECRET` |
+
+Todos são gated por verificações de ambiente, mas estão no código-fonte público.
+
+**Correção:** falhar fechado (lançar erro) na ausência de segredo em qualquer deploy. Em dev, usar `.env.local` que não é commitado.
+
+**Esforço:** Pequeno (~1h) · **Prazo:** Próxima sprint
+
+---
+
+## 🟡 SEC-08 — `distinctSorted`: interpolação SQL sem allowlist
+`api/_lib/db/repository.ts:1343-1359`
+
+```ts
+`SELECT DISTINCT ${column} AS v FROM ${table} ${where} AND ${column} IS NOT NULL ORDER BY ${column}`
 ```
-Frontend (src/)
-  pages/ (lazy em App.tsx) · components/{crm,agro,command-center,copilot,knowledge,layout,ui,auth}
-  hooks/ (TanStack Query) · contexts/ (auth, theme — split value/provider) · lib/api/client.ts
-Shared (shared/agro/) — DOMÍNIO CANÔNICO
-  types · store · seed · auth(RBAC) · filters · list-types · convert · copilot · knowledge · stats
-API (api/)
-  agro/[resource].ts (handler único, 17 recursos) · auth/[action].ts · upload · admin/db-setup · health/db
-  _lib/{data-service, guard, auth-server, sso, http, csrf, rate-limit, r2, email, cnpj, validation, audit,
-        db/{client,repository,migrate,mappers,json-utils}, llm/{providers,embeddings,rag,prompt,schema}}
-DB (db/) — schema.sql (canônico futuro, inclui agro.users) · migrate.sql (idempotente, npm run db:setup)
+
+`table` e `column` são interpolados diretamente. Hoje só recebe literais, mas é footgun de SQLi.
+
+**Correção:** allowlistar identificadores em `Record<string, string>`.
+
+**Esforço:** Pequeno (~30min) · **Prazo:** Próxima sprint
+
+---
+
+## 🟡 SEC-09 — Error messages vazam detalhes internos
+`api/health/db.ts:14-23` · `api/upload.ts:46`
+
+Mensagens de erro do banco são retornadas diretamente ao cliente:
+```ts
+error: err instanceof Error ? err.message : "Erro de conexão"
 ```
 
-**Fluxo lista paginada:** hook → `agroApi.leads` → `GET /api/agro/leads` → `requireAuth` (cookie → `resolveSession` → `verifySignedToken`) → `requireCsrf` → `checkUserRateLimit` → `parseLeadListQuery` → `listLeads` (data-service: `isDbEnabled()? db.dbListLeads : memory.listLeads`) → `json(res, PaginatedResult)` → React Query cache.
+**Correção:** retornar mensagem genérica; logar detalhe server-side.
 
-**Fluxo auth:** login → rate limit → `authenticate` (USERS.find → scrypt + `timingSafeEqual`) → `signToken` HMAC → cookie `__Host-agro_session` HttpOnly+Secure+SameSite=Lax + cookie CSRF. SSO: `sanitizeFrom` → PKCE S256 → state+nonce HMAC → redirect IdP → callback valida state cookie → `exchangeSsoCode` → `validateIdToken` (**sem JWKS**) → `findUserByEmail` → issue session.
+**Esforço:** Pequeno (~30min) · **Prazo:** Próxima sprint
 
-**Fluxo RAG:** `POST /api/agro/copilot` → `loadCrmDataset()` (SELECT * 7 tabelas) → `computeCrmStats` → se sem config LLM: keyword engine (simulado); senão `searchKnowledge` (embeddings lazy + cache module-level + cosine) → `buildSystemPrompt` → `generateText + Output.object(CopilotResponseSchema)` → fallback keyword on error.
+---
 
-### 3.3 Dívida arquitetural
+## 🟡 SEC-10 — Token HMAC caseiro sem iat/jti/revogação
+`api/_lib/auth-server.ts:91-121`
 
-**Alta**
+`signToken` monta `base64url(JSON).hmac` manualmente. Sem `iat`, `jti`, nem versionamento de algoritmo — não é possível revogar tokens nem detectar replay. A biblioteca `jose` já é dependência.
 
-- **A-1 · Audit bifurcado e silenciosamente ineficaz em prod** — handler usa `auditCreate/Update/Delete` in-memory, nunca `recordAudit` (`data-service.ts:450` → DB). `agro.audit_logs` vazio em prod. (== S-6/Q-4)
-- **A-2 · RAG cache efêmero e caro** — `rag.ts:18` `embeddingCache` module-level; cada cold start regenera embeddings (chamadas pagas) e perde em warm-down. Sem pgvector, RAG só funciona em instâncias warm. Dívida reconhecida inline (`rag.ts:7`).
-- **A-3 · id_token SSO sem verificação criptográfica** (== S-1).
+**Correção:** migrar para `jose.SignJWT`/`jwtVerify` com `iat`, `jti`, `alg` header.
 
-**Média**
+**Esforço:** Médio (~1 dia) · **Prazo:** Backlog
 
-- **A-4 · `loadCrmDataset()` full-scan por request** — `data-service.ts:402-411` SELECT * em 7 tabelas sem WHERE + `computeCrmStats` em JS. Cada `/stats` e `/copilot` varre o banco. Sem cache, sem materialized view, sem agregação SQL.
-- **A-5 · Facets re-executam SELECT sem WHERE** — `repository.ts:88-92,184-188,332-336,385-389,434-438` re-SELECT * + facets em JS. N+1 desnecessária.
-- **A-6 · 12 entidades só no memory store em prod** (== Q-22) — `documents`, `time_entries` são críticos para operação jurídica.
-- **A-7 · Handler único de 1705 linhas** (== Q-1) — cold start pesado, difícil de testar, merge conflict. Motivação legítima (limite de 12 functions do plano Hobby); solução = dispatcher enxuto + handlers por resource (cada arquivo vira uma function, dentro do limite).
-- **A-8 · Schema-vs-types drift** — `schema.sql:49-56` define `agro.users` (UUID, password_hash) mas `auth-server.ts` usa `USERS[]` hardcoded lendo env — a tabela nunca é lida. `types.ts:186` typo `DocumentCategory = " despacho"` (espaço à esquerda). `DocumentVersion`, `Contact`, `Property`, `OpposingParty`, `TimeEntry`, `Invoice`, `FeeAgreement`, `TaxObligation`, `EnvironmentalLicense`, `CreditInstrument`, `CropSeason` estão em types mas sem tabela em `schema.sql`.
+---
 
-**Baixa**
+## 🔵 SEC-11 — CSP com `unsafe-inline` para estilos
+`vercel.json:61`
 
-- IDs `crypto.randomUUID()` + prefixo — OK (sem colisão). `agro.leads.created_at` é DATE não TIMESTAMPTZ — inconsistente, perde hora. `generateStructured` em `providers.ts` dead (Q-10). 3 warnings lint resolvidos. CI não roda e2e nem migração. Sem observabilidade (Sentry/structured logging). `pageSize` cap no repository mas não declarado na contract de validation.
+`style-src 'self' 'unsafe-inline'` é necessário para Tailwind mas enfraquece mitigação de XSS. `script-src` está correto (sem `unsafe-inline`).
 
-### 3.4 Sugestões de evolução (prioridade · esforço · arquivos)
+**Correção:** considerar nonce-based CSP ou Tailwind com hash.
 
-| # | Sugestão | Prio | Esforço | Arquivos |
+**Esforço:** Alto · **Prazo:** Backlog
+
+---
+
+## 🔵 SEC-12 — CI sem varredura de segurança
+`.github/workflows/ci.yml`
+
+Pipeline faz typecheck/lint/test/build mas não roda `npm audit`, secret-scanning, nem SAST.
+
+**Correção:** adicionar step `npm audit --audit-level=high` e habilitar Dependabot.
+
+**Esforço:** Pequeno (~1h) · **Prazo:** Backlog
+
+---
+
+## 🔵 SEC-13 — Token em localStorage (legado dev)
+`src/lib/api/client.ts:15-27`
+
+`getAuthToken`/`setAuthToken` (`@deprecated`) ainda gravam em `localStorage` — exfiltrável por XSS. Exercitado apenas no mock dev.
+
+**Correção:** remover funções legadas.
+
+**Esforço:** Pequeno (~30min) · **Prazo:** Backlog
+
+---
+
+## 🔵 SEC-14 — `console.warn` em código de produção
+`src/components/crm/document-manager.tsx:143`
+
+`console.warn("R2 not configured, saving metadata only")` expõe detalhe de infraestrutura no console do browser.
+
+**Correção:** remover ou usar logger silencioso.
+
+**Esforço:** Pequeno (~5min) · **Prazo:** Backlog
+
+---
+
+## 🔵 SEC-15 — Validação de input fraca no frontend
+`contact-manager.tsx` — CPF/email/telefone sem validação. `cnpj-lookup.tsx:46` — valida só 14 dígitos sem dígito verificador. API client não valida formatos de ID antes de enviar.
+
+**Correção:** adicionar validação client-side para UX (Zod ou máscaras).
+
+**Esforço:** Médio · **Prazo:** Backlog
+
+---
+
+# PARTE 2 — QUALIDADE / CONSISTÊNCIA
+
+## 🔴 QUAL-01 — 97 ocorrências de `any` — type safety anulado
+`src/lib/api/client.ts:540-675` · `src/pages/agro/*.tsx` · `src/components/crm/*.tsx`
+
+A segunda metade do API client (~40 métodos) retorna `Promise<any>`:
+- `listDocuments`, `createDocument`, `listDocumentChecklist`, `listTimeEntries`, `createTimeEntry`, `listInvoices`, `createInvoice`, `listFeeAgreements`, `listContacts`, `createContact`, `listProperties`, `createProperty`, `listOpposingParties`, `listCropSeasons`, `listTaxObligations`, `listEnvironmentalLicenses`, `listCreditInstruments` — **todos `request<any>`**
+
+Páginas usam casts massivos:
+- `reports.tsx` — 13 `any` casts
+- `tax-obligations.tsx` — 12 `any` casts
+- `environmental-licenses.tsx` — 10 `any` casts
+- `credit-instruments.tsx` — 10 `any` casts
+- `productivity.tsx` — 6 `any` casts
+
+Resultado: bugs silenciosos como `e.billed` (inexistente) em vez de `e.invoiced`.
+
+**Correção:** tipar todos os métodos do client com tipos de `@shared/agro/types`. Eliminar `as any` em páginas.
+
+**Esforço:** Alto (~3-4 dias) · **Prazo:** Próxima sprint
+
+---
+
+## 🔴 QUAL-02 — 8 entidades sem persistência em DB (perda de dados em produção)
+`api/agro/[resource].ts` → `shared/agro/store.ts`
+
+As seguintes entidades escrevem **direto no store em memória**, sem branch para DB:
+
+| Entidade | Linha no handler | Tem tabela DB? |
+|---|---|---|
+| `documents` | 1180 | ❌ |
+| `document-checklist` | 1252 | ❌ |
+| `time-entries` | 1295 | ❌ |
+| `invoices` | 1348 | ❌ |
+| `fee-agreements` | 1385 | ❌ |
+| `contacts` | 1410 | ❌ |
+| `properties` | 1452 | ❌ |
+| `opposing-parties` | 1494 | ❌ |
+
+Em produção com `DATABASE_URL` configurado, `guardWrite` passa (só checa `isDbEnabled()` globalmente) — a escrita retorna `201` mas vive apenas na instância serverless atual. **Dados financeiros e documentais são perdidos a cada cold start.**
+
+**Correção:** estender `repository.ts` + `data-service.ts` com tabelas/funções. Enquanto isso, `guardWrite` deve bloquear por recurso quando não há tabela.
+
+**Esforço:** Alto (~3-5 dias) · **Prazo:** Imediato
+
+---
+
+## 🟠 QUAL-03 — Handler monolítico de 1.700+ linhas
+`api/agro/[resource].ts`
+
+O handler `if (resource === "X")` contém ~20 blocos repetindo o mesmo padrão:
+```
+auth → guardWrite → rate-limit → validate → CRUD → audit
+```
+
+~1.500 LOC de boilerplate quase idêntico. Alto custo de manutenção e fácil divergência (copilot esqueceu rate-limit; documents chama requireCsrf redundante).
+
+**Correção:** extrair resource registry:
+```ts
+const RESOURCES: Record<string, { permission: string; handlers: CrudHandlers; auditType: string }> = { ... }
+```
+Dispatcher genérico colapsa ~1.500 → ~400 LOC.
+
+**Esforço:** Médio (~2-3 dias) · **Prazo:** Próxima sprint
+
+---
+
+## 🟠 QUAL-04 — `repository.ts` monolítico com 2.400+ linhas e 80+ funções
+`api/_lib/db/repository.ts`
+
+Funções CRUD por entidade com padrão idêntico (List/Get/Create/Patch/Delete), mesma lógica de paginação, mesmo `WHERE deleted_at IS NULL`. Compartilham 80%+ de estrutura.
+
+**Correção:** split em arquivos por entidade ou criar repositório CRUD genérico parametrizado.
+
+**Esforço:** Médio (~2 dias) · **Prazo:** Próxima sprint
+
+---
+
+## 🟠 QUAL-05 — Duplicação de funções de formatação
+`src/lib/crm-labels.ts:145-162` vs `src/lib/format-utils.ts:8-22` vs `src/components/crm/time-entry-manager.tsx:66`
+
+| Função | Localização 1 | Localização 2 | Localização 3 |
+|---|---|---|---|
+| `formatDate` | `crm-labels.ts:160` (com T12:00:00) | `format-utils.ts:18` (split manual) | — |
+| `formatBrl`/`formatCurrency` | `crm-labels.ts:145` (maxFractionDigits: 0) | `format-utils.ts:8` (sem limit) | `time-entry-manager.tsx:66` (inline) |
+
+Implementações divergem em comportamento (timezone, casas decimais).
+
+**Correção:** consolidar em `format-utils.ts`, remover duplicatas.
+
+**Esforço:** Pequeno (~1h) · **Prazo:** Esta semana
+
+---
+
+## 🟠 QUAL-06 — Mock API de 519 linhas no bundle de produção
+`src/lib/api/local-handlers.ts`
+
+Implementa REST API completa (auth, CRUD, paginação, filtros, business logic) no browser. Quando `VITE_USE_API !== "true"`, o código é importado e bundled em produção. Aumenta o tamanho do bundle e mistura concerns client/server.
+
+**Correção:** usar `import.meta.env.DEV` guard ou dynamic import para tree-shaking em produção.
+
+**Esforço:** Pequeno (~1h) · **Prazo:** Próxima sprint
+
+---
+
+## 🟡 QUAL-07 — Tratamento de erro frágil: 13+ catch blocks silenciosos
+Múltiplos arquivos
+
+```ts
+catch {} // engole erro completamente
+catch { toast.error("Erro ao criar X") } // sem detalhe
+```
+
+| Arquivo | Linha | Contexto |
+|---|---|---|
+| `auth-context.tsx` | 24 | Session restore |
+| `login.tsx` | 39 | Login |
+| `create-lead-form.tsx` | 49 | Criação de lead |
+| `create-task-form.tsx` | 36 | Criação de task |
+| `create-matter-form.tsx` | 54 | Criação de demanda |
+| `create-opportunity-form.tsx` | 40 | Criação de oportunidade |
+| `create-account-form.tsx` | 38 | Criação de conta |
+| `document-manager.tsx` | 147, 160 | Upload e save |
+| `crop-seasons.tsx` | 48 | CRUD safra |
+| `tax-obligations.tsx` | 70 | CRUD tributos |
+| `environmental-licenses.tsx` | 76 | CRUD licenças |
+| `credit-instruments.tsx` | 80 | CRUD crédito |
+
+Nenhum loga o erro ou fornece diagnóstico.
+
+**Correção:** toast com mensagem do erro; logar no backend; distinguir "DB indisponível" de "não encontrado".
+
+**Esforço:** Médio (~1 dia, espalhado) · **Prazo:** Próxima sprint
+
+---
+
+## 🟡 QUAL-08 — Páginas P3 quase idênticas (~800 LOC duplicadas)
+`src/pages/agro/{tax-obligations,environmental-licenses,credit-instruments,crop-seasons}.tsx`
+
+4 páginas de ~200 LOC com a mesma estrutura: header + KPIs + filtro + lista + form. `STATUS_ICONS`, `STATUS_COLORS`, `STATUS_LABELS` copiados localmente. CSS classes idênticas aparecem 29+ vezes (selects) e 101+ vezes (labels).
+
+**Correção:** `<ResourceListPage>` genérico + `StatusBadge` + `FormField` componentes reutilizáveis.
+
+**Esforço:** Médio (~2 dias) · **Prazo:** Backlog
+
+---
+
+## 🟡 QUAL-09 — Monólito de hooks: 508 linhas em `use-crm-queries.ts`
+`src/hooks/use-crm-queries.ts`
+
+30+ hooks para todas as entidades CRM em um único arquivo. `crmKeys` factory é bem estruturada, mas o arquivo é grande demais.
+
+**Correção:** split em `use-leads.ts`, `use-accounts.ts`, `use-matters.ts`, etc.
+
+**Esforço:** Pequeno (~2h) · **Prazo:** Backlog
+
+---
+
+## 🟡 QUAL-10 — API client god object: 686 linhas, ~50 métodos
+`src/lib/api/client.ts`
+
+Um único objeto `agroApi` com ~50 métodos. Mistura concerns: auth, CRM, knowledge, copilot, documents, properties, tax, environmental, credit. Métodos inline com `import()` types difíceis de ler.
+
+**Correção:** split por domínio: `crm-client.ts`, `document-client.ts`, `finance-client.ts`, etc.
+
+**Esforço:** Médio (~1-2 dias) · **Prazo:** Backlog
+
+---
+
+## 🟡 QUAL-11 — Código deprecado ainda em uso
+| Item | Localização | Status |
+|---|---|---|
+| `getAuthToken()`/`setAuthToken()` | `client.ts:14-23` | `@deprecated`, ainda chamado na linha 66 |
+| `MAIN_NAV` | `navigation.ts:97-101` | `@deprecated`, ainda exportado |
+| `acceptToken` | `auth-context-value.ts:8-9` | `@deprecated`, usado em `login.tsx:28` e `auth-context.tsx:56` |
+
+**Correção:** remover exports deprecados e refatorar callers.
+
+**Esforço:** Pequeno (~1h) · **Prazo:** Backlog
+
+---
+
+## 🟡 QUAL-12 — `process.env` disperso sem validação centralizada
+69 acessos diretos a `process.env.*` espalhados pela API. Sem config module que valide variáveis obrigatórias no startup.
+
+**Correção:** criar módulo `config.ts` com validação Zod no cold start. Variáveis ausentes = erro imediato, não runtime failure.
+
+**Esforço:** Pequeno (~2h) · **Prazo:** Backlog
+
+---
+
+## 🔵 QUAL-13 — Formulários de criação com padrão repetido
+5 formulários (`create-lead-form`, `create-account-form`, `create-opportunity-form`, `create-matter-form`, `create-task-form`) seguem o mesmo padrão: `useState` → `handleSubmit` → `toast` → reset.
+
+**Correção:** extrair hook `useCreateForm<T>` ou componente genérico.
+
+**Esforço:** Médio · **Prazo:** Backlog
+
+---
+
+## 🔵 QUAL-14 — `request()` assume JSON, quebra em respostas não-JSON
+`src/lib/api/client.ts:76`
+
+```ts
+const data = await res.json();
+```
+
+Se o servidor retorna HTML (502/503 de proxy), `res.json()` lança `SyntaxError` com mensagem confusa.
+
+**Correção:** verificar `Content-Type` antes de parsear; fallback para texto.
+
+**Esforço:** Pequeno (~30min) · **Prazo:** Backlog
+
+---
+
+## 🔵 QUAL-15 — `useCrmListPage` com estado que cresce indefinidamente
+`src/hooks/use-crm-list-page.ts:5`
+
+`pageByFilter` cresce conforme combinações de filtros mudam — chaves antigas nunca são limpas.
+
+**Correção:** limitar tamanho do Map ou usar LRU.
+
+**Esforço:** Pequeno (~30min) · **Prazo:** Backlog
+
+---
+
+## 🔵 QUAL-16 — Rotas hardcoded como strings em App.tsx
+`src/App.tsx:120,127,134,141`
+
+Rotas como `/agro/crm/leads/:id` são strings hardcoded, mas o objeto `ROUTES` tem funções `leadDetail(id)`. Se rotas mudarem, `ROUTES` e `App.tsx` divergem.
+
+**Correção:** usar `ROUTES.crm.leadDetail(":id")` nas definições de rota.
+
+**Esforço:** Pequeno (~30min) · **Prazo:** Backlog
+
+---
+
+## 🔵 QUAL-17 — `Object.assign` no store permite sobrescrever `id`
+`shared/agro/store.ts:140` e similares
+
+```ts
+Object.assign(account, patch);
+```
+
+`patch` é `Partial<Account>` que inclui `id`. Nada impede `patchAccount("AC-101", { id: "AC-HACKED" })`.
+
+**Correção:** desestruturar `id` e `createdAt` do patch antes do assign.
+
+**Esforço:** Pequeno (~30min) · **Prazo:** Backlog
+
+---
+
+## 🔵 QUAL-18 — URL hardcoded de aplicação externa
+`src/lib/brand.ts:12`
+
+```ts
+JGG_TRIBUTARIO_URL = "https://tax-group-hub.vercel.app"
+```
+
+**Correção:** mover para variável de ambiente.
+
+**Esforço:** Pequeno (~15min) · **Prazo:** Backlog
+
+---
+
+# PARTE 3 — ARQUITETURA E EVOLUÇÃO
+
+## Diagnóstico Estrutural
+
+O projeto é um CRM jurídico-agro bem fatiado com arquitetura limpa:
+- **Frontend:** pages → hooks → api-client → handlers (lazy loading, error boundary, React Query)
+- **API:** serverless → data-service → repository/store
+- **Shared:** tipos, store, RBAC, copilot, seed data
+
+**Pontos fortes:** react-query com cache keys, RBAC default-deny, cookies `__Host-` HttpOnly, JWKS via `jose`, audit com hash-chain, rate-limit distribuído, validação de input extensiva via Zod-like validators.
+
+**Ponto fraco transversal:** dualidade DB ↔ memória mal contida. 11 entidades funcionam em memória, 8 sem tabela DB. Lógica de domínio dependente do fuso da máquina.
+
+---
+
+## 🔴 ARQ-01 — Cálculo de prazos processuais incorreto
+`shared/agro/deadline-calculator.ts`
+
+Para um CRM jurídico, este é o achado de maior impacto de negócio:
+
+1. **Feriados hardcoded só até 2026** — tabela expira em meses
+2. **`isHoliday` compara em UTC** (`toISOString()`) enquanto `isWeekend` usa horário local — divergência browser vs server
+3. **Ignora recesso forense** (20/12–20/01, CPC art. 220)
+4. **Ignora feriados estaduais/municipais**
+5. **Bug:** `type === "custom" && customDays` trata `0` como ausente (falsy)
+
+**Correção:**
+- Módulo de calendário forense com fonte atualizável (tabela DB ou API)
+- Cálculo em `America/Sao_Paulo` via `Intl.DateTimeFormat`
+- Incluir recesso forense
+- `now` injetável para testabilidade
+- Tabela de feriados move para DB com seed anual
+
+**Esforço:** Médio (~2-3 dias) · **Prazo:** Imediato
+
+---
+
+## 🔴 ARQ-02 — Lógica de domínio dependente do fuso horário da máquina
+`shared/agro/date-utils.ts:3-16` · `shared/agro/convert.ts:25-30`
+
+`isOverdue`, `isWithinDays`, `dueDate` usam `getFullYear()`, `getDay()`, `setHours(0,0,0,0)` — fuso do usuário no browser, UTC no container serverless. Mesmo input gera resultados divergentes.
+
+**Correção:** todas as datas devem usar `Intl.DateTimeFormat('pt-BR', {timeZone: 'America/Sao_Paulo'})` ou biblioteca como `date-fns-tz`. Funções puras com `now` como parâmetro.
+
+**Esforço:** Médio (~1 dia) · **Prazo:** Próxima sprint
+
+---
+
+## 🟠 ARQ-03 — Geração de IDs por `array.length` — colisão garantida
+`shared/agro/store.ts:213,233,245`
+
+```ts
+return `DL-${String(store.deadlines.length + 501).padStart(3, "0")}`;
+```
+
+Após soft-delete, `length` não diminui. Após `resetStore()`, reinicia. IDs duplicados são garantidos em cenários de concorrência.
+
+**Correção:** `crypto.randomUUID()` ou sequência do DB.
+
+**Esforço:** Pequeno (~3h) · **Prazo:** Próxima sprint
+
+---
+
+## 🟠 ARQ-04 — `listDeadlines`/`getDeadline` sem filtro de soft-delete
+`shared/agro/store.ts:188-195`
+
+Diferente de todas as outras listas, `listDeadlines` e `getDeadline` retornam entidades soft-deletadas. `Deadline` tem `deletedAt` no tipo (`types.ts:172`) mas o filtro não é aplicado.
+
+**Correção:** adicionar `.filter(d => !d.deletedAt)` em ambas as funções.
+
+**Esforço:** Pequeno (~15min) · **Prazo:** Imediato
+
+---
+
+## 🟠 ARQ-05 — Copilot: `history` aceito mas ignorado; keyword matching ambíguo
+`shared/agro/copilot.ts:93-156,228-523`
+
+1. `CopilotQueryRequest.history` (types.ts:600) é aceito mas **completamente ignorado** — sem contexto de conversa
+2. `matchPromptId` verifica keywords sequencialmente — "qual o risco de sucessão?" casa com `"risks-today"` antes de checar `"succession-meeting"`
+3. `resolveCopilotQuery` é uma cadeia de 13 `if (promptId === ...)` com blocos quase idênticos (~300 linhas)
+
+**Correção:**
+- Tabela `Record<promptId, builderFn>` em vez de if-chain
+- Sistema de scoring/peso para keywords
+- Passar `history` como contexto ao LLM real
+
+**Esforço:** Médio (~2 dias) · **Prazo:** Backlog
+
+---
+
+## 🟠 ARQ-06 — Falta de error boundaries por rota
+`src/main.tsx`
+
+Único `ErrorBoundary` global. Se uma página crasha, o app inteiro morre.
+
+**Correção:** wraps por `AgroRoute` com `ErrorBoundary` específico e fallback de "voltar ao início".
+
+**Esforço:** Pequeno (~2h) · **Prazo:** Próxima sprint
+
+---
+
+## 🟠 ARQ-07 — Zero testes para auth/RBAC (código mais crítico)
+Áreas sem teste:
+
+| Área | LOC | Testes | Risco |
+|---|---|---|---|
+| Auth/RBAC (`auth.ts`, `auth-server.ts`) | ~400 | 0 | 🔴 |
+| Repository DB (`repository.ts`) | 2.424 | 0 | 🟠 |
+| Handler API (`[resource].ts`) | 1.709 | 0 | 🟠 |
+| Componentes React | ~5.000 | 0 | 🟡 |
+| Hooks (`use-crm-queries.ts`) | 508 | 0 | 🟡 |
+| Copilot (11 de 13 prompts) | ~400 | 2 testes | 🟡 |
+| Filtros (matters, tasks, accounts) | ~200 | 0 | 🟡 |
+
+**Correção:** priorizar testes de auth/RBAC (security-critical), depois repository e handler.
+
+**Esforço:** Alto (~5 dias) · **Prazo:** Backlog contínuo
+
+---
+
+## 🟡 ARQ-08 — `data-service.ts` triplica trabalho por entidade
+`api/_lib/data-service.ts` (1.187 linhas)
+
+Cada entidade requer implementação em `store.ts` AND `repository.ts` + glue em `data-service.ts`. `DB_BACKED_RESOURCES` em `guard.ts` deve ser manualmente sincronizado.
+
+**Correção:** codegen ou factory de data-service a partir dos tipos. Resource registry que mapeia entidade → { store, repo, guard }.
+
+**Esforço:** Médio (~2-3 dias) · **Prazo:** Backlog
+
+---
+
+## 🟡 ARQ-09 — Paginação inconsistente
+List endpoints retornam `PaginatedResult<T>`. Deadlines, activities, contacts, properties, opposing-parties retornam arrays sem paginação. Quebrará quando dados crescerem.
+
+**Correção:** unificar todos os list endpoints para `PaginatedResult<T>`.
+
+**Esforço:** Médio (~1-2 dias) · **Prazo:** Backlog
+
+---
+
+## 🟡 ARQ-10 — Sem observabilidade estruturada
+Apenas `console.error`/`console.warn`. Sem log levels, sem JSON estruturado, sem correlation IDs, sem métricas (request count, latência, error rate), sem Sentry/Datadog, sem tracking de uso do Copilot (tokens, custo).
+
+**Correção:** logger estruturado (pino), Sentry para erros, Vercel Analytics para métricas.
+
+**Esforço:** Médio (~2 dias) · **Prazo:** Backlog
+
+---
+
+## 🟡 ARQ-11 — `schema.sql` e `migrate.sql` dessincronizados
+`db/schema.sql` vs `db/migrate.sql`
+
+`schema.sql` é DDL "limpa" mas `migrate.sql` é a migration real. Divergem:
+- `schema.sql:60-77` (accounts) inclui `properties`, `contacts` como colunas nativas
+- `migrate.sql:62-73` omite essas colunas, depois adiciona via ALTER (linhas 143-147)
+- `leads` em `schema.sql` tem `phone`, `email`, `cnpj`, `cpf` — `migrate.sql` não
+
+`schema.sql` é aspiracional mas não é source of truth.
+
+**Correção:** gerar `schema.sql` a partir de `migrate.sql` ou usar ferramenta de migration (Drizzle, Prisma).
+
+**Esforço:** Pequeno (~2h) · **Prazo:** Backlog
+
+---
+
+## 🔵 ARQ-12 — Sem API versioning
+Rotas `/api/agro/*` sem prefixo de versão. Breaking changes exigirão deploy coordenado frontend/backend.
+
+**Correção:** adicionar `/api/v1/agro/*` e manter compatibilidade com rota atual.
+
+**Esforço:** Pequeno (~2h) · **Prazo:** Backlog
+
+---
+
+## 🔵 ARQ-13 — Multi-tenancy não preparado
+Sem `organizationId` ou `tenantId` em nenhuma entidade. Schema, queries e RBAC não suportam isolamento organizacional.
+
+**Correção:** planejar antes de escalar — adicionar `tenantId` em todas as tabelas e filtrar automaticamente.
+
+**Esforço:** Alto (refatoração de schema) · **Prazo:** Backlog (antes de escalar)
+
+---
+
+## 🔵 ARQ-14 — `CopilotConfigStatus` e `history` — features incompletas
+`shared/agro/types.ts:600,611-627`
+
+- `CopilotQueryRequest.history` é definido mas ignorado
+- `CopilotConfigStatus` retorna availability flags mas nunca é usada no frontend para feedback
+- `CopilotResponse.simulated` é sempre `true` mesmo quando LLM real está configurado
+
+**Correção:** integrar `history` no pipeline LLM; usar `CopilotConfigStatus` no UI; detectar `simulated` automaticamente.
+
+**Esforço:** Médio · **Prazo:** Backlog
+
+---
+
+# ROADMAP PRIORIZADO
+
+| # | Item | Frente | Sev | Esforço | Prazo |
+|---|---|---|---|---|---|
+| 1 | Persistir 8 entidades em DB (ou bloquear escrita) — QUAL-02 | Dados | 🔴 | Alto (3-5d) | Imediato |
+| 2 | Corrigir cálculo de prazos (feriados + fuso + recesso) — ARQ-01 | Negócio | 🔴 | Médio (2-3d) | Imediato |
+| 3 | Corrigir soft-delete em `listDeadlines`/`getDeadline` — ARQ-04 | Dados | 🟠 | Pequeno (15min) | Imediato |
+| 4 | Escapar HTML em templates de email — SEC-02 | Segurança | 🔴 | Pequeno (1h) | Imediato |
+| 5 | Corrigir fallback de token forjável — SEC-01 | Segurança | 🔴 | Pequeno (1h) | Hoje |
+| 6 | Rate-limit no copilot, email, lookup — SEC-03 | Segurança | 🟠 | Pequeno (2h) | Esta semana |
+| 7 | CSRF + allowlist no upload — SEC-04 | Segurança | 🟠 | Pequeno (2h) | Esta semana |
+| 8 | Permissões dedicadas p/ recursos sensíveis — SEC-05 | Segurança | 🟠 | Médio (1-2d) | Esta semana |
+| 9 | Consolidar funções de formatação — QUAL-05 | Qualidade | 🟠 | Pequeno (1h) | Esta semana |
+| 10 | Datas timezone-safe em shared — ARQ-02 | Arquitetura | 🟠 | Médio (1d) | Próxima sprint |
+| 11 | IDs via UUID — ARQ-03 | Arquitetura | 🟠 | Pequeno (3h) | Próxima sprint |
+| 12 | Tipar API client (97 `any`) — QUAL-01 | Qualidade | 🔴 | Alto (3-4d) | Próxima sprint |
+| 13 | Refatorar handler monolítico — QUAL-03 | Qualidade | 🟠 | Médio (2-3d) | Próxima sprint |
+| 14 | Error boundaries por rota — ARQ-06 | Arquitetura | 🟠 | Pequeno (2h) | Próxima sprint |
+| 15 | Falhar-fechado em segredos — SEC-07 | Segurança | 🟡 | Pequeno (1h) | Próxima sprint |
+| 16 | Split `repository.ts` — QUAL-04 | Qualidade | 🟠 | Médio (2d) | Próxima sprint |
+| 17 | Gate `local-handlers` em produção — QUAL-06 | Qualidade | 🟠 | Pequeno (1h) | Próxima sprint |
+| 18 | Erro handling com logging real — QUAL-07 | Qualidade | 🟡 | Médio (1d) | Próxima sprint |
+| 19 | Testes auth/RBAC — ARQ-07 | Qualidade | 🟠 | Médio (2d) | Backlog |
+| 20 | `<ResourceListPage>` genérico — QUAL-08 | Qualidade | 🟡 | Médio (2d) | Backlog |
+| 21 | Observabilidade estruturada — ARQ-10 | Arquitetura | 🟡 | Médio (2d) | Backlog |
+| 22 | Copilot: tabela de prompts + history — ARQ-05 | Arquitetura | 🟠 | Médio (2d) | Backlog |
+| 23 | Paginação unificada — ARQ-09 | Arquitetura | 🟡 | Médio (1-2d) | Backlog |
+| 24 | Config centralizada com Zod — QUAL-12 | Qualidade | 🟡 | Pequeno (2h) | Backlog |
+| 25 | CI security scan — SEC-12 | Segurança | 🔵 | Pequeno (1h) | Backlog |
+| 26 | Testes: handler + repository + componentes — ARQ-07 | Qualidade | 🟡 | Alto (5d) | Backlog contínuo |
+
+---
+
+# SUGESTÕES DE EVOLUÇÃO DE PRODUTO
+
+O projeto tem infraestrutura pronta para features de alto valor:
+
+| # | Feature | Pré-requisito | Valor | Esforço |
 |---|---|---|---|---|
-| E-1 | **Validar assinatura id_token via JWKS** (`jose` + `createRemoteJWKSet`) | P0 | S | `sso.ts`, `package.json` |
-| E-2 | **Wire audit ao DB**: trocar `auditCreate/Update/Delete` por `recordAudit`; estender `agro.audit_logs` com `before/after/changes` JSONB + IP + chain hash; migrar `queryAuditLogs`/`getAuditStats` SQL | P0 | M | `audit.ts`, `[resource].ts`, `repository.ts`, `migrate.sql` |
-| E-3 | **Remover senhas do README + girar prod** | P0 | XS | `README.md` |
-| E-4 | **`resolveSession` guard `isProduction()`** + sanitizar `prefix` R2 + fix CORS fallback | P0 | XS | `auth-server.ts`, `r2.ts`, `[resource].ts` |
-| E-5 | **Validators para 12 recursos restantes** (estender `validation.ts`) | P0 | M | `validation.ts`, `[resource].ts` |
-| E-6 | **pgvector + persistência de embeddings**: `CREATE EXTENSION vector`; tabela `agro.kb_embeddings(doc_id PK, embedding VECTOR(1536), text, updated_at)`; pré-computar em `db:setup`; consulta `<=>` cosine; chunking por seção | P1 | M | `rag.ts`, `embeddings.ts`, `migrate.sql`, `schema.sql`, `repository.ts` |
-| E-7 | **Migrar 12 entidades a Postgres** (priorizar `documents`, `time_entries`): tabela + `dbList/Get/Create/Update/Delete` + ramo DB em data-service + apagar fallback memory | P1 | L | `schema.sql`, `migrate.sql`, `repository.ts`, `mappers.ts`, `data-service.ts`, `store.ts` |
-| E-8 | **Stats SQL nativo**: `COUNT(*) FILTER`, `SUM FILTER`, `jsonb_agg` substituindo `loadCrmDataset+computeCrmStats`; cache 60s edge / `staleTime` maior | P1 | M | `repository.ts`, `data-service.ts`, `stats.ts` |
-| E-9 | **Facets via `GROUP BY`** SQL | P1 | M | `repository.ts`, `filters.ts` |
-| E-10 | **OIDC logout (RP-initiated)** + `userinfo_endpoint` | P1 | S | `sso.ts`, `[action].ts` |
-| E-11 | **`agro.users` no DB + senhas por usuário**: `dbFindUserByEmail`, `dbGetUserPasswordHash`; seed 3 users com scrypt + salt aleatório | P1 | M | `auth-server.ts`, `repository.ts`, `schema.sql`, `scripts/db-setup.ts` |
-| E-12 | **Dispatcher + handlers por resource** (split `[resource].ts`) | P2 | M | `api/agro/*`, `vercel.json` |
-| E-13 | **Query builder tipado** (`drizzle-orm` ou `kysely`) | P2 | L | `api/_lib/db/*`, `package.json` |
-| E-14 | **Observabilidade**: Sentry serverless+react, `pino`, `X-Request-Id` correlação | P2 | M | `http.ts`, `[resource].ts`, `main.tsx` |
-| E-15 | **E2E matters/opportunities/RBAC** + contract tests | P2 | M | `e2e/*`, `playwright.config.ts` |
-| E-16 | **CI e2e + migration test** contra Neon ephemeral branch + preview comment | P2 | S | `.github/workflows/*` |
-| E-17 | **Citações `[KB-XXX]` no Copilot**: schema Zod refine + chips clicáveis | P2 | S | `llm/schema.ts`, `llm/prompt.ts`, `copilot-response-card.tsx` |
-| E-18 | **`<EntityDetailLayout>`** DRY detail pages | P2 | M | `src/pages/crm/*-detail.tsx` |
-| E-19 | **Índices**: `idx_leads_status`, `idx_opportunities_stage`, `idx_matters_status/risk`, `idx_tasks_status/priority`, `idx_*_created_at DESC` | P2 | S | `migrate.sql`, `schema.sql` |
-| E-20 | **`<EntityForm>`** com `react-hook-form`+`zodResolver`; schemas compartilhados `shared/agro/schemas.ts` (elimina drift validação front/back) | P3 | M | `src/components/crm/*-form.tsx`, `validation.ts` |
-| E-21 | **Sequences para IDs legados** (`agro.entity_sequences`, `INSERT…ON CONFLICT DO UPDATE`) | P3 | S | `repository.ts`, `migrate.sql` |
-| E-22 | **`updated_at` trigger** | P3 | S | `migrate.sql` |
-| E-23 | **Virtualização de listas** (`@tanstack/react-virtual`) — prematuro hoje | P3 | S | `entity-table.tsx` |
-| E-24 | **Optimistic updates** (`onMutate`+`setQueryData`) | P3 | S | `use-crm-queries.ts` |
-| E-25 | **Corrigir typo `DocumentCategory " despacho"`** + migration normalize | P3 | XS | `types.ts`, `migrate.sql` |
-| E-26 | **Remover dead code** (Q-6..Q-10) | P3 | XS | vários |
-| E-27 | **CSP estrito** (relaxar `style-src 'unsafe-inline'` via nonce build-time) | P3 | M | `vercel.json`, `vite.config.ts`, `index.html` |
-| E-28 | **`undici` override bump** (CVE-2025-22150) | P1 | XS | `package.json` |
-| E-29 | **Unificar `MAX_PAGE_SIZE`** + **`setCsrfCookie` centralizado** + **`uuidPrefix("DOC")`** | P1 | XS | `list-types.ts`, `http.ts`, `[action].ts`, `[resource].ts` |
-| E-30 | **Testes mínimos**: `auth-server`, `validation`, `sso`, `csrf`, `rate-limit` | P1 | M | `*.test.ts` novos |
-
-### 3.5 Veredito
-
-A codebase evoluiu muito desde 12/06: todos os itens críticos de auth/SSO/CSRF/headers/CI/conteúdo foram endereçados. **Pronto para dados reais após P0+P1.** A dívida restante concentra-se em: (a) auditoria não persistida, (b) 12 entidades ainda em memória, (c) RAG sem pgvector, (d) full-scan em stats, (e) validação criptográfica do id_token, (f) 12 recursos sem validator de payload. Nenhuma dessas é bloqueadora para uso interno, mas todas se tornam agudas antes de multi-inquilino ou volume produtivo.
+| 1 | **Calendário de prazos com alertas** | Correção ARQ-01 + notificações | Diferencial central de CRM jurídico | Médio |
+| 2 | **Editor de petições com RAG** | knowledge.ts + pgvector + entidades do caso | Acelera produção jurídica | Alto |
+| 3 | **Portal do cliente** (read-only) | RBAC existente + nova role `cliente` | Transparência para clientes | Médio |
+| 4 | **Importação CNJ/DataJud** | API externa + parser | Auto-popular cnjNumber/movimentações | Médio |
+| 5 | **Streaming do Copilot** | `generateText` → `streamText` | UX responsiva para respostas longas | Pequeno |
+| 6 | **Email compose/inbox no frontend** | Resend backend já existe | Comunicação integrada | Médio |
+| 7 | **Upload de documentos no frontend** | R2 backend já existe | Gestão documental completa | Pequeno |
+| 8 | **Optimistic updates** | React Query já configurado | UX imediata em mutations | Pequeno |
+| 9 | **Dashboard financeiro** | Persistir invoices/time-entries (QUAL-02) | Visão gerencial de receita | Médio |
+| 10 | **Multi-tenancy** | Schema refactor (ARQ-13) | Escalar para múltiplos escritórios | Alto |
 
 ---
 
-## Priorização consolidada (top → bottom)
+## Metodologia
 
-**P0 — corrigir agora (segurança/correção):**
-1. E-1 JWKS id_token (S-1) — CRÍTICA
-2. E-3 remover senhas README + girar (S-2) — ALTA
-3. E-2 audit ao DB (S-6/Q-4/A-1) — ALTA
-4. E-5 validators 12 recursos (Q-21) — ALTA
-5. E-4 guards (resolveSession prod, R2 prefix, CORS) (S-3/S-4/S-5) — MÉDIA
+- **Agente Frontend:** varredura de `src/` (106 arquivos, ~14.400 LOC) — pages, hooks, components, contexts, lib, api client
+- **Agente Backend:** varredura de `api/` (31 arquivos) — auth, db, llm, guards, rate-limit, validation, handlers
+- **Agente Shared/Scripts:** varredura de `shared/` (19 arquivos), `scripts/` (2), `db/` (2), `e2e/` (1)
+- **Leitura manual:** configs (package.json, tsconfig, vercel.json, vite.config, vitest.config, eslint, CI, .env.example, .gitignore)
 
-**P1 — antes de dados reais:**
-6. E-7 migrar 12 entidades a Postgres (Q-22/A-6) — ALTA
-7. E-6 pgvector + embeddings persistentes (A-2) — ALTA
-8. E-8 stats SQL nativo (A-4) — MÉDIA
-9. E-9 facets GROUP BY (A-5) — MÉDIA
-10. E-11 users no DB (A-8) — MÉDIA
-11. E-28 undici bump, E-29 unificar pageSize/csrf cookie/DOC-id, E-30 testes mínimos — MÉDIA
-
-**P2 — qualidade/escala:**
-12. E-12 dispatcher split (Q-1/A-7), E-13 query builder, E-14 observabilidade, E-15/E-16 E2E+CI, E-17 citações, E-18 detail DRY, E-19 índices
-
-**P3 — polish:**
-13. E-20..E-27 forms, sequences, triggers, virtualização, optimistic, typo, dead code, CSP
-
----
-
-## Verificação (pós-implementação, quando aplicável)
-
-- `npm run typecheck` limpo
-- `npm run lint` sem warnings
-- `npm run test` (unit) verde — adicionar testes E-30
-- `npm run test:e2e` (smoke + novos E2E E-15)
-- `npm run build` ok
-- Para SSO (E-1): fluxo completo contra IdP real (Azure/Google) — callback valida assinatura JWKS
-- Para audit (E-2): operação CRUD → row em `agro.audit_logs` com diff + IP
-- Para 12 entidades (E-7): escrita em prod com `DATABASE_URL` → persiste; sem `DATABASE_URL` → 503 do guard
-- Para pgvector (E-6): cold start não regenera embeddings; consulta `<=>` retorna top-5
-
----
-
-## Notas
-
-- CodeGraph não inicializado neste projeto (`codegraph init -i` disponível se desejar índice estrutural para próximas auditorias).
-- Auditoria prévia `AUDITORIA-2026-06-12.md` mantida no repo para histórico.
+Todos os achados foram confirmados por leitura direta dos arquivos citados com referências `arquivo:linha`. Nenhuma alteração de código foi feita nesta auditoria.

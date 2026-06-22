@@ -1,4 +1,3 @@
-import { handleLocalApi } from "./local-handlers";
 import { buildQuery } from "./build-query";
 import type {
   AccountListParams,
@@ -65,6 +64,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (shouldUseLocalApi()) {
     const token = getAuthToken();
     if (token) headers.Authorization = `Bearer ${token}`;
+    const { handleLocalApi } = await import("./local-handlers");
     const { status, data } = await handleLocalApi(path, { ...init, headers });
     if (status >= 400) {
       throw new ApiError(status, (data as { error?: string }).error ?? "Erro na API");

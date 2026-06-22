@@ -8,10 +8,9 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAllMatters, useTimeEntries } from "@/hooks/use-crm-queries";
-import { formatCurrency } from "@/lib/format-utils";
+import { formatCurrency } from "@/lib/crm-labels";
 
 export default function ReportsPage() {
   usePageTitle("Relatórios Financeiros");
@@ -26,16 +25,16 @@ export default function ReportsPage() {
     const entries = entriesData?.items || entriesData || [];
 
     const totalRevenue = entries
-      .filter((e: any) => e.billed)
-      .reduce((sum: number, e: any) => sum + (e.totalValue || e.hours * e.hourlyRate || 0), 0);
+      .filter((e: any) => e.invoiced)
+      .reduce((sum: number, e: any) => sum + (e.totalBrl || e.hours * e.hourlyRate || 0), 0);
 
     const unbilledRevenue = entries
-      .filter((e: any) => !e.billed)
-      .reduce((sum: number, e: any) => sum + (e.totalValue || e.hours * e.hourlyRate || 0), 0);
+      .filter((e: any) => !e.invoiced)
+      .reduce((sum: number, e: any) => sum + (e.totalBrl || e.hours * e.hourlyRate || 0), 0);
 
     const totalHours = entries.reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
     const unbilledHours = entries
-      .filter((e: any) => !e.billed)
+      .filter((e: any) => !e.invoiced)
       .reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
 
     const mattersByStatus: Record<string, number> = {};

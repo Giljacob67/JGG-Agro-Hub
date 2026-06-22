@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAllMatters, useTimeEntries } from "@/hooks/use-crm-queries";
-import { formatCurrency, formatHours } from "@/lib/format-utils";
+import { formatCurrency, formatHours } from "@/lib/crm-labels";
 
 export default function ProductivityPage() {
   usePageTitle("Produtividade por Advogado");
@@ -44,9 +44,9 @@ export default function ProductivityPage() {
         };
       }
       byLawyer[lawyer].hours += e.hours || 0;
-      if (e.billed) {
+      if (e.invoiced) {
         byLawyer[lawyer].billedHours += e.hours || 0;
-        byLawyer[lawyer].revenue += e.totalValue || e.hours * e.hourlyRate || 0;
+        byLawyer[lawyer].revenue += e.totalBrl || e.hours * e.hourlyRate || 0;
       } else {
         byLawyer[lawyer].unbilledHours += e.hours || 0;
       }

@@ -186,12 +186,13 @@ export function patchMatter(
 /* ---------------------------------------------------------------- Prazos */
 
 export function listDeadlines(matterId?: string): Deadline[] {
-  if (!matterId) return store.deadlines;
-  return store.deadlines.filter((d) => d.matterId === matterId);
+  const active = store.deadlines.filter((d) => !d.deletedAt);
+  if (!matterId) return active;
+  return active.filter((d) => d.matterId === matterId);
 }
 
 export function getDeadline(id: string): Deadline | undefined {
-  return store.deadlines.find((d) => d.id === id);
+  return store.deadlines.find((d) => d.id === id && !d.deletedAt);
 }
 
 export function addDeadline(deadline: Deadline) {
@@ -211,7 +212,7 @@ export function patchDeadline(
 }
 
 export function nextDeadlineId(): string {
-  return `DL-${String(store.deadlines.length + 501).padStart(3, "0")}`;
+  return `DL-${crypto.randomUUID()}`;
 }
 
 /* ------------------------------------------------------------ Interações */
@@ -231,7 +232,7 @@ export function addActivity(activity: Activity) {
 }
 
 export function nextActivityId(): string {
-  return `ACT-${String(store.activities.length + 601).padStart(3, "0")}`;
+  return `ACT-${crypto.randomUUID()}`;
 }
 
 /* ------------------------------------------------ Conversão e vínculos */
@@ -243,7 +244,7 @@ export function listMattersByOpportunity(opportunityId: string): Matter[] {
 }
 
 export function nextOpportunityId(): string {
-  return `OP-${String(store.opportunities.length + 201).padStart(3, "0")}`;
+  return `OP-${crypto.randomUUID()}`;
 }
 
 export function addOpportunity(opp: Opportunity) {

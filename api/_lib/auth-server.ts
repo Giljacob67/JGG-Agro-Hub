@@ -1,6 +1,5 @@
 import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
 import {
-  resolveSession as resolveDevSession,
   roleCanAccess,
   hasPermission,
   getResourcePermissions,
@@ -164,7 +163,7 @@ export async function authenticate(
 }
 
 function isProduction(): boolean {
-  return process.env.VERCEL_ENV === "production";
+  return !!process.env.VERCEL_ENV;
 }
 
 export function issueSessionForUser(user: AgroUser): string {
@@ -187,14 +186,12 @@ export function resolveSession(token: string | undefined): AgroUser | null {
     // que são forjáveis por qualquer cliente.
     return verifySignedToken(token, secret);
   }
-  // Sem AUTH_SECRET: o fallback dev ("dev-insecure" / token legado) só é
+  // Sem AUTH_SECRET: o fallback dev ("dev-insecure") só é
   // permitido em ambiente local (sem VERCEL_ENV). Em qualquer deployment
   // Vercel (preview ou production) sem AUTH_SECRET, recusa — o secret
   // "dev-insecure" é público e forjável, não pode autenticar em deploy.
   if (process.env.VERCEL_ENV) return null;
-  const devUser = verifySignedToken(token, "dev-insecure");
-  if (devUser) return devUser;
-  return resolveDevSession(token);
+  return verifySignedToken(token, "dev-insecure");
 }
 
 export function isSecureAuthEnabled(): boolean {

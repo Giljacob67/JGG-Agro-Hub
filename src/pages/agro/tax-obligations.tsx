@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useTaxObligations } from "@/hooks/use-crm-queries";
 import { agroApi } from "@/lib/api/client";
-import { formatCurrency } from "@/lib/format-utils";
+import { formatCurrency } from "@/lib/crm-labels";
 
 const TAX_TYPES: Record<string, string> = {
   itr: "ITR",
