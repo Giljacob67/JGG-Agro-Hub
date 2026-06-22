@@ -83,29 +83,87 @@ export const PROCEDURAL_DEADLINES: Record<DeadlineType, Omit<DeadlineCalculation
   },
 };
 
-// ── Feriados nacionais 2024-2026 (expandível) ─────────────────────
+// ── Feriados nacionais (computados dinamicamente) ──────────────────
+//
+// Feriados fixos + móveis (derivados da Páscoa) calculados por ano, para
+// não expirar. Inclui recesso forense (CPC art. 220, 20/12–20/01), durante
+// o qual os prazos processuais ficam suspensos.
 
-const NATIONAL_HOLIDAYS = [
-  // 2024
-  "2024-01-01", "2024-02-12", "2024-02-13", "2024-02-14",
-  "2024-03-29", "2024-04-21", "2024-05-01", "2024-05-30",
-  "2024-06-12", "2024-09-07", "2024-10-12", "2024-11-02",
-  "2024-11-15", "2024-11-20", "2024-12-25",
-  // 2025
-  "2025-01-01", "2025-03-03", "2025-03-04", "2025-04-18",
-  "2025-04-21", "2025-05-01", "2025-06-19", "2025-09-07",
-  "2025-10-12", "2025-11-02", "2025-11-15", "2025-11-20",
-  "2025-12-25",
-  // 2026
-  "2026-01-01", "2026-02-16", "2026-02-17", "2026-04-03",
-  "2026-04-21", "2026-05-01", "2026-06-04", "2026-09-07",
-  "2026-10-12", "2026-11-02", "2026-11-15", "2026-11-20",
-  "2026-12-25",
-];
+/** Domingo de Páscoa pelo algoritmo de Gauss/Anonymous Gregorian. */
+function easterSunday(year: number): Date {
+  const a = year % 19;
+  const b = Math.floor(year / 100);
+  const c = year % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
+/** Formata uma data como "YYYY-MM-DD" em horário **local** (consistente
+ *  com getDay/getDate usados no resto do módulo — evita drift de fuso). */
+function localYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function addDays(date: Date, days: number): Date {
+  const r = new Date(date);
+  r.setDate(r.getDate() + days);
+  return r;
+}
+
+const HOLIDAY_CACHE = new Map<number, Set<string>>();
+
+/** Conjunto de feriados nacionais (fixos + móveis) para um ano. */
+function nationalHolidays(year: number): Set<string> {
+  const cached = HOLIDAY_CACHE.get(year);
+  if (cached) return cached;
+
+  const easter = easterSunday(year);
+  const dates = [
+    new Date(year, 0, 1), // Confraternização Universal
+    new Date(year, 3, 21), // Tiradentes
+    new Date(year, 4, 1), // Dia do Trabalho
+    new Date(year, 8, 7), // Independência
+    new Date(year, 9, 12), // Nossa Senhora Aparecida
+    new Date(year, 10, 2), // Finados
+    new Date(year, 10, 15), // Proclamação da República
+    new Date(year, 10, 20), // Consciência Negra (Lei 14.759/2023)
+    new Date(year, 11, 25), // Natal
+    addDays(easter, -48), // Carnaval (segunda)
+    addDays(easter, -47), // Carnaval (terça)
+    addDays(easter, -2), // Sexta-feira Santa
+    addDays(easter, 60), // Corpus Christi
+  ];
+
+  const set = new Set(dates.map(localYmd));
+  HOLIDAY_CACHE.set(year, set);
+  return set;
+}
 
 function isHoliday(date: Date): boolean {
-  const dateStr = date.toISOString().slice(0, 10);
-  return NATIONAL_HOLIDAYS.includes(dateStr);
+  return nationalHolidays(date.getFullYear()).has(localYmd(date));
+}
+
+/**
+ * Recesso forense: prazos processuais suspensos de 20/12 a 20/01
+ * (CPC art. 220). Dias nesse intervalo não contam como úteis.
+ */
+function isForensicRecess(date: Date): boolean {
+  const month = date.getMonth(); // 0-based
+  const day = date.getDate();
+  return (month === 11 && day >= 20) || (month === 0 && day <= 20);
 }
 
 function isWeekend(date: Date): boolean {
@@ -114,7 +172,7 @@ function isWeekend(date: Date): boolean {
 }
 
 function isBusinessDay(date: Date): boolean {
-  return !isWeekend(date) && !isHoliday(date);
+  return !isWeekend(date) && !isHoliday(date) && !isForensicRecess(date);
 }
 
 // ── Funções de cálculo ─────────────────────────────────────────────
@@ -162,7 +220,8 @@ export function calculateDeadline(
   customDays?: number,
 ): DeadlineCalculation & { dueDate: string; daysRemaining: number } {
   const config = PROCEDURAL_DEADLINES[type];
-  const days = type === "custom" && customDays ? customDays : config.businessDays;
+  const days =
+    type === "custom" && customDays != null ? customDays : config.businessDays;
   const dueDate = addBusinessDays(startDate, days);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -173,7 +232,7 @@ export function calculateDeadline(
     label: config.label,
     businessDays: days,
     description: config.description,
-    dueDate: dueDate.toISOString().slice(0, 10),
+    dueDate: localYmd(dueDate),
     daysRemaining,
   };
 }

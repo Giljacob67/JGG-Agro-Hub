@@ -35,4 +35,22 @@ describe("assertWritableInProd", () => {
     vi.stubEnv("DATABASE_URL", "");
     expect(assertWritableInProd("tasks")).toEqual({ ok: true });
   });
+
+  it("bloqueia (503) recurso memory-only em produção mesmo com DATABASE_URL", () => {
+    vi.stubEnv("VERCEL_ENV", "production");
+    vi.stubEnv("DATABASE_URL", "postgresql://user:pass@host/db");
+    const g = assertWritableInProd("invoices");
+    expect(g.ok).toBe(false);
+    if (!g.ok) {
+      expect(g.status).toBe(503);
+      expect(g.message).toContain("invoices");
+      expect(g.message).toContain("perda silenciosa");
+    }
+  });
+
+  it("permite recurso memory-only em dev (não bloqueia local)", () => {
+    vi.stubEnv("VERCEL_ENV", "");
+    vi.stubEnv("DATABASE_URL", "");
+    expect(assertWritableInProd("time-entries")).toEqual({ ok: true });
+  });
 });

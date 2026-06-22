@@ -93,6 +93,49 @@ describe("Deadline Calculator", () => {
     });
   });
 
+  describe("feriados móveis (derivados da Páscoa)", () => {
+    it("Sexta-feira Santa 2026 (03/04) não é dia útil", () => {
+      expect(isBusinessDayCheck(new Date(2026, 3, 3))).toBe(false);
+    });
+
+    it("Corpus Christi 2026 (04/06) não é dia útil", () => {
+      expect(isBusinessDayCheck(new Date(2026, 5, 4))).toBe(false);
+    });
+
+    it("Carnaval (terça) 2026 (17/02) não é dia útil", () => {
+      expect(isBusinessDayCheck(new Date(2026, 1, 17))).toBe(false);
+    });
+
+    it("feriados computados para anos fora da lista antiga (2030)", () => {
+      // Natal 2030 cai numa quarta — deve ser feriado mesmo sem hardcode.
+      expect(isBusinessDayCheck(new Date(2030, 11, 25))).toBe(false);
+    });
+  });
+
+  describe("recesso forense (CPC art. 220, 20/12–20/01)", () => {
+    it("05/01 está em recesso — não é dia útil", () => {
+      expect(isBusinessDayCheck(new Date(2027, 0, 5))).toBe(false);
+    });
+
+    it("22/12 está em recesso — não é dia útil", () => {
+      expect(isBusinessDayCheck(new Date(2027, 11, 22))).toBe(false);
+    });
+
+    it("21/01 já fora do recesso", () => {
+      // 21/01/2027 é quinta — fora do recesso e dia útil.
+      expect(isBusinessDayCheck(new Date(2027, 0, 21))).toBe(true);
+    });
+  });
+
+  describe("customDays === 0", () => {
+    it("respeita 0 dias úteis em vez de cair no default", () => {
+      const start = new Date(2026, 5, 15);
+      const result = calculateDeadline(start, "custom", 0);
+      expect(result.businessDays).toBe(0);
+      expect(result.dueDate).toBe("2026-06-15");
+    });
+  });
+
   describe("PROCEDURAL_DEADLINES", () => {
     it("should have all deadline types", () => {
       expect(PROCEDURAL_DEADLINES.contestacao).toBeDefined();

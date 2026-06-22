@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { resolveSession, roleCanAccess } from "./auth-server.js";
-import { validateCsrfToken, getSessionId } from "./csrf.js";
+import { validateCsrfToken } from "./csrf.js";
 import { assertWritableInProd } from "./guard.js";
 import type { AgroUser } from "../../shared/agro/types.js";
 
@@ -37,13 +37,13 @@ export function getToken(req: VercelRequest): string | undefined {
   return parseCookies(req.headers.cookie)[sessionCookieName()];
 }
 
-function getCsrfCookie(req: VercelRequest): string | undefined {
-  return parseCookies(req.headers.cookie)[csrfCookieName()];
-}
-
 /**
  * Validate CSRF token for write requests (POST, PATCH, DELETE).
  * Returns true if valid, false if invalid (and sends 403 response).
+ *
+ * Double-submit: aceita o token **apenas** via header `X-CSRF-Token`.
+ * O cookie CSRF nunca é aceito como prova — um POST forjado cross-site
+ * carrega o cookie automaticamente mas não consegue setar header custom.
  */
 export function requireCsrf(req: VercelRequest, res: VercelResponse): boolean {
   // Only validate on write methods
@@ -53,19 +53,16 @@ export function requireCsrf(req: VercelRequest, res: VercelResponse): boolean {
 
   const sessionToken = getToken(req);
   const csrfHeader = req.headers["x-csrf-token"] as string | undefined;
-  const csrfCookie = getCsrfCookie(req);
 
   // If no session, let requireAuth handle it
   if (!sessionToken) return true;
 
-  // CSRF token can come from header or cookie
-  const csrfToken = csrfHeader || csrfCookie;
-  if (!csrfToken) {
+  if (!csrfHeader) {
     res.status(403).json({ error: "CSRF token ausente" });
     return false;
   }
 
-  if (!validateCsrfToken(sessionToken, csrfToken)) {
+  if (!validateCsrfToken(sessionToken, csrfHeader)) {
     res.status(403).json({ error: "CSRF token inválido" });
     return false;
   }
@@ -93,10 +90,17 @@ export function setSessionCookie(res: VercelResponse, token: string) {
  * Adiciona o cookie CSRF preservando cookies já setados (e.g. o de sessão).
  * `res.setHeader("Set-Cookie", ...)` substitui — sem este merge, setar o
  * cookie CSRF logo após o de sessão apagaria a sessão.
+ *
+ * Diferente do cookie de sessão, este é **não-HttpOnly** de propósito: o
+ * SPA precisa lê-lo via `document.cookie` para ecoá-lo no header
+ * `X-CSRF-Token` (double-submit). Como é o HMAC da sessão, expô-lo ao JS
+ * não vaza a sessão. `SameSite=Lax` segue como defesa em profundidade.
  */
 export function setCsrfCookie(res: VercelResponse, token: string) {
   const name = csrfCookieName();
-  const csrf = `${name}=${encodeURIComponent(token)}; Max-Age=3600; ${cookieBase()}`;
+  const isProd = process.env.VERCEL_ENV === "production";
+  const secure = isProd ? "; Secure" : "";
+  const csrf = `${name}=${encodeURIComponent(token)}; Max-Age=3600; Path=/; SameSite=Lax${secure}`;
   const existing = res.getHeader("Set-Cookie");
   if (Array.isArray(existing)) {
     res.setHeader("Set-Cookie", [...existing, csrf]);

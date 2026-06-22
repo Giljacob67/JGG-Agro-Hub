@@ -31,15 +31,22 @@ function shouldUseLocalApi() {
   return import.meta.env.DEV && import.meta.env.VITE_USE_API !== "true";
 }
 
-// CSRF token management
+// CSRF token management.
+// O token vem no body do /login (password) ou, para SSO e após reload,
+// é lido do cookie CSRF (não-HttpOnly) que o backend ecoa no header.
 let csrfToken: string | null = null;
 
 export function setCsrfToken(token: string | null) {
   csrfToken = token;
 }
 
+function readCsrfCookie(): string | null {
+  const match = document.cookie.match(/(?:^|;\s*)(?:__Host-)?agro_csrf=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
 function getCsrfToken(): string | null {
-  return csrfToken;
+  return csrfToken ?? readCsrfCookie();
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {

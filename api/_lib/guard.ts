@@ -8,18 +8,52 @@ export function isProduction(): boolean {
 export type GuardResult = { ok: true } | { ok: false; status: number; message: string };
 
 /**
- * Bloqueia escritas memory-only em produção sem banco configurado.
- * Em produção sem DATABASE_URL, escritas vivem por instância serverless
- * (perda silenciosa). O guard torna o problema audível (503).
+ * Recursos efetivamente persistidos no banco (data-service roteia por
+ * `isDbEnabled()`). Os demais recursos do handler escrevem apenas no
+ * store em memória — em produção isso vive por instância serverless e
+ * some no próximo cold start (perda silenciosa). Manter esta lista em
+ * sincronia com os branches de DB de `data-service.ts`.
+ */
+const DB_BACKED_RESOURCES = new Set([
+  "leads",
+  "accounts",
+  "opportunities",
+  "matters",
+  "tasks",
+  "deadlines",
+  "activities",
+  "audit",
+]);
+
+/**
+ * Bloqueia escritas memory-only em produção. Dois casos:
+ * - Sem `DATABASE_URL`: nenhum recurso persiste → bloqueia tudo (503).
+ * - Com banco, mas recurso **não** é DB-backed: a escrita iria para a
+ *   memória e sumiria no próximo cold start → bloqueia por recurso (503)
+ *   em vez de retornar 201 e perder o dado em silêncio.
+ *
+ * Em dev/preview (não-produção) tudo passa: o store em memória é o modo
+ * de trabalho local esperado.
  */
 export function assertWritableInProd(resource: string): GuardResult {
-  if (isProduction() && !isDbEnabled()) {
+  if (!isProduction()) return { ok: true };
+
+  if (!isDbEnabled()) {
     return {
       ok: false,
       status: 503,
       message: `Persistência de '${resource}' indisponível em produção sem banco configurado (DATABASE_URL ausente).`,
     };
   }
+
+  if (!DB_BACKED_RESOURCES.has(resource)) {
+    return {
+      ok: false,
+      status: 503,
+      message: `Persistência de '${resource}' ainda não suportada em produção (apenas em memória). Gravação bloqueada para evitar perda silenciosa de dados.`,
+    };
+  }
+
   return { ok: true };
 }
 

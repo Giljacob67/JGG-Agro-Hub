@@ -1,71 +1,51 @@
 /**
- * CSRF token generation and validation.
- * Uses HMAC-based tokens tied to the user's session.
+ * CSRF token generation and validation — double-submit *stateless*.
+ *
+ * O token é o HMAC-SHA256 do token de sessão sob `CSRF_SECRET`. Por ser
+ * derivado deterministicamente da sessão, dispensa store server-side
+ * (sobrevive a cold starts / múltiplas instâncias serverless) e não pode
+ * ser forjado por um atacante que não conhece a sessão (cookie HttpOnly).
+ *
+ * Validação exige o header `X-CSRF-Token` (ver `requireCsrf` em http.ts):
+ * o cookie CSRF é apenas o transporte para o SPA ecoá-lo no header.
  */
 
 import crypto from "crypto";
 
-const CSRF_SECRET = process.env.CSRF_SECRET || process.env.AUTH_SECRET || "jgg-csrf-dev-secret";
-const CSRF_TOKEN_LENGTH = 32;
-const CSRF_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
-
-interface CsrfTokenData {
-  token: string;
-  expiresAt: number;
+/**
+ * Segredo do HMAC. Em produção exige `CSRF_SECRET` ou `AUTH_SECRET`; sem
+ * eles, falha-fechado (lança) em vez de cair num default público. Em dev
+ * usa um fallback fixo para não travar o localhost.
+ */
+function csrfSecret(): string {
+  const secret = process.env.CSRF_SECRET?.trim() || process.env.AUTH_SECRET?.trim();
+  if (secret) return secret;
+  if (process.env.VERCEL_ENV === "production") {
+    throw new Error("CSRF_SECRET/AUTH_SECRET ausente em produção");
+  }
+  return "jgg-csrf-dev-secret";
 }
 
-// In-memory token store (per-serverless-instance)
-const tokenStore = new Map<string, CsrfTokenData>();
-
 /**
- * Generate a CSRF token for a given session ID.
+ * Gera o CSRF token para uma sessão: HMAC(secret, sessionToken).
+ * Determinístico — a mesma sessão sempre produz o mesmo token.
  */
 export function generateCsrfToken(sessionId: string): string {
-  const randomBytes = crypto.randomBytes(CSRF_TOKEN_LENGTH);
-  const hmac = crypto.createHmac("sha256", CSRF_SECRET);
-  hmac.update(randomBytes);
-  hmac.update(sessionId);
-  hmac.update(String(Date.now()));
-  const token = hmac.digest("hex");
-
-  tokenStore.set(sessionId, {
-    token,
-    expiresAt: Date.now() + CSRF_EXPIRY_MS,
-  });
-
-  return token;
+  return crypto.createHmac("sha256", csrfSecret()).update(sessionId).digest("hex");
 }
 
 /**
- * Validate a CSRF token for a given session ID.
+ * Valida o CSRF token recomputando o HMAC da sessão e comparando em
+ * tempo constante. Sem store: imune a divergência entre instâncias.
  */
 export function validateCsrfToken(sessionId: string, token: string): boolean {
-  const stored = tokenStore.get(sessionId);
-  if (!stored) return false;
-  if (stored.expiresAt <= Date.now()) {
-    tokenStore.delete(sessionId);
-    return false;
-  }
-  // Constant-time comparison
-  if (stored.token.length !== token.length) return false;
-  return crypto.timingSafeEqual(Buffer.from(stored.token), Buffer.from(token));
+  if (!token) return false;
+  const expected = generateCsrfToken(sessionId);
+  if (expected.length !== token.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(token));
 }
 
-/**
- * Extract session ID from auth cookie.
- */
+/** Extrai o session id do cookie de auth. */
 export function getSessionId(cookies: Record<string, string>): string | null {
   return cookies["agro_session"] || null;
-}
-
-/**
- * Remove expired tokens (call periodically).
- */
-export function cleanupTokens(): void {
-  const now = Date.now();
-  for (const [key, value] of tokenStore.entries()) {
-    if (value.expiresAt <= now) {
-      tokenStore.delete(key);
-    }
-  }
 }
