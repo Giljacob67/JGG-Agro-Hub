@@ -1372,3 +1372,34 @@ export async function dbTaskFacets(): Promise<Record<string, string[]>> {
   ]);
   return { owners };
 }
+
+// ── Users (E-11): identidade em agro.users ────────────────────────────
+
+export async function dbFindUserByEmail(email: string): Promise<AgroUser | null> {
+  const sql = getSql();
+  const rows = await sql`SELECT id, email, name, role FROM agro.users WHERE lower(email) = lower(${email}) LIMIT 1`;
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    id: String(r.id),
+    email: String(r.email),
+    name: String(r.name),
+    role: String(r.role) as AgroUser["role"],
+  };
+}
+
+export async function dbUpsertUsers(users: Array<AgroUser & { passwordHash?: string | null; salt?: string | null }>) {
+  const sql = getSql();
+  for (const u of users) {
+    await sql`
+      INSERT INTO agro.users (id, email, name, role, password_hash, salt)
+      VALUES (${u.id}, ${u.email}, ${u.name}, ${u.role}, ${u.passwordHash ?? null}, ${u.salt ?? null})
+      ON CONFLICT (email) DO UPDATE SET
+        name = EXCLUDED.name,
+        role = EXCLUDED.role,
+        password_hash = COALESCE(EXCLUDED.password_hash, agro.users.password_hash),
+        salt = COALESCE(EXCLUDED.salt, agro.users.salt),
+        updated_at = now()
+    `;
+  }
+}

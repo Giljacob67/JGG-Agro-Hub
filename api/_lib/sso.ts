@@ -142,7 +142,7 @@ export async function exchangeSsoCode(
   if (!claims?.email) return null;
   if (!claims.email_verified) return null;
 
-  const user = findUserByEmail(claims.email);
+  const user = await findUserByEmail(claims.email);
   if (!user) return null;
 
   return { token: issueSessionForUser(user), user };

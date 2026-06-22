@@ -27,6 +27,9 @@ EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN CREATE TYPE agro.lead_priority AS ENUM ('baixa','media','alta');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
+DO $$ BEGIN CREATE TYPE agro.user_role AS ENUM ('gestao','comercial','juridico');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
 DO $$ BEGIN CREATE TYPE agro.matter_urgency AS ENUM ('normal','alta','critica');
 EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
@@ -40,6 +43,21 @@ DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'diagnosti
 DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'proposta_elaboracao'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'proposta_enviada'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 DO $$ BEGIN ALTER TYPE agro.opportunity_stage ADD VALUE IF NOT EXISTS 'arquivado'; EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- ── Users (E-11): identidade dos usuários em DB (SSO ou senha por env) ──
+CREATE TABLE IF NOT EXISTS agro.users (
+  id TEXT PRIMARY KEY,
+  email TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  role agro.user_role NOT NULL DEFAULT 'comercial',
+  password_hash TEXT,
+  salt TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS salt TEXT;
+ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now();
 
 CREATE TABLE IF NOT EXISTS agro.accounts (
   id TEXT PRIMARY KEY,

@@ -7,38 +7,36 @@ import {
   getAccessibleResources,
 } from "../../shared/agro/auth.js";
 import type { AgroUser } from "../../shared/agro/types.js";
+import { isDbEnabled } from "./db/client.js";
+import * as db from "./db/repository.js";
 
 export { roleCanAccess, hasPermission, getResourcePermissions, getAccessibleResources };
 
 
-interface UserRecord extends AgroUser {
-  /** Env var com o hash scrypt (hex) da senha do usuário em produção. */
-  passwordHashEnv: string;
-}
-
-const USERS: UserRecord[] = [
-  {
-    id: "usr-1",
-    email: "agro@jgggroup.com.br",
-    name: "Ana Ribeiro",
-    role: "gestao",
-    passwordHashEnv: "AUTH_PASSWORD_HASH_GESTAO",
-  },
-  {
-    id: "usr-2",
-    email: "comercial@jgggroup.com.br",
-    name: "Carlos Mendes",
-    role: "comercial",
-    passwordHashEnv: "AUTH_PASSWORD_HASH_COMERCIAL",
-  },
-  {
-    id: "usr-3",
-    email: "juridico@jgggroup.com.br",
-    name: "Equipe Jurídica Agro",
-    role: "juridico",
-    passwordHashEnv: "AUTH_PASSWORD_HASH_JURIDICO",
-  },
+/**
+ * Identidade de fallback (dev local sem DB) e fonte de seed para `agro.users`.
+ * Em produção com DB habilitado, a identidade é lida de `agro.users`
+ * (id/email/name/role); a senha continua sendo validada por hash env-driven
+ * (ROLE_HASH_ENV abaixo), mantendo o modelo de rotação via env sem bake de
+ * hashes no banco.
+ */
+const USERS: AgroUser[] = [
+  { id: "usr-1", email: "agro@jgggroup.com.br", name: "Ana Ribeiro", role: "gestao" },
+  { id: "usr-2", email: "comercial@jgggroup.com.br", name: "Carlos Mendes", role: "comercial" },
+  { id: "usr-3", email: "juridico@jgggroup.com.br", name: "Equipe Jurídica Agro", role: "juridico" },
 ];
+
+/** Env var de hash de senha por papel (produção). */
+const ROLE_HASH_ENV: Record<AgroUser["role"], string> = {
+  gestao: "AUTH_PASSWORD_HASH_GESTAO",
+  comercial: "AUTH_PASSWORD_HASH_COMERCIAL",
+  juridico: "AUTH_PASSWORD_HASH_JURIDICO",
+};
+
+/** Fonte canônica de usuários para seed de `agro.users` (db:setup). */
+export function getSeedUsers(): AgroUser[] {
+  return USERS.map((u) => ({ ...u }));
+}
 
 interface TokenPayload extends AgroUser {
   exp: number;
@@ -57,17 +55,17 @@ function getPasswordSalt(): string | null {
 }
 
 /**
- * Resolve o hash de senha do usuário:
- * - Produção (AUTH_SECRET definido): exige hash individual via env var;
- *   sem hash configurado, login por senha fica DESABILITADO para o usuário
- *   (resta o SSO).
+ * Resolve o hash de senha para um papel:
+ * - Produção (AUTH_SECRET definido): exige hash individual via env var
+ *   (ROLE_HASH_ENV[role]); sem hash configurado, login por senha fica
+ *   DESABILITADO para o papel (resta o SSO).
  * - Dev local (sem AUTH_SECRET): aceita a senha de desenvolvimento.
  */
-function resolvePasswordHash(record: UserRecord): {
+function resolvePasswordHash(role: AgroUser["role"]): {
   hash: string | null;
   salt: string | null;
 } {
-  const fromEnv = process.env[record.passwordHashEnv]?.trim();
+  const fromEnv = process.env[ROLE_HASH_ENV[role]]?.trim();
   const salt = getPasswordSalt();
   if (fromEnv) return { hash: fromEnv, salt };
   if (!isSecureAuthEnabled()) return { hash: DEV_PASSWORD_HASH, salt: "agro-jgg-salt-v1" };
@@ -122,7 +120,15 @@ function verifySignedToken(token: string, secret: string): AgroUser | null {
   }
 }
 
-export function findUserByEmail(email: string): AgroUser | null {
+export async function findUserByEmail(email: string): Promise<AgroUser | null> {
+  if (isDbEnabled()) {
+    try {
+      const fromDb = await db.dbFindUserByEmail(email);
+      if (fromDb) return fromDb;
+    } catch (err) {
+      console.warn("[auth] dbFindUserByEmail falhou, fallback USERS", err);
+    }
+  }
   const user = USERS.find(
     (u) => u.email.toLowerCase() === email.toLowerCase(),
   );
@@ -135,26 +141,17 @@ export function findUserByEmail(email: string): AgroUser | null {
   };
 }
 
-export function authenticate(
+export async function authenticate(
   email: string,
   password: string,
-): { token: string; user: AgroUser } | null {
-  const record = USERS.find(
-    (u) => u.email.toLowerCase() === email.toLowerCase(),
-  );
-  if (!record) return null;
+): Promise<{ token: string; user: AgroUser } | null> {
+  const user = await findUserByEmail(email);
+  if (!user) return null;
 
-  const { hash, salt } = resolvePasswordHash(record);
+  const { hash, salt } = resolvePasswordHash(user.role);
   if (!hash || !salt) return null;
 
   if (!verifyPassword(password, hash, salt)) return null;
-
-  const user: AgroUser = {
-    id: record.id,
-    email: record.email,
-    name: record.name,
-    role: record.role,
-  };
 
   const secret = getAuthSecret();
   if (!secret) {

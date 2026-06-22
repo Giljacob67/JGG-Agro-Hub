@@ -6,7 +6,8 @@
  */
 import { neon } from "@neondatabase/serverless";
 import { runMigrations } from "../api/_lib/db/migrate";
-import { dbUpsertSeed } from "../api/_lib/db/repository";
+import { dbUpsertSeed, dbUpsertUsers } from "../api/_lib/db/repository";
+import { getSeedUsers } from "../api/_lib/auth-server";
 import {
   SEED_ACCOUNTS,
   SEED_LEADS,
@@ -29,6 +30,10 @@ async function main() {
 
   console.log("Aplicando migração…");
   await runMigrations(sql);
+
+  // Identidade dos usuários (id/email/name/role) — senha continua env-driven.
+  console.log("Semeando usuários (identidade)…");
+  await dbUpsertUsers(getSeedUsers());
 
   if (!force) {
     const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM agro.accounts`;

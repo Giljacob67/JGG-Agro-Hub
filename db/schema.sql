@@ -47,12 +47,14 @@ CREATE TYPE agro.relationship_status AS ENUM (
 );
 
 CREATE TABLE agro.users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   role agro.user_role NOT NULL DEFAULT 'comercial',
-  password_hash TEXT NOT NULL,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  password_hash TEXT,
+  salt TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE agro.accounts (

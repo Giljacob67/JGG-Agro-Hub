@@ -63,7 +63,7 @@ async function login(req: VercelRequest, res: VercelResponse) {
     return json(res, { error: "Muitas tentativas. Tente novamente mais tarde." }, 429);
   }
 
-  const result = authenticate(normalizedEmail, String(password));
+  const result = await authenticate(normalizedEmail, String(password));
   if (!result) return json(res, { error: "Credenciais inválidas" }, 401);
 
   await clearLoginRateLimit(req, normalizedEmail);
