@@ -1,10 +1,3 @@
-import {
-  buildAccountFacets,
-  buildLeadFacets,
-  buildMatterFacets,
-  buildOpportunityFacets,
-  buildTaskFacets,
-} from "../../../shared/agro/filters.js";
 import type {
   AccountListParams,
   LeadListParams,
@@ -16,11 +9,14 @@ import type {
 import type {
   Account,
   Activity,
+  CrmStats,
   Deadline,
   AgroUser,
   Lead,
   Matter,
   Opportunity,
+  PracticeBreakdown,
+  RegionPortfolio,
   Task,
   TaskStatus,
 } from "../../../shared/agro/types.js";
@@ -35,6 +31,7 @@ import {
   mapTask,
 } from "./mappers.js";
 import { toJsonArray } from "./json-utils.js";
+import { OPPORTUNITY_STAGES } from "../../../shared/agro/seed.js";
 
 function uuidPrefix(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -86,9 +83,7 @@ export async function dbListLeads(
     pageSize,
   };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.leads WHERE deleted_at IS NULL ORDER BY created_at DESC`;
-    const all = allRows.map((r) => mapLead(r as Record<string, unknown>));
-    result.facets = buildLeadFacets(all);
+    result.facets = await dbLeadFacets();
   }
   return result;
 }
@@ -182,9 +177,7 @@ export async function dbListAccounts(
   const items = rows.map((r) => mapAccount(r as Record<string, unknown>));
   const result: PaginatedResult<Account> = { items, total, page, pageSize };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.accounts WHERE deleted_at IS NULL ORDER BY name`;
-    const all = allRows.map((r) => mapAccount(r as Record<string, unknown>));
-    result.facets = buildAccountFacets(all);
+    result.facets = await dbAccountFacets();
   }
   return result;
 }
@@ -330,9 +323,7 @@ export async function dbListOpportunities(
   const items = rows.map((r) => mapOpportunity(r as Record<string, unknown>));
   const result: PaginatedResult<Opportunity> = { items, total, page, pageSize };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.opportunities WHERE deleted_at IS NULL ORDER BY expected_close`;
-    const all = allRows.map((r) => mapOpportunity(r as Record<string, unknown>));
-    result.facets = buildOpportunityFacets(all);
+    result.facets = await dbOpportunityFacets();
   }
   return result;
 }
@@ -383,9 +374,7 @@ export async function dbListMatters(
   const items = rows.map((r) => mapMatter(r as Record<string, unknown>));
   const result: PaginatedResult<Matter> = { items, total, page, pageSize };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.matters WHERE deleted_at IS NULL ORDER BY deadline`;
-    const all = allRows.map((r) => mapMatter(r as Record<string, unknown>));
-    result.facets = buildMatterFacets(all);
+    result.facets = await dbMatterFacets();
   }
   return result;
 }
@@ -432,9 +421,7 @@ export async function dbListTasks(
   const items = rows.map((r) => mapTask(r as Record<string, unknown>));
   const result: PaginatedResult<Task> = { items, total, page, pageSize };
   if (params.facets) {
-    const allRows = await sql`SELECT * FROM agro.tasks WHERE deleted_at IS NULL ORDER BY due_date`;
-    const all = allRows.map((r) => mapTask(r as Record<string, unknown>));
-    result.facets = buildTaskFacets(all);
+    result.facets = await dbTaskFacets();
   }
   return result;
 }
@@ -978,6 +965,218 @@ export async function dbGetAuditStats(): Promise<{
   };
 }
 
+// ── CRM Stats (E-8): agregação SQL nativa, substitui loadCrmDataset + computeCrmStats ──
+// Antes: SELECT * 7 tabelas + JS. Agora: COUNT/SUM FILTER + GROUP BY + listas
+// cirúrgicas (WHERE + LIMIT). Mantém o shape CrmStats para o handler não mudar.
+
+const OPEN_STAGE_LIST = [
+  "novo_contato", "diagnostico_agendado", "diagnostico_realizado",
+  "proposta_elaboracao", "proposta_enviada", "negociacao",
+];
+const CLOSED_STAGES_LIST = ["contrato", "perdido", "arquivado"];
+
+export async function dbGetCrmStats(): Promise<CrmStats> {
+  const sql = getSql();
+
+  // Scalars — leads + accounts
+  const leadRow = await sql`
+    SELECT
+      COUNT(*) FILTER (WHERE status <> 'descartado')::int AS active_leads,
+      COUNT(*) FILTER (WHERE status = 'qualificado')::int AS qualified_leads
+    FROM agro.leads WHERE deleted_at IS NULL
+  `;
+  const activeLeads = Number(leadRow[0].active_leads);
+  const qualifiedLeads = Number(leadRow[0].qualified_leads);
+
+  const accRow = await sql`SELECT COUNT(*)::int AS c FROM agro.accounts WHERE deleted_at IS NULL`;
+  const activeAccounts = Number(accRow[0].c);
+
+  // Opportunities scalars + pipeline por estágio (GROUP BY)
+  const oppRow = await sql`
+    SELECT
+      COUNT(*) FILTER (WHERE stage NOT IN ${CLOSED_STAGES_LIST})::int AS open_opps,
+      COALESCE(SUM(value_brl) FILTER (WHERE stage NOT IN ${CLOSED_STAGES_LIST}), 0)::float8 AS pipeline_value,
+      COALESCE(SUM(value_brl) FILTER (WHERE stage = 'contrato'), 0)::float8 AS closed_value
+    FROM agro.opportunities WHERE deleted_at IS NULL
+  `;
+  const openOpportunities = Number(oppRow[0].open_opps);
+  const pipelineValue = Number(oppRow[0].pipeline_value);
+  const closedValue = Number(oppRow[0].closed_value);
+
+  const stageRows = await sql`
+    SELECT stage, COUNT(*)::int AS c, COALESCE(SUM(value_brl), 0)::float8 AS v
+    FROM agro.opportunities WHERE deleted_at IS NULL
+    GROUP BY stage
+  `;
+  const stageMap = new Map<string, { count: number; value: number }>();
+  for (const r of stageRows) stageMap.set(String(r.stage), { count: Number(r.c), value: Number(r.v) });
+  const pipelineByStage = OPPORTUNITY_STAGES
+    .filter((s) => s.id !== "perdido")
+    .map((s) => {
+      const e = stageMap.get(s.id);
+      return { id: s.id, label: s.label, count: e?.count ?? 0, value: e?.value ?? 0 };
+    });
+
+  // Matters scalars
+  const matterRow = await sql`
+    SELECT COUNT(*) FILTER (WHERE status <> 'concluida')::int AS active_matters
+    FROM agro.matters WHERE deleted_at IS NULL
+  `;
+  const activeMatters = Number(matterRow[0].active_matters);
+
+  // Tasks scalars
+  const taskRow = await sql`
+    SELECT
+      COUNT(*) FILTER (WHERE status = 'atrasada' OR due_date < current_date)::int AS overdue,
+      COUNT(*) FILTER (WHERE due_date >= current_date AND due_date <= current_date + 7)::int AS upcoming
+    FROM agro.tasks WHERE deleted_at IS NULL AND status <> 'concluida'
+  `;
+  const overdueTasks = Number(taskRow[0].overdue);
+  const upcomingTasks = Number(taskRow[0].upcoming);
+
+  // practiceBreakdown: matters ativos + opps abertas por practice
+  const matterPracticeRows = await sql`
+    SELECT practice, COUNT(*)::int AS c
+    FROM agro.matters WHERE deleted_at IS NULL AND status <> 'concluida'
+    GROUP BY practice
+  `;
+  const oppPracticeRows = await sql`
+    SELECT practice, COUNT(*)::int AS c, COALESCE(SUM(value_brl), 0)::float8 AS v
+    FROM agro.opportunities WHERE deleted_at IS NULL AND stage NOT IN ${CLOSED_STAGES_LIST}
+    GROUP BY practice
+  `;
+  const practiceMap = new Map<string, PracticeBreakdown>();
+  for (const r of matterPracticeRows) {
+    const p = String(r.practice ?? "");
+    practiceMap.set(p, { practice: p, matters: Number(r.c), opportunities: 0, pipelineValue: 0 });
+  }
+  for (const r of oppPracticeRows) {
+    const p = String(r.practice ?? "");
+    const row = practiceMap.get(p) ?? { practice: p, matters: 0, opportunities: 0, pipelineValue: 0 };
+    row.opportunities = Number(r.c);
+    row.pipelineValue = Number(r.v);
+    practiceMap.set(p, row);
+  }
+  const practiceBreakdown = [...practiceMap.values()].sort((a, b) => b.pipelineValue - a.pipelineValue);
+
+  // portfolioByRegion: contas por região + pipeline opps abertas por região
+  const accRegionRows = await sql`
+    SELECT region, COUNT(*)::int AS c FROM agro.accounts WHERE deleted_at IS NULL GROUP BY region
+  `;
+  const oppRegionRows = await sql`
+    SELECT COALESCE(a.region, 'Outros') AS region, COALESCE(SUM(o.value_brl), 0)::float8 AS v
+    FROM agro.opportunities o
+    LEFT JOIN agro.accounts a ON a.id = o.account_id
+    WHERE o.deleted_at IS NULL AND o.stage NOT IN ${CLOSED_STAGES_LIST}
+    GROUP BY COALESCE(a.region, 'Outros')
+  `;
+  const regionMap = new Map<string, RegionPortfolio>();
+  for (const r of accRegionRows) {
+    const region = String(r.region ?? "Outros");
+    regionMap.set(region, { region, accounts: Number(r.c), pipelineValue: 0 });
+  }
+  for (const r of oppRegionRows) {
+    const region = String(r.region ?? "Outros");
+    const row = regionMap.get(region) ?? { region, accounts: 0, pipelineValue: 0 };
+    row.pipelineValue = Number(r.v);
+    regionMap.set(region, row);
+  }
+  const portfolioByRegion = [...regionMap.values()].sort((a, b) => b.pipelineValue - a.pipelineValue);
+
+  // Listas cirúrgicas (WHERE + LIMIT + ORDER BY) em vez de SELECT *
+  const priorityOppRows = await sql`
+    SELECT * FROM agro.opportunities
+    WHERE deleted_at IS NULL
+      AND (priority = 'alta' OR stage IN ${OPEN_STAGE_LIST})
+    ORDER BY value_brl DESC LIMIT 5
+  `;
+  const priorityOpportunities = priorityOppRows.map((r) => mapOpportunity(r as Record<string, unknown>));
+
+  const riskRows = await sql`
+    SELECT * FROM agro.matters
+    WHERE deleted_at IS NULL AND status <> 'concluida' AND risk IN ('alto', 'critico')
+    ORDER BY deadline ASC
+  `;
+  const riskAlerts = riskRows.map((r) => mapMatter(r as Record<string, unknown>));
+
+  const upcomingMatterRows = await sql`
+    SELECT * FROM agro.matters
+    WHERE deleted_at IS NULL AND status <> 'concluida' AND deadline <= current_date + 14
+    ORDER BY deadline ASC
+  `;
+  const upcomingMatters = upcomingMatterRows.map((r) => mapMatter(r as Record<string, unknown>));
+
+  const overdueTaskRows = await sql`
+    SELECT * FROM agro.tasks
+    WHERE deleted_at IS NULL AND status <> 'concluida' AND (status = 'atrasada' OR due_date < current_date)
+    ORDER BY due_date ASC
+  `;
+  const overdueTasksList = overdueTaskRows.map((r) => mapTask(r as Record<string, unknown>));
+
+  const upcomingTaskRows = await sql`
+    SELECT * FROM agro.tasks
+    WHERE deleted_at IS NULL AND status <> 'concluida'
+      AND due_date >= current_date AND due_date <= current_date + 7
+    ORDER BY due_date ASC
+  `;
+  const upcomingTasksList = upcomingTaskRows.map((r) => mapTask(r as Record<string, unknown>));
+
+  // upcomingContacts: leads ativos + opps abertas com next_contact nos próximos 14 dias
+  const leadContactRows = await sql`
+    SELECT id, name, owner, next_contact FROM agro.leads
+    WHERE deleted_at IS NULL AND status <> 'descartado'
+      AND next_contact IS NOT NULL AND next_contact >= current_date AND next_contact <= current_date + 14
+    ORDER BY next_contact ASC
+  `;
+  const oppContactRows = await sql`
+    SELECT id, account_name, owner, next_contact FROM agro.opportunities
+    WHERE deleted_at IS NULL AND stage NOT IN ${CLOSED_STAGES_LIST}
+      AND next_contact IS NOT NULL AND next_contact >= current_date AND next_contact <= current_date + 14
+    ORDER BY next_contact ASC
+  `;
+  const upcomingContacts = [
+    ...leadContactRows.map((r) => ({
+      id: String(r.id),
+      entityType: "lead" as const,
+      name: "Contato comercial",
+      accountOrLead: String(r.name ?? ""),
+      date: String(r.next_contact),
+      owner: String(r.owner ?? ""),
+      channel: "Reunião / call",
+    })),
+    ...oppContactRows.map((r) => ({
+      id: String(r.id),
+      entityType: "oportunidade" as const,
+      name: "Follow-up negocial",
+      accountOrLead: String(r.account_name ?? ""),
+      date: String(r.next_contact),
+      owner: String(r.owner ?? ""),
+      channel: "Proposta / alinhamento",
+    })),
+  ].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+
+  return {
+    activeLeads,
+    activeAccounts,
+    openOpportunities,
+    pipelineValue,
+    closedValue,
+    activeMatters,
+    overdueTasks,
+    upcomingTasks,
+    qualifiedLeads,
+    pipelineByStage,
+    practiceBreakdown,
+    portfolioByRegion,
+    priorityOpportunities,
+    riskAlerts,
+    upcomingMatters,
+    upcomingContacts,
+    overdueTasksList,
+    upcomingTasksList,
+  };
+}
+
 export async function dbSeedEmpty(): Promise<boolean> {
   const sql = getSql();
   const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM agro.accounts`;
@@ -1111,4 +1310,65 @@ export async function dbUpsertSeed(data: CrmDataset) {
         summary = EXCLUDED.summary, date = EXCLUDED.date, owner = EXCLUDED.owner
     `;
   }
+}
+
+// ── Facets (E-9): SELECT DISTINCT por coluna, substitui re-SELECT * + JS ──
+
+async function distinctSorted(
+  table: string,
+  column: string,
+  extraWhere = "deleted_at IS NULL",
+): Promise<string[]> {
+  const sql = getSql();
+  const where = extraWhere ? `WHERE ${extraWhere}` : "";
+  const rows = await sql.query(
+    `SELECT DISTINCT ${column} AS v FROM ${table} ${where} AND ${column} IS NOT NULL ORDER BY ${column}`,
+    [],
+  ).catch(async () => {
+    // fallback se a tabela nao tem deleted_at
+    const rows2 = await sql.query(`SELECT DISTINCT ${column} AS v FROM ${table} WHERE ${column} IS NOT NULL ORDER BY ${column}`);
+    return rows2;
+  });
+  return rows.map((r) => String(r.v));
+}
+
+export async function dbLeadFacets(): Promise<Record<string, string[]>> {
+  const [regions, sources, crops, owners] = await Promise.all([
+    distinctSorted("agro.leads", "region"),
+    distinctSorted("agro.leads", "source"),
+    distinctSorted("agro.leads", "crop"),
+    distinctSorted("agro.leads", "owner"),
+  ]);
+  return { regions, sources, crops, owners };
+}
+
+export async function dbAccountFacets(): Promise<Record<string, string[]>> {
+  const [regions, owners] = await Promise.all([
+    distinctSorted("agro.accounts", "region"),
+    distinctSorted("agro.accounts", "owner"),
+  ]);
+  return { regions, owners };
+}
+
+export async function dbOpportunityFacets(): Promise<Record<string, string[]>> {
+  const [practices, owners] = await Promise.all([
+    distinctSorted("agro.opportunities", "practice"),
+    distinctSorted("agro.opportunities", "owner"),
+  ]);
+  return { practices, owners };
+}
+
+export async function dbMatterFacets(): Promise<Record<string, string[]>> {
+  const [practices, owners] = await Promise.all([
+    distinctSorted("agro.matters", "practice"),
+    distinctSorted("agro.matters", "owner"),
+  ]);
+  return { practices, owners };
+}
+
+export async function dbTaskFacets(): Promise<Record<string, string[]>> {
+  const [owners] = await Promise.all([
+    distinctSorted("agro.tasks", "owner"),
+  ]);
+  return { owners };
 }

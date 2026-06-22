@@ -23,9 +23,8 @@ import {
   updateDeadline,
   listActivities,
   createActivity,
-  loadCrmDataset,
+  getCrmStats,
 } from "../_lib/data-service.js";
-import { computeCrmStats } from "../../shared/agro/stats.js";
 import { resolveCopilotQuery } from "../../shared/agro/copilot.js";
 import { getKnowledgePayload } from "../../shared/agro/knowledge.js";
 import {
@@ -746,17 +745,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!requireAuth(req, res, "stats")) return;
 
     if (req.method === "GET") {
-      const dataset = await loadCrmDataset();
-      return json(
-        res,
-        computeCrmStats({
-          leads: dataset.leads,
-          accounts: dataset.accounts,
-          opportunities: dataset.opportunities,
-          matters: dataset.matters,
-          tasks: dataset.tasks,
-        }),
-      );
+      return json(res, await getCrmStats());
     }
 
     return methodNotAllowed(res);
@@ -776,14 +765,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return json(res, { error: "query é obrigatório" }, 400);
       }
 
-      const dataset = await loadCrmDataset();
-      const stats = computeCrmStats({
-        leads: dataset.leads,
-        accounts: dataset.accounts,
-        opportunities: dataset.opportunities,
-        matters: dataset.matters,
-        tasks: dataset.tasks,
-      });
+      const stats = await getCrmStats();
 
       const query = body.query.trim();
       const contextEntity = body.contextEntity ?? null;

@@ -45,6 +45,8 @@ import { isDbEnabled } from "./db/client.js";
 import * as db from "./db/repository.js";
 import type { AccountPatch, MatterPatch, TaskPatch } from "./db/repository.js";
 import { assertWritableInProd, WritableGuardError } from "./guard.js";
+import { computeCrmStats } from "../../shared/agro/stats.js";
+import type { CrmStats } from "../../shared/agro/types.js";
 
 export { isDbEnabled };
 export type { ConvertLeadInput, ConvertLeadResult, MatterPatch, AccountPatch, TaskPatch };
@@ -408,6 +410,31 @@ export async function loadCrmDataset() {
     matters: memory.listMatters(),
     tasks: memory.listTasks(),
   };
+}
+
+/**
+ * Stats do CRM. Em DB usa agregação SQL nativa (dbGetCrmStats) — sem SELECT *
+ * em 7 tabelas + computeCrmStats em JS. Em memória, usa computeCrmStats.
+ * Try/catch: se a agregação SQL falhar (ex: coluna/migration pendente),
+ * cai no caminho legacy (loadCrmDataset + computeCrmStats) para não quebrar
+ * a UI de stats.
+ */
+export async function getCrmStats(): Promise<CrmStats> {
+  if (isDbEnabled()) {
+    try {
+      return await db.dbGetCrmStats();
+    } catch (err) {
+      console.warn("[stats] dbGetCrmStats falhou, fallback para loadCrmDataset:", err);
+    }
+  }
+  const dataset = await loadCrmDataset();
+  return computeCrmStats({
+    leads: dataset.leads,
+    accounts: dataset.accounts,
+    opportunities: dataset.opportunities,
+    matters: dataset.matters,
+    tasks: dataset.tasks,
+  });
 }
 
 export async function setupDatabase(options?: { force?: boolean }) {
