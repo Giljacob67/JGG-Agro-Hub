@@ -47,7 +47,7 @@ const HEADER_HINTS: { field: ImportLeadField; patterns: RegExp[] }[] = [
   { field: "email", patterns: [/mail/i] },
   { field: "phone", patterns: [/celular/i, /\bfone\b/i, /telefone/i] },
   { field: "address", patterns: [/endere/i, /logradouro/i] },
-  { field: "region", patterns: [/munic[íi]pio/i, /cidade/i, /\bregi[ãa]o\b/i] },
+  { field: "region", patterns: [/munic/i, /cidade/i, /\bregi[ãa]o\b/i] },
   { field: "crop", patterns: [/cultura/i, /opera/i] },
   { field: "contact", patterns: [/contato/i, /respons/i] },
   { field: "notes", patterns: [/observa/i, /\bnota/i] },
