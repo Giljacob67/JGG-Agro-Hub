@@ -10,14 +10,11 @@ import type {
   Account,
   Activity,
   Contact,
-  CreditInstrument,
   CrmStats,
-  CropSeason,
   Deadline,
   Document,
   DocumentChecklistItem,
   AgroUser,
-  EnvironmentalLicense,
   FeeAgreement,
   Invoice,
   KnowledgeDocument,
@@ -30,7 +27,6 @@ import type {
   RegionPortfolio,
   Task,
   TaskStatus,
-  TaxObligation,
   TimeEntry,
 } from "../../../shared/agro/types.js";
 import { getSql } from "./client.js";
@@ -38,12 +34,9 @@ import {
   mapAccount,
   mapActivity,
   mapContact,
-  mapCreditInstrument,
-  mapCropSeason,
   mapDeadline,
   mapDocument,
   mapDocumentChecklistItem,
-  mapEnvironmentalLicense,
   mapFeeAgreement,
   mapInvoice,
   mapKnowledgeDocument,
@@ -53,7 +46,6 @@ import {
   mapOpposingParty,
   mapProperty,
   mapTask,
-  mapTaxObligation,
   mapTimeEntry,
 } from "./mappers.js";
 import { toJsonArray, toJsonValue } from "./json-utils.js";
@@ -2146,263 +2138,6 @@ export async function dbUpdateOpposingParty(
   values.push(id);
   await sql.query(`UPDATE agro.opposing_parties SET ${sets.join(", ")} WHERE id = $${values.length} AND deleted_at IS NULL`, values);
   return dbGetOpposingParty(id);
-}
-
-// ── Crop Seasons ───────────────────────────────────────────────────
-
-export async function dbListCropSeasons(
-  filters: { year?: number; region?: string } = {},
-): Promise<CropSeason[]> {
-  const sql = getSql();
-  const where: WhereParts = { clauses: [], values: [] };
-  if (filters.year) { where.clauses.push(`year = $${where.values.length + 1}`); where.values.push(filters.year); }
-  if (filters.region) { where.clauses.push(`region = $${where.values.length + 1}`); where.values.push(filters.region); }
-  const whereSql = where.clauses.length ? `WHERE ${where.clauses.join(" AND ")}` : "";
-  const rows = await sql.query(`SELECT * FROM agro.crop_seasons ${whereSql} ORDER BY year DESC, name ASC`, where.values);
-  return rows.map((r) => mapCropSeason(r as Record<string, unknown>));
-}
-
-export async function dbGetCropSeason(id: string): Promise<CropSeason | null> {
-  const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.crop_seasons WHERE id = ${id}`;
-  if (!rows.length) return null;
-  return mapCropSeason(rows[0] as Record<string, unknown>);
-}
-
-export async function dbCreateCropSeason(season: CropSeason): Promise<CropSeason> {
-  const sql = getSql();
-  await sql`
-    INSERT INTO agro.crop_seasons (
-      id, name, year, planting_start, planting_end, harvest_start, harvest_end,
-      main_crop, region, notes, created_at
-    ) VALUES (
-      ${season.id}, ${season.name}, ${season.year}, ${season.plantingStart},
-      ${season.plantingEnd}, ${season.harvestStart}, ${season.harvestEnd},
-      ${season.mainCrop}, ${season.region ?? null}, ${season.notes ?? null}, ${season.createdAt}
-    )
-  `;
-  const created = await dbGetCropSeason(season.id);
-  if (!created) throw new Error("Falha ao criar safra");
-  return created;
-}
-
-// ── Tax Obligations ────────────────────────────────────────────────
-
-export async function dbListTaxObligations(
-  filters: { propertyId?: string; accountId?: string; year?: number } = {},
-): Promise<TaxObligation[]> {
-  const sql = getSql();
-  const where: WhereParts = { clauses: [], values: [] };
-  if (filters.propertyId) { where.clauses.push(`property_id = $${where.values.length + 1}`); where.values.push(filters.propertyId); }
-  if (filters.accountId) { where.clauses.push(`account_id = $${where.values.length + 1}`); where.values.push(filters.accountId); }
-  if (filters.year) { where.clauses.push(`year = $${where.values.length + 1}`); where.values.push(filters.year); }
-  const whereSql = where.clauses.length
-    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
-    : "WHERE deleted_at IS NULL";
-  const rows = await sql.query(`SELECT * FROM agro.tax_obligations ${whereSql} ORDER BY due_date DESC`, where.values);
-  return rows.map((r) => mapTaxObligation(r as Record<string, unknown>));
-}
-
-export async function dbGetTaxObligation(id: string): Promise<TaxObligation | null> {
-  const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.tax_obligations WHERE id = ${id} AND deleted_at IS NULL`;
-  if (!rows.length) return null;
-  return mapTaxObligation(rows[0] as Record<string, unknown>);
-}
-
-export async function dbCreateTaxObligation(tax: TaxObligation): Promise<TaxObligation> {
-  const sql = getSql();
-  await sql`
-    INSERT INTO agro.tax_obligations (
-      id, property_id, account_id, type, year, value_brl, due_date, paid_date,
-      status, notes, created_at
-    ) VALUES (
-      ${tax.id}, ${tax.propertyId}, ${tax.accountId}, ${tax.type}, ${tax.year},
-      ${tax.valueBrl}, ${tax.dueDate}, ${tax.paidDate ?? null}, ${tax.status},
-      ${tax.notes ?? null}, ${tax.createdAt}
-    )
-  `;
-  const created = await dbGetTaxObligation(tax.id);
-  if (!created) throw new Error("Falha ao criar obrigação tributária");
-  return created;
-}
-
-// ── Environmental Licenses ─────────────────────────────────────────
-
-export async function dbListEnvironmentalLicenses(
-  filters: { propertyId?: string; accountId?: string } = {},
-): Promise<EnvironmentalLicense[]> {
-  const sql = getSql();
-  const where: WhereParts = { clauses: [], values: [] };
-  if (filters.propertyId) { where.clauses.push(`property_id = $${where.values.length + 1}`); where.values.push(filters.propertyId); }
-  if (filters.accountId) { where.clauses.push(`account_id = $${where.values.length + 1}`); where.values.push(filters.accountId); }
-  const whereSql = where.clauses.length
-    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
-    : "WHERE deleted_at IS NULL";
-  const rows = await sql.query(`SELECT * FROM agro.environmental_licenses ${whereSql} ORDER BY expires_at ASC`, where.values);
-  return rows.map((r) => mapEnvironmentalLicense(r as Record<string, unknown>));
-}
-
-export async function dbGetEnvironmentalLicense(id: string): Promise<EnvironmentalLicense | null> {
-  const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.environmental_licenses WHERE id = ${id} AND deleted_at IS NULL`;
-  if (!rows.length) return null;
-  return mapEnvironmentalLicense(rows[0] as Record<string, unknown>);
-}
-
-export async function dbCreateEnvironmentalLicense(
-  license: EnvironmentalLicense,
-): Promise<EnvironmentalLicense> {
-  const sql = getSql();
-  await sql`
-    INSERT INTO agro.environmental_licenses (
-      id, property_id, account_id, type, number, issuer, issued_at, expires_at,
-      status, conditions, notes, created_at
-    ) VALUES (
-      ${license.id}, ${license.propertyId}, ${license.accountId}, ${license.type},
-      ${license.number}, ${license.issuer}, ${license.issuedAt}, ${license.expiresAt},
-      ${license.status}, ${toJsonValue(license.conditions ?? [])}, ${license.notes ?? null},
-      ${license.createdAt}
-    )
-  `;
-  const created = await dbGetEnvironmentalLicense(license.id);
-  if (!created) throw new Error("Falha ao criar licença ambiental");
-  return created;
-}
-
-// ── Credit Instruments ─────────────────────────────────────────────
-
-export async function dbListCreditInstruments(
-  filters: { accountId?: string; matterId?: string } = {},
-): Promise<CreditInstrument[]> {
-  const sql = getSql();
-  const where: WhereParts = { clauses: [], values: [] };
-  if (filters.accountId) { where.clauses.push(`account_id = $${where.values.length + 1}`); where.values.push(filters.accountId); }
-  if (filters.matterId) { where.clauses.push(`matter_id = $${where.values.length + 1}`); where.values.push(filters.matterId); }
-  const whereSql = where.clauses.length
-    ? `WHERE deleted_at IS NULL AND ${where.clauses.join(" AND ")}`
-    : "WHERE deleted_at IS NULL";
-  const rows = await sql.query(`SELECT * FROM agro.credit_instruments ${whereSql} ORDER BY maturity_date ASC`, where.values);
-  return rows.map((r) => mapCreditInstrument(r as Record<string, unknown>));
-}
-
-export async function dbGetCreditInstrument(id: string): Promise<CreditInstrument | null> {
-  const sql = getSql();
-  const rows = await sql`SELECT * FROM agro.credit_instruments WHERE id = ${id} AND deleted_at IS NULL`;
-  if (!rows.length) return null;
-  return mapCreditInstrument(rows[0] as Record<string, unknown>);
-}
-
-export async function dbCreateCreditInstrument(
-  credit: CreditInstrument,
-): Promise<CreditInstrument> {
-  const sql = getSql();
-  await sql`
-    INSERT INTO agro.credit_instruments (
-      id, account_id, matter_id, type, number, issuer, value_brl, interest_rate,
-      iof_rate, issue_date, maturity_date, payment_method, installments, status,
-      notes, created_at
-    ) VALUES (
-      ${credit.id}, ${credit.accountId}, ${credit.matterId ?? null}, ${credit.type},
-      ${credit.number}, ${credit.issuer ?? null}, ${credit.valueBrl},
-      ${credit.interestRate ?? null}, ${credit.iofRate ?? null}, ${credit.issueDate},
-      ${credit.maturityDate}, ${credit.paymentMethod ?? null}, ${credit.installments ?? null},
-      ${credit.status}, ${credit.notes ?? null}, ${credit.createdAt}
-    )
-  `;
-  const created = await dbGetCreditInstrument(credit.id);
-  if (!created) throw new Error("Falha ao criar instrumento de crédito");
-  return created;
-}
-
-/**
- * Semeia as entidades terciárias que possuem dados fictícios estáticos
- * (safras, obrigações tributárias, licenças ambientais e instrumentos de
- * crédito). `ON CONFLICT DO NOTHING` torna idempotente e preserva edições
- * feitas pelo usuário em re-runs.
- */
-export async function dbUpsertSecondarySeed(data: {
-  cropSeasons: CropSeason[];
-  taxObligations: TaxObligation[];
-  environmentalLicenses: EnvironmentalLicense[];
-  creditInstruments: CreditInstrument[];
-}) {
-  for (const s of data.cropSeasons) {
-    await dbInsertCropSeasonSeed(s);
-  }
-  for (const t of data.taxObligations) {
-    await dbInsertTaxObligationSeed(t);
-  }
-  for (const l of data.environmentalLicenses) {
-    await dbInsertEnvironmentalLicenseSeed(l);
-  }
-  for (const c of data.creditInstruments) {
-    await dbInsertCreditInstrumentSeed(c);
-  }
-}
-
-async function dbInsertCropSeasonSeed(season: CropSeason) {
-  const sql = getSql();
-  await sql`
-    INSERT INTO agro.crop_seasons (
-      id, name, year, planting_start, planting_end, harvest_start, harvest_end,
-      main_crop, region, notes, created_at
-    ) VALUES (
-      ${season.id}, ${season.name}, ${season.year}, ${season.plantingStart},
-      ${season.plantingEnd}, ${season.harvestStart}, ${season.harvestEnd},
-      ${season.mainCrop}, ${season.region ?? null}, ${season.notes ?? null}, ${season.createdAt}
-    )
-    ON CONFLICT (id) DO NOTHING
-  `;
-}
-
-async function dbInsertTaxObligationSeed(tax: TaxObligation) {
-  const sql = getSql();
-  await sql`
-    INSERT INTO agro.tax_obligations (
-      id, property_id, account_id, type, year, value_brl, due_date, paid_date,
-      status, notes, created_at
-    ) VALUES (
-      ${tax.id}, ${tax.propertyId}, ${tax.accountId}, ${tax.type}, ${tax.year},
-      ${tax.valueBrl}, ${tax.dueDate}, ${tax.paidDate ?? null}, ${tax.status},
-      ${tax.notes ?? null}, ${tax.createdAt}
-    )
-    ON CONFLICT (id) DO NOTHING
-  `;
-}
-
-async function dbInsertEnvironmentalLicenseSeed(license: EnvironmentalLicense) {
-  const sql = getSql();
-  await sql`
-    INSERT INTO agro.environmental_licenses (
-      id, property_id, account_id, type, number, issuer, issued_at, expires_at,
-      status, conditions, notes, created_at
-    ) VALUES (
-      ${license.id}, ${license.propertyId}, ${license.accountId}, ${license.type},
-      ${license.number}, ${license.issuer}, ${license.issuedAt}, ${license.expiresAt},
-      ${license.status}, ${toJsonValue(license.conditions ?? [])}, ${license.notes ?? null},
-      ${license.createdAt}
-    )
-    ON CONFLICT (id) DO NOTHING
-  `;
-}
-
-async function dbInsertCreditInstrumentSeed(credit: CreditInstrument) {
-  const sql = getSql();
-  await sql`
-    INSERT INTO agro.credit_instruments (
-      id, account_id, matter_id, type, number, issuer, value_brl, interest_rate,
-      iof_rate, issue_date, maturity_date, payment_method, installments, status,
-      notes, created_at
-    ) VALUES (
-      ${credit.id}, ${credit.accountId}, ${credit.matterId ?? null}, ${credit.type},
-      ${credit.number}, ${credit.issuer ?? null}, ${credit.valueBrl},
-      ${credit.interestRate ?? null}, ${credit.iofRate ?? null}, ${credit.issueDate},
-      ${credit.maturityDate}, ${credit.paymentMethod ?? null}, ${credit.installments ?? null},
-      ${credit.status}, ${credit.notes ?? null}, ${credit.createdAt}
-    )
-    ON CONFLICT (id) DO NOTHING
-  `;
 }
 
 // ── app_config (key→value JSONB) ───────────────────────────────────

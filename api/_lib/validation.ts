@@ -2,7 +2,6 @@ import type {
   ActivityEntityType,
   ActivityType,
   ContactRole,
-  CreditInstrumentType,
   DeadlineStatus,
   DeadlineType,
   DocumentCategory,
@@ -10,7 +9,6 @@ import type {
   DocumentStatus,
   LeadPriority,
   LeadStatus,
-  LicenseStatus,
   MatterPhase,
   MatterStatus,
   MatterUrgency,
@@ -518,11 +516,6 @@ const FEE_AGREEMENT_TYPES = ["hora", "fixo", "percentual", "contingencia"] as co
 const CONTACT_ROLES = ["proprietario", "administrador", "gerente", "advogado", "contador", "parceiro", "outro"] as const;
 const PROPERTY_TYPES = ["propriedade", "posse", "area_de_interesse"] as const;
 const OPPOSING_PARTY_TYPES = ["pessoa_fisica", "pessoa_juridica", "orgao_publico"] as const;
-const TAX_TYPES = ["itr", "itbi", "ipva", "outro"] as const;
-const TAX_STATUSES = ["pendente", "pago", "atrasado", "isento"] as const;
-const LICENSE_STATUSES = ["vigente", "em_renovacao", "vencida", "suspensa"] as const;
-const CREDIT_INSTRUMENT_TYPES = ["cpr", "ccb", "penhor", "alienacao_fiduciaria", "contrato"] as const;
-const CREDIT_INSTRUMENT_STATUSES = ["ativo", "vencido", "quitado", "em_execucao"] as const;
 
 function optionalStringArray(value: unknown): string[] | undefined {
   if (value === undefined || value === null) return undefined;
@@ -952,145 +945,6 @@ export function parseOpposingPartyPatch(body: Body) {
       ...(body.phone !== undefined ? { phone: optionalString(body.phone) } : {}),
       ...(body.email !== undefined ? { email: optionalString(body.email) } : {}),
       ...(body.notes !== undefined ? { notes: optionalString(body.notes) } : {}),
-    },
-  } satisfies ValidationResult<unknown>;
-}
-
-export function parseTaxObligationCreate(body: Body) {
-  const propertyId = requiredString(body, "propertyId");
-  if (!propertyId.ok) return propertyId;
-  const accountId = requiredString(body, "accountId");
-  if (!accountId.ok) return accountId;
-  const type = enumValue(body.type, TAX_TYPES, "type");
-  if (!type.ok) return type;
-  if (!type.data) return { ok: false, error: "type é obrigatório" } as const;
-  const status = enumValue(body.status, TAX_STATUSES, "status");
-  if (!status.ok) return status;
-  const year = optionalNumber(body.year, "year");
-  if (!year.ok) return year;
-  const valueBrl = optionalNumber(body.valueBrl, "valueBrl");
-  if (!valueBrl.ok) return valueBrl;
-  const dueDate = optionalDate(body.dueDate, "dueDate");
-  if (!dueDate.ok) return dueDate;
-  const paidDate = optionalDate(body.paidDate, "paidDate");
-  if (!paidDate.ok) return paidDate;
-  return {
-    ok: true,
-    data: {
-      id: entityId("tax"),
-      propertyId: propertyId.data,
-      accountId: accountId.data,
-      type: type.data as TaxType,
-      year: year.data ?? new Date().getFullYear(),
-      valueBrl: valueBrl.data ?? 0,
-      dueDate: dueDate.data ?? "",
-      paidDate: paidDate.data ?? null,
-      status: (status.data ?? "pendente") as TaxObligationStatus,
-      notes: optionalString(body.notes),
-      createdAt: nowIso(),
-    },
-  } satisfies ValidationResult<unknown>;
-}
-
-type TaxType = "itr" | "itbi" | "ipva" | "outro";
-type TaxObligationStatus = "pendente" | "pago" | "atrasado" | "isento";
-
-export function parseEnvironmentalLicenseCreate(body: Body) {
-  const propertyId = requiredString(body, "propertyId");
-  if (!propertyId.ok) return propertyId;
-  const accountId = requiredString(body, "accountId");
-  if (!accountId.ok) return accountId;
-  const number = requiredString(body, "number");
-  if (!number.ok) return number;
-  const status = enumValue(body.status, LICENSE_STATUSES, "status");
-  if (!status.ok) return status;
-  const issuedAt = optionalDate(body.issuedAt, "issuedAt");
-  if (!issuedAt.ok) return issuedAt;
-  const expiresAt = optionalDate(body.expiresAt, "expiresAt");
-  if (!expiresAt.ok) return expiresAt;
-  return {
-    ok: true,
-    data: {
-      id: entityId("lic"),
-      propertyId: propertyId.data,
-      accountId: accountId.data,
-      type: optionalString(body.type) ?? "",
-      number: number.data,
-      issuer: optionalString(body.issuer) ?? "",
-      issuedAt: issuedAt.data ?? "",
-      expiresAt: expiresAt.data ?? "",
-      status: (status.data ?? "vigente") as LicenseStatus,
-      conditions: optionalStringArray(body.conditions) ?? [],
-      notes: optionalString(body.notes),
-      createdAt: nowIso(),
-    },
-  } satisfies ValidationResult<unknown>;
-}
-
-export function parseCreditInstrumentCreate(body: Body) {
-  const accountId = requiredString(body, "accountId");
-  if (!accountId.ok) return accountId;
-  const type = enumValue(body.type, CREDIT_INSTRUMENT_TYPES, "type");
-  if (!type.ok) return type;
-  if (!type.data) return { ok: false, error: "type é obrigatório" } as const;
-  const status = enumValue(body.status, CREDIT_INSTRUMENT_STATUSES, "status");
-  if (!status.ok) return status;
-  const valueBrl = optionalNumber(body.valueBrl, "valueBrl");
-  if (!valueBrl.ok) return valueBrl;
-  const interestRate = optionalNumber(body.interestRate, "interestRate");
-  if (!interestRate.ok) return interestRate;
-  const iofRate = optionalNumber(body.iofRate, "iofRate");
-  if (!iofRate.ok) return iofRate;
-  const installments = optionalNumber(body.installments, "installments");
-  if (!installments.ok) return installments;
-  const issueDate = optionalDate(body.issueDate, "issueDate");
-  if (!issueDate.ok) return issueDate;
-  const maturityDate = optionalDate(body.maturityDate, "maturityDate");
-  if (!maturityDate.ok) return maturityDate;
-  return {
-    ok: true,
-    data: {
-      id: entityId("cr"),
-      accountId: accountId.data,
-      matterId: optionalNullableString(body.matterId) ?? null,
-      type: type.data as CreditInstrumentType,
-      number: optionalString(body.number) ?? "",
-      issuer: optionalString(body.issuer),
-      valueBrl: valueBrl.data ?? 0,
-      interestRate: interestRate.data ?? undefined,
-      iofRate: iofRate.data ?? undefined,
-      issueDate: issueDate.data ?? "",
-      maturityDate: maturityDate.data ?? "",
-      paymentMethod: optionalString(body.paymentMethod),
-      installments: installments.data ?? undefined,
-      status: (status.data ?? "ativo") as CreditInstrumentStatus,
-      notes: optionalString(body.notes),
-      createdAt: nowIso(),
-    },
-  } satisfies ValidationResult<unknown>;
-}
-
-type CreditInstrumentStatus = "ativo" | "vencido" | "quitado" | "em_execucao";
-
-export function parseCropSeasonCreate(body: Body) {
-  const name = requiredString(body, "name");
-  if (!name.ok) return name;
-  const year = optionalNumber(body.year, "year");
-  if (!year.ok) return year;
-  return {
-    ok: true,
-    data: {
-      id: `cs-${crypto.randomUUID()}`,
-      name: name.data,
-      year: year.data ?? new Date().getFullYear(),
-      plantingStart: optionalString(body.plantingStart) ?? "",
-      plantingEnd: optionalString(body.plantingEnd) ?? "",
-      harvestStart: optionalString(body.harvestStart) ?? "",
-      harvestEnd: optionalString(body.harvestEnd) ?? "",
-      mainCrop: optionalString(body.mainCrop) ?? "",
-      region: optionalString(body.region),
-      notes: optionalString(body.notes),
-      createdAt: nowIso(),
     },
   } satisfies ValidationResult<unknown>;
 }

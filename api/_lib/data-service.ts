@@ -25,12 +25,9 @@ import type {
   Activity,
   AgroUser,
   Contact,
-  CreditInstrument,
-  CropSeason,
   Deadline,
   Document,
   DocumentChecklistItem,
-  EnvironmentalLicense,
   FeeAgreement,
   Invoice,
   Lead,
@@ -42,7 +39,6 @@ import type {
   Property,
   Task,
   TaskStatus,
-  TaxObligation,
   TimeEntry,
 } from "../../shared/agro/types.js";
 import {
@@ -460,10 +456,6 @@ export async function setupDatabase(options?: { force?: boolean }) {
     SEED_MATTERS,
     SEED_OPPORTUNITIES,
     SEED_TASKS,
-    SEED_CROP_SEASONS,
-    SEED_TAX_OBLIGATIONS,
-    SEED_ENVIRONMENTAL_LICENSES,
-    SEED_CREDIT_INSTRUMENTS,
   } = await import("../../shared/agro/seed.js");
 
   await runMigrations();
@@ -485,13 +477,6 @@ export async function setupDatabase(options?: { force?: boolean }) {
     tasks: SEED_TASKS,
     deadlines: SEED_DEADLINES,
     activities: SEED_ACTIVITIES,
-  });
-
-  await db.dbUpsertSecondarySeed({
-    cropSeasons: SEED_CROP_SEASONS,
-    taxObligations: SEED_TAX_OBLIGATIONS,
-    environmentalLicenses: SEED_ENVIRONMENTAL_LICENSES,
-    creditInstruments: SEED_CREDIT_INSTRUMENTS,
   });
 
   const leads = await listLeads();
@@ -1000,94 +985,6 @@ export async function updateOpposingParty(
   if (isDbEnabled()) return db.dbUpdateOpposingParty(id, patch);
   requireWritableOrThrow("opposing-parties");
   return memory.patchOpposingParty(id, patch);
-}
-
-// ── Crop Seasons ───────────────────────────────────────────────────
-
-export async function listCropSeasons(
-  filters: { year?: number; region?: string } = {},
-): Promise<CropSeason[]> {
-  if (isDbEnabled()) return db.dbListCropSeasons(filters);
-  return memory.listCropSeasons(filters);
-}
-
-export async function getCropSeason(id: string): Promise<CropSeason | undefined | null> {
-  if (isDbEnabled()) return db.dbGetCropSeason(id);
-  return memory.listCropSeasons().find((c) => c.id === id);
-}
-
-export async function createCropSeason(season: CropSeason): Promise<CropSeason> {
-  if (isDbEnabled()) return db.dbCreateCropSeason(season);
-  requireWritableOrThrow("crop-seasons");
-  return memory.addCropSeason(season);
-}
-
-// ── Tax Obligations ────────────────────────────────────────────────
-
-export async function listTaxObligations(
-  filters: { propertyId?: string; accountId?: string; year?: number } = {},
-): Promise<TaxObligation[]> {
-  if (isDbEnabled()) return db.dbListTaxObligations(filters);
-  return memory.listTaxObligations(filters);
-}
-
-export async function getTaxObligation(id: string): Promise<TaxObligation | undefined | null> {
-  if (isDbEnabled()) return db.dbGetTaxObligation(id);
-  return memory.listTaxObligations().find((t) => t.id === id);
-}
-
-export async function createTaxObligation(tax: TaxObligation): Promise<TaxObligation> {
-  if (isDbEnabled()) return db.dbCreateTaxObligation(tax);
-  requireWritableOrThrow("tax-obligations");
-  return memory.addTaxObligation(tax);
-}
-
-// ── Environmental Licenses ─────────────────────────────────────────
-
-export async function listEnvironmentalLicenses(
-  filters: { propertyId?: string; accountId?: string } = {},
-): Promise<EnvironmentalLicense[]> {
-  if (isDbEnabled()) return db.dbListEnvironmentalLicenses(filters);
-  return memory.listEnvironmentalLicenses(filters);
-}
-
-export async function getEnvironmentalLicense(
-  id: string,
-): Promise<EnvironmentalLicense | undefined | null> {
-  if (isDbEnabled()) return db.dbGetEnvironmentalLicense(id);
-  return memory.listEnvironmentalLicenses().find((l) => l.id === id);
-}
-
-export async function createEnvironmentalLicense(
-  license: EnvironmentalLicense,
-): Promise<EnvironmentalLicense> {
-  if (isDbEnabled()) return db.dbCreateEnvironmentalLicense(license);
-  requireWritableOrThrow("environmental-licenses");
-  return memory.addEnvironmentalLicense(license);
-}
-
-// ── Credit Instruments ─────────────────────────────────────────────
-
-export async function listCreditInstruments(
-  filters: { accountId?: string; matterId?: string } = {},
-): Promise<CreditInstrument[]> {
-  if (isDbEnabled()) return db.dbListCreditInstruments(filters);
-  return memory.listCreditInstruments(filters);
-}
-
-export async function getCreditInstrument(
-  id: string,
-): Promise<CreditInstrument | undefined | null> {
-  if (isDbEnabled()) return db.dbGetCreditInstrument(id);
-  return memory.listCreditInstruments().find((c) => c.id === id);
-}
-
-export async function createCreditInstrument(
-  instrument: CreditInstrument,
-): Promise<CreditInstrument> {
-  if (isDbEnabled()) return db.dbCreateCreditInstrument(instrument);
-  requireWritableOrThrow("credit-instruments");
-  return memory.addCreditInstrument(instrument);
 }
 
 // ── Knowledge Documents ────────────────────────────────────────────

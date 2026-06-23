@@ -6,7 +6,7 @@
  */
 import { neon } from "@neondatabase/serverless";
 import { runMigrations } from "../api/_lib/db/migrate";
-import { dbUpsertSeed, dbUpsertSecondarySeed, dbUpsertUsers } from "../api/_lib/db/repository";
+import { dbUpsertSeed, dbUpsertUsers } from "../api/_lib/db/repository";
 import { getSeedUsers } from "../api/_lib/auth-server";
 import { ensureKbEmbeddingsSeeded } from "../api/_lib/llm/rag";
 import { hasEmbeddingProvider } from "../api/_lib/llm/embeddings";
@@ -16,10 +16,6 @@ import {
   SEED_MATTERS,
   SEED_OPPORTUNITIES,
   SEED_TASKS,
-  SEED_CROP_SEASONS,
-  SEED_TAX_OBLIGATIONS,
-  SEED_ENVIRONMENTAL_LICENSES,
-  SEED_CREDIT_INSTRUMENTS,
 } from "../shared/agro/seed";
 
 async function main() {
@@ -70,13 +66,6 @@ async function main() {
     opportunities: SEED_OPPORTUNITIES,
     matters: SEED_MATTERS,
     tasks: SEED_TASKS,
-  });
-
-  await dbUpsertSecondarySeed({
-    cropSeasons: SEED_CROP_SEASONS,
-    taxObligations: SEED_TAX_OBLIGATIONS,
-    environmentalLicenses: SEED_ENVIRONMENTAL_LICENSES,
-    creditInstruments: SEED_CREDIT_INSTRUMENTS,
   });
 
   const [{ count }] = await sql`SELECT COUNT(*)::int AS count FROM agro.leads`;

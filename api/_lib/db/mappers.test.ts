@@ -2,11 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   mapAccount,
   mapContact,
-  mapCreditInstrument,
-  mapCropSeason,
   mapDocument,
   mapDocumentChecklistItem,
-  mapEnvironmentalLicense,
   mapFeeAgreement,
   mapInvoice,
   mapLead,
@@ -15,7 +12,6 @@ import {
   mapOpposingParty,
   mapProperty,
   mapTask,
-  mapTaxObligation,
   mapTimeEntry,
 } from "./mappers.js";
 
@@ -313,81 +309,4 @@ describe("db mappers", () => {
     expect(party.lawyer).toBe("Dr. X");
   });
 
-  it("mapCropSeason mapeia ano e janelas", () => {
-    const season = mapCropSeason({
-      id: "CS-1",
-      name: "Safra 25/26",
-      year: 2026,
-      planting_start: "2025-10-01",
-      planting_end: "2025-12-15",
-      harvest_start: "2026-02-01",
-      harvest_end: "2026-04-30",
-      main_crop: "soja",
-      region: "MT",
-      created_at: "2026-06-01T00:00:00.000Z",
-    });
-    expect(season.year).toBe(2026);
-    expect(season.mainCrop).toBe("soja");
-    expect(season.region).toBe("MT");
-  });
-
-  it("mapTaxObligation define paidDate null quando vazio", () => {
-    const tax = mapTaxObligation({
-      id: "TX-1",
-      property_id: "PR-1",
-      account_id: "AC-1",
-      type: "itr",
-      year: 2026,
-      value_brl: "3500.00",
-      due_date: "2026-09-30",
-      paid_date: "",
-      status: "pendente",
-      created_at: "2026-06-01T00:00:00.000Z",
-    });
-    expect(tax.valueBrl).toBe(3500);
-    expect(tax.dueDate).toBe("2026-09-30");
-    expect(tax.paidDate).toBeNull();
-  });
-
-  it("mapEnvironmentalLicense parseia conditions (JSONB)", () => {
-    const license = mapEnvironmentalLicense({
-      id: "EL-1",
-      property_id: "PR-1",
-      account_id: "AC-1",
-      type: "outorga",
-      number: "LIC-2026/01",
-      issuer: "SEMA",
-      issued_at: "2026-01-10",
-      expires_at: "2028-01-10",
-      status: "vigente",
-      conditions: '["monitorar vazão","relatorio anual"]',
-      created_at: "2026-06-01T00:00:00.000Z",
-    });
-    expect(license.number).toBe("LIC-2026/01");
-    expect(license.expiresAt).toBe("2028-01-10");
-    expect(license.conditions).toEqual(["monitorar vazão", "relatorio anual"]);
-  });
-
-  it("mapCreditInstrument converte taxas e gateia opcionais", () => {
-    const credit = mapCreditInstrument({
-      id: "CI-1",
-      account_id: "AC-1",
-      type: "cpr",
-      number: "CPR-001",
-      value_brl: "250000.00",
-      interest_rate: "8.7500",
-      iof_rate: "0.3800",
-      issue_date: "2026-03-01",
-      maturity_date: "2026-12-01",
-      installments: 3,
-      status: "ativo",
-      matter_id: "MT-1",
-      created_at: "2026-06-01T00:00:00.000Z",
-    });
-    expect(credit.valueBrl).toBe(250000);
-    expect(credit.interestRate).toBe(8.75);
-    expect(credit.iofRate).toBe(0.38);
-    expect(credit.installments).toBe(3);
-    expect(credit.matterId).toBe("MT-1");
-  });
 });

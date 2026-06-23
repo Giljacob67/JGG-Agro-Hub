@@ -316,96 +316,12 @@ async function runTertiaryEntityMigrations(
     )
   `;
 
-  // Safras (sem deleted_at — tipo não define exclusão lógica)
-  await sql`
-    CREATE TABLE IF NOT EXISTS agro.crop_seasons (
-      id TEXT PRIMARY KEY,
-      name TEXT NOT NULL,
-      year INTEGER NOT NULL,
-      planting_start TEXT,
-      planting_end TEXT,
-      harvest_start TEXT,
-      harvest_end TEXT,
-      main_crop TEXT NOT NULL DEFAULT '',
-      region TEXT,
-      notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
-    )
-  `;
-
-  // Obrigações tributárias ITR/ITBI (soft-delete)
-  await sql`
-    CREATE TABLE IF NOT EXISTS agro.tax_obligations (
-      id TEXT PRIMARY KEY,
-      property_id TEXT NOT NULL,
-      account_id TEXT NOT NULL,
-      type TEXT NOT NULL,
-      year INTEGER NOT NULL,
-      value_brl NUMERIC(14, 2) NOT NULL DEFAULT 0,
-      due_date TEXT,
-      paid_date TEXT,
-      status TEXT NOT NULL DEFAULT 'pendente',
-      notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      deleted_at TIMESTAMPTZ
-    )
-  `;
-
-  // Licenças ambientais (soft-delete, conditions JSONB)
-  await sql`
-    CREATE TABLE IF NOT EXISTS agro.environmental_licenses (
-      id TEXT PRIMARY KEY,
-      property_id TEXT NOT NULL,
-      account_id TEXT NOT NULL,
-      type TEXT NOT NULL DEFAULT '',
-      number TEXT NOT NULL,
-      issuer TEXT NOT NULL DEFAULT '',
-      issued_at TEXT,
-      expires_at TEXT,
-      status TEXT NOT NULL DEFAULT 'vigente',
-      conditions JSONB DEFAULT '[]'::jsonb,
-      notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      deleted_at TIMESTAMPTZ
-    )
-  `;
-
-  // Instrumentos de crédito rural (soft-delete)
-  await sql`
-    CREATE TABLE IF NOT EXISTS agro.credit_instruments (
-      id TEXT PRIMARY KEY,
-      account_id TEXT NOT NULL,
-      matter_id TEXT,
-      type TEXT NOT NULL,
-      number TEXT NOT NULL DEFAULT '',
-      issuer TEXT,
-      value_brl NUMERIC(16, 2) NOT NULL DEFAULT 0,
-      interest_rate NUMERIC(8, 4),
-      iof_rate NUMERIC(8, 4),
-      issue_date TEXT,
-      maturity_date TEXT,
-      payment_method TEXT,
-      installments INTEGER,
-      status TEXT NOT NULL DEFAULT 'ativo',
-      notes TEXT,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-      deleted_at TIMESTAMPTZ
-    )
-  `;
-
   await sql`CREATE INDEX IF NOT EXISTS idx_doc_checklist_matter ON agro.document_checklist(matter_id)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_time_entries_matter ON agro.time_entries(matter_id) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS idx_time_entries_owner ON agro.time_entries(owner) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS idx_fee_agreements_account ON agro.fee_agreements(account_id) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS idx_fee_agreements_matter ON agro.fee_agreements(matter_id) WHERE deleted_at IS NULL`;
   await sql`CREATE INDEX IF NOT EXISTS idx_opposing_parties_active ON agro.opposing_parties(deleted_at) WHERE deleted_at IS NULL`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_crop_seasons_year ON agro.crop_seasons(year)`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_tax_property ON agro.tax_obligations(property_id) WHERE deleted_at IS NULL`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_tax_account ON agro.tax_obligations(account_id) WHERE deleted_at IS NULL`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_env_lic_property ON agro.environmental_licenses(property_id) WHERE deleted_at IS NULL`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_env_lic_account ON agro.environmental_licenses(account_id) WHERE deleted_at IS NULL`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_credit_account ON agro.credit_instruments(account_id) WHERE deleted_at IS NULL`;
-  await sql`CREATE INDEX IF NOT EXISTS idx_credit_matter ON agro.credit_instruments(matter_id) WHERE deleted_at IS NULL`;
 }
 
 /**

@@ -470,39 +470,3 @@ export function useProperties() {
     queryFn: () => agroApi.listProperties({}),
   });
 }
-
-/* ──── P3: Crop Seasons ──────────────────────────────────────────── */
-
-export function useCropSeasons() {
-  return useQuery({
-    queryKey: ["crm", "cropSeasons"],
-    queryFn: () => agroApi.listCropSeasons({}),
-  });
-}
-
-/* ──── P3: Tax Obligations ───────────────────────────────────────── */
-
-export function useTaxObligations() {
-  return useQuery({
-    queryKey: ["crm", "taxObligations"],
-    queryFn: () => agroApi.listTaxObligations({}),
-  });
-}
-
-/* ──── P3: Environmental Licenses ────────────────────────────────── */
-
-export function useEnvironmentalLicenses() {
-  return useQuery({
-    queryKey: ["crm", "environmentalLicenses"],
-    queryFn: () => agroApi.listEnvironmentalLicenses({}),
-  });
-}
-
-/* ──── P3: Credit Instruments ────────────────────────────────────── */
-
-export function useCreditInstruments() {
-  return useQuery({
-    queryKey: ["crm", "creditInstruments"],
-    queryFn: () => agroApi.listCreditInstruments({}),
-  });
-}

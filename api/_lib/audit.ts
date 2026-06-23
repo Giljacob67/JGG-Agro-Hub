@@ -38,10 +38,6 @@ export type AuditEntityType =
   | "contact"
   | "property"
   | "opposing-party"
-  | "tax-obligation"
-  | "environmental-license"
-  | "credit-instrument"
-  | "crop-season"
   | "knowledge";
 
 export type AuditAction = "create" | "update" | "delete";

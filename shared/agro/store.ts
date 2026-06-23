@@ -1,27 +1,20 @@
 import {
   SEED_ACCOUNTS,
   SEED_ACTIVITIES,
-  SEED_CREDIT_INSTRUMENTS,
-  SEED_CROP_SEASONS,
   SEED_DEADLINES,
-  SEED_ENVIRONMENTAL_LICENSES,
   SEED_LEADS,
   SEED_MATTERS,
   SEED_OPPORTUNITIES,
   SEED_TASKS,
-  SEED_TAX_OBLIGATIONS,
 } from "./seed.js";
 import type {
   Account,
   Activity,
   ActivityEntityType,
   Contact,
-  CropSeason,
-  CreditInstrument,
   Deadline,
   Document,
   DocumentChecklistItem,
-  EnvironmentalLicense,
   FeeAgreement,
   Invoice,
   Lead,
@@ -29,7 +22,6 @@ import type {
   Opportunity,
   OpposingParty,
   Property,
-  TaxObligation,
   Task,
   TimeEntry,
 } from "./types.js";
@@ -51,10 +43,6 @@ const store = {
   contacts: [] as Contact[],
   properties: [] as Property[],
   opposingParties: [] as OpposingParty[],
-  taxObligations: structuredClone(SEED_TAX_OBLIGATIONS),
-  environmentalLicenses: structuredClone(SEED_ENVIRONMENTAL_LICENSES),
-  creditInstruments: structuredClone(SEED_CREDIT_INSTRUMENTS),
-  cropSeasons: structuredClone(SEED_CROP_SEASONS),
 };
 
 export function listLeads(): Lead[] {
@@ -465,74 +453,6 @@ export function patchOpposingParty(id: string, patch: Partial<OpposingParty>): O
   return party;
 }
 
-// ── Tax Obligations ────────────────────────────────────────────────
-
-export function listTaxObligations(filters?: { propertyId?: string; accountId?: string; year?: number }): TaxObligation[] {
-  let result = store.taxObligations.filter((t) => !t.deletedAt);
-  if (filters?.propertyId) result = result.filter((t) => t.propertyId === filters.propertyId);
-  if (filters?.accountId) result = result.filter((t) => t.accountId === filters.accountId);
-  if (filters?.year) result = result.filter((t) => t.year === filters.year);
-  return result;
-}
-
-export function addTaxObligation(tax: TaxObligation): TaxObligation {
-  store.taxObligations.push(tax);
-  return tax;
-}
-
-// ── Environmental Licenses ─────────────────────────────────────────
-
-export function listEnvironmentalLicenses(filters?: { propertyId?: string; accountId?: string }): EnvironmentalLicense[] {
-  let result = store.environmentalLicenses.filter((l) => !l.deletedAt);
-  if (filters?.propertyId) result = result.filter((l) => l.propertyId === filters.propertyId);
-  if (filters?.accountId) result = result.filter((l) => l.accountId === filters.accountId);
-  return result;
-}
-
-export function addEnvironmentalLicense(license: EnvironmentalLicense): EnvironmentalLicense {
-  store.environmentalLicenses.push(license);
-  return license;
-}
-
-// ── Credit Instruments ─────────────────────────────────────────────
-
-export function listCreditInstruments(filters?: { accountId?: string; matterId?: string }): CreditInstrument[] {
-  let result = store.creditInstruments.filter((c) => !c.deletedAt);
-  if (filters?.accountId) result = result.filter((c) => c.accountId === filters.accountId);
-  if (filters?.matterId) result = result.filter((c) => c.matterId === filters.matterId);
-  return result;
-}
-
-export function addCreditInstrument(instrument: CreditInstrument): CreditInstrument {
-  store.creditInstruments.push(instrument);
-  return instrument;
-}
-
-// ── Crop Seasons ────────────────────────────────────────────────
-
-export function listCropSeasons(filters?: { year?: number; region?: string }): CropSeason[] {
-  let result = [...store.cropSeasons];
-  if (filters?.year) result = result.filter((s) => s.year === filters.year);
-  if (filters?.region) result = result.filter((s) => s.region === filters.region);
-  return result;
-}
-
-export function getCropSeason(id: string): CropSeason | undefined {
-  return store.cropSeasons.find((s) => s.id === id);
-}
-
-export function addCropSeason(season: CropSeason): CropSeason {
-  store.cropSeasons.push(season);
-  return season;
-}
-
-export function updateCropSeason(id: string, patch: Partial<CropSeason>): CropSeason | undefined {
-  const season = store.cropSeasons.find((s) => s.id === id);
-  if (!season) return undefined;
-  Object.assign(season, patch);
-  return season;
-}
-
 // ── Reset ──────────────────────────────────────────────────────────
 
 /** Apenas para testes — reinicia o store. */
@@ -552,8 +472,4 @@ export function resetStore() {
   store.contacts = [];
   store.properties = [];
   store.opposingParties = [];
-  store.taxObligations = structuredClone(SEED_TAX_OBLIGATIONS);
-  store.environmentalLicenses = structuredClone(SEED_ENVIRONMENTAL_LICENSES);
-  store.creditInstruments = structuredClone(SEED_CREDIT_INSTRUMENTS);
-  store.cropSeasons = structuredClone(SEED_CROP_SEASONS);
 }

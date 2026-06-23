@@ -685,38 +685,6 @@ export const agroApi = {
       `/api/agro/conflict-check?name=${encodeURIComponent(name)}`
     ),
 
-  // ── Crop Seasons ──────────────────────────────────────────────────
-
-  listCropSeasons: (params: { year?: number; region?: string }) =>
-    request<any[]>(`/api/agro/crop-seasons?${buildQuery(params)}`),
-
-  createCropSeason: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/crop-seasons", { method: "POST", body: JSON.stringify(input) }),
-
-  // ── Tax Obligations ───────────────────────────────────────────────
-
-  listTaxObligations: (params: { propertyId?: string; accountId?: string; year?: number }) =>
-    request<any[]>(`/api/agro/tax-obligations?${buildQuery(params)}`),
-
-  createTaxObligation: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/tax-obligations", { method: "POST", body: JSON.stringify(input) }),
-
-  // ── Environmental Licenses ────────────────────────────────────────
-
-  listEnvironmentalLicenses: (params: { propertyId?: string; accountId?: string }) =>
-    request<any[]>(`/api/agro/environmental-licenses?${buildQuery(params)}`),
-
-  createEnvironmentalLicense: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/environmental-licenses", { method: "POST", body: JSON.stringify(input) }),
-
-  // ── Credit Instruments ────────────────────────────────────────────
-
-  listCreditInstruments: (params: { accountId?: string; matterId?: string }) =>
-    request<any[]>(`/api/agro/credit-instruments?${buildQuery(params)}`),
-
-  createCreditInstrument: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/credit-instruments", { method: "POST", body: JSON.stringify(input) }),
-
   // ── CSV Export ──────────────────────────────────────────────────
 
   exportCsv: (resource: "leads" | "accounts" | "opportunities" | "matters" | "tasks") => {
