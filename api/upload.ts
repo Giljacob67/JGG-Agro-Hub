@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { requireAuth, requireCsrf, applyCors } from "./_lib/http.js";
 import { getPresignedUploadUrl, generateFileKey, isR2Configured } from "./_lib/r2.js";
 import { extractText, KB_EXTRACTABLE_CONTENT_TYPES } from "./_lib/extract.js";
+import type { AgroRole } from "../shared/agro/types.js";
 
 /** Limite de bytes baixados do R2 para extração (proteção de memória serverless). */
 const MAX_EXTRACT_BYTES = 15 * 1024 * 1024; // 15 MB
@@ -128,7 +129,7 @@ function isAllowedR2Url(rawUrl: string): boolean {
 async function handleExtract(
   req: VercelRequest,
   res: VercelResponse,
-  user: { role: string },
+  user: { role: AgroRole },
 ) {
   const { hasPermission } = await import("../shared/agro/auth.js");
   if (!hasPermission(user.role, "knowledge", "create")) {
