@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { computeCrmStats } from "./stats.js";
 import { resetStore, listLeads, patchLead } from "./store.js";
+import { FIXTURES } from "./test-fixtures.js";
 
 describe("computeCrmStats", () => {
   it("retorna KPIs coerentes com o seed", () => {
-    resetStore();
+    resetStore(FIXTURES);
     const stats = computeCrmStats();
     expect(stats.activeLeads).toBeGreaterThan(0);
     expect(stats.openOpportunities).toBeGreaterThan(0);
@@ -17,7 +18,7 @@ describe("computeCrmStats", () => {
   });
 
   it("exclui lead soft-deletado de activeLeads e upcomingContacts", () => {
-    resetStore();
+    resetStore(FIXTURES);
     const before = computeCrmStats();
     const lead = listLeads()[0];
     expect(lead).toBeDefined();

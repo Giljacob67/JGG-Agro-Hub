@@ -548,9 +548,10 @@ export async function getCrmStats(): Promise<CrmStats> {
   });
 }
 
-export async function setupDatabase(options?: { force?: boolean }) {
+export async function setupDatabase(options?: { force?: boolean; purge?: boolean }) {
   const { runMigrations } = await import("./db/migrate.js");
   const {
+    DEMO_SEED_IDS,
     SEED_ACCOUNTS,
     SEED_ACTIVITIES,
     SEED_DEADLINES,
@@ -561,6 +562,12 @@ export async function setupDatabase(options?: { force?: boolean }) {
   } = await import("../../shared/agro/seed.js");
 
   await runMigrations();
+
+  if (options?.purge === true) {
+    const removed = await db.dbPurgeDemoData(DEMO_SEED_IDS);
+    const leads = await listLeads();
+    return { leadsCount: leads.total, reseeded: false, purged: removed };
+  }
 
   const force = options?.force === true;
   if (!force) {

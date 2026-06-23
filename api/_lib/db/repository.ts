@@ -52,6 +52,7 @@ import {
 } from "./mappers.js";
 import { toJsonArray, toJsonValue } from "./json-utils.js";
 import { OPPORTUNITY_STAGES } from "../../../shared/agro/seed.js";
+import type { DemoSeedIds } from "../../../shared/agro/seed.js";
 
 function uuidPrefix(prefix: string) {
   return `${prefix}-${crypto.randomUUID()}`;
@@ -1447,6 +1448,39 @@ export async function dbUpsertSeed(data: CrmDataset) {
         summary = EXCLUDED.summary, date = EXCLUDED.date, owner = EXCLUDED.owner
     `;
   }
+}
+
+/**
+ * Remove os registros de demonstração por ID exato, preservando dados
+ * reais (que usam IDs UUID). FKs são ON DELETE SET NULL/CASCADE, então a
+ * ordem não bloqueia. Retorna a contagem removida por tabela.
+ */
+export async function dbPurgeDemoData(
+  ids: DemoSeedIds,
+): Promise<Record<string, number>> {
+  const sql = getSql();
+  const deletes: [string, string, readonly string[]][] = [
+    ["deadlines", "agro.deadlines", ids.deadlines],
+    ["activities", "agro.activities", ids.activities],
+    ["tasks", "agro.tasks", ids.tasks],
+    ["matters", "agro.matters", ids.matters],
+    ["opportunities", "agro.opportunities", ids.opportunities],
+    ["leads", "agro.leads", ids.leads],
+    ["accounts", "agro.accounts", ids.accounts],
+  ];
+  const removed: Record<string, number> = {};
+  for (const [key, table, idList] of deletes) {
+    if (!idList.length) {
+      removed[key] = 0;
+      continue;
+    }
+    const rows = await sql.query(
+      `DELETE FROM ${table} WHERE id = ANY($1) RETURNING id`,
+      [idList as string[]],
+    );
+    removed[key] = rows.length;
+  }
+  return removed;
 }
 
 // ── Facets (E-9): SELECT DISTINCT por coluna, substitui re-SELECT * + JS ──

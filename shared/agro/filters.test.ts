@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { filterLeads, filterOpportunities } from "./filters.js";
-import { SEED_LEADS, SEED_OPPORTUNITIES } from "./seed.js";
+import { FIXTURE_LEADS, FIXTURE_OPPORTUNITIES } from "./test-fixtures.js";
 
 describe("crm filters", () => {
   it("filtra leads por região e status", () => {
-    const result = filterLeads(SEED_LEADS, {
+    const result = filterLeads(FIXTURE_LEADS, {
       region: "MT — Sorriso",
       status: "qualificado",
     });
@@ -13,7 +13,7 @@ describe("crm filters", () => {
   });
 
   it("filtra oportunidades por faixa de valor", () => {
-    const result = filterOpportunities(SEED_OPPORTUNITIES, {
+    const result = filterOpportunities(FIXTURE_OPPORTUNITIES, {
       valueRange: "acima_200k",
     });
     expect(result.every((o) => o.valueBrl >= 200_000)).toBe(true);

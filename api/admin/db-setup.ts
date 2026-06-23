@@ -26,7 +26,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const force = req.query.force === "1" || req.body?.force === true;
-    const result = await setupDatabase({ force });
+    const purge = req.query.purge === "1" || req.body?.purge === true;
+    const result = await setupDatabase({ force, purge });
     return json(res, { ok: true, ...result });
   } catch (err) {
     return json(

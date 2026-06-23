@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   buildOpportunityFromLead,
   conversionBlockReason,
@@ -11,7 +11,9 @@ import {
   patchDeadline,
   resetStore,
 } from "./store.js";
+import { FIXTURES } from "./test-fixtures.js";
 
+beforeEach(() => resetStore(FIXTURES));
 afterEach(() => resetStore());
 
 describe("conversão lead → oportunidade", () => {

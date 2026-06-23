@@ -491,16 +491,27 @@ export function patchOpposingParty(id: string, patch: Partial<OpposingParty>): O
 
 // ── Reset ──────────────────────────────────────────────────────────
 
-/** Apenas para testes — reinicia o store. */
-export function resetStore() {
-  store.leads = structuredClone(SEED_LEADS);
-  store.leadLists = structuredClone(SEED_LEAD_LISTS);
-  store.accounts = structuredClone(SEED_ACCOUNTS);
-  store.opportunities = structuredClone(SEED_OPPORTUNITIES);
-  store.matters = structuredClone(SEED_MATTERS);
-  store.tasks = structuredClone(SEED_TASKS);
-  store.deadlines = structuredClone(SEED_DEADLINES);
-  store.activities = structuredClone(SEED_ACTIVITIES);
+export interface StoreSeed {
+  leads?: Lead[];
+  leadLists?: LeadList[];
+  accounts?: Account[];
+  opportunities?: Opportunity[];
+  matters?: Matter[];
+  tasks?: Task[];
+  deadlines?: Deadline[];
+  activities?: Activity[];
+}
+
+/** Apenas para testes — reinicia o store (vazio por padrão; aceita fixtures). */
+export function resetStore(seed: StoreSeed = {}) {
+  store.leads = structuredClone(seed.leads ?? SEED_LEADS);
+  store.leadLists = structuredClone(seed.leadLists ?? SEED_LEAD_LISTS);
+  store.accounts = structuredClone(seed.accounts ?? SEED_ACCOUNTS);
+  store.opportunities = structuredClone(seed.opportunities ?? SEED_OPPORTUNITIES);
+  store.matters = structuredClone(seed.matters ?? SEED_MATTERS);
+  store.tasks = structuredClone(seed.tasks ?? SEED_TASKS);
+  store.deadlines = structuredClone(seed.deadlines ?? SEED_DEADLINES);
+  store.activities = structuredClone(seed.activities ?? SEED_ACTIVITIES);
   store.documents = [];
   store.documentChecklist = [];
   store.timeEntries = [];

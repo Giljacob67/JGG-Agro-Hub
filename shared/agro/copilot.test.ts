@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import { resolveCopilotQuery } from "./copilot.js";
 import { computeCrmStats } from "./stats.js";
 import {
-  SEED_ACCOUNTS,
-  SEED_LEADS,
-  SEED_MATTERS,
-  SEED_OPPORTUNITIES,
-  SEED_TASKS,
-} from "./seed.js";
+  FIXTURE_ACCOUNTS,
+  FIXTURE_LEADS,
+  FIXTURE_MATTERS,
+  FIXTURE_OPPORTUNITIES,
+  FIXTURE_TASKS,
+} from "./test-fixtures.js";
 
 const stats = computeCrmStats({
-  leads: SEED_LEADS,
-  accounts: SEED_ACCOUNTS,
-  opportunities: SEED_OPPORTUNITIES,
-  matters: SEED_MATTERS,
-  tasks: SEED_TASKS,
+  leads: FIXTURE_LEADS,
+  accounts: FIXTURE_ACCOUNTS,
+  opportunities: FIXTURE_OPPORTUNITIES,
+  matters: FIXTURE_MATTERS,
+  tasks: FIXTURE_TASKS,
 });
 
 describe("resolveCopilotQuery", () => {

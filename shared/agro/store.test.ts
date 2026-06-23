@@ -25,10 +25,11 @@ import {
   getAccountTimeline,
   resetStore,
 } from "./store";
+import { FIXTURES } from "./test-fixtures.js";
 
 describe("Store", () => {
   beforeEach(() => {
-    resetStore();
+    resetStore(FIXTURES);
   });
 
   describe("Leads", () => {
