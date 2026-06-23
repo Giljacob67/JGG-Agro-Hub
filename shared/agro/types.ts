@@ -77,6 +77,19 @@ export interface Lead {
   email?: string;
   cnpj?: string;
   cpf?: string;
+  /** Lista de prospecção a que o lead pertence (frente de trabalho). */
+  listId?: string | null;
+  deletedAt?: string | null;
+}
+
+export interface LeadList {
+  id: string;
+  name: string;
+  description?: string;
+  owner?: string;
+  createdAt: string;
+  /** Quantidade de leads ativos vinculados. Derivado, não persistido. */
+  leadCount?: number;
   deletedAt?: string | null;
 }
 

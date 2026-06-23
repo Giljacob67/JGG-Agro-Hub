@@ -19,6 +19,7 @@ import type {
   Invoice,
   KnowledgeDocument,
   Lead,
+  LeadList,
   Matter,
   Opportunity,
   OpposingParty,
@@ -41,6 +42,7 @@ import {
   mapInvoice,
   mapKnowledgeDocument,
   mapLead,
+  mapLeadList,
   mapMatter,
   mapOpportunity,
   mapOpposingParty,
@@ -75,6 +77,11 @@ export async function dbListLeads(
   if (params.region) { where.clauses.push(`region = $${where.values.length + 1}`); where.values.push(params.region); }
   if (params.source) { where.clauses.push(`source = $${where.values.length + 1}`); where.values.push(params.source); }
   if (params.crop) { where.clauses.push(`crop ILIKE $${where.values.length + 1}`); where.values.push(sqlLikeTerm(params.crop)); }
+  if (params.listId === "none") {
+    where.clauses.push(`list_id IS NULL`);
+  } else if (params.listId) {
+    where.clauses.push(`list_id = $${where.values.length + 1}`); where.values.push(params.listId);
+  }
   if (params.search?.trim()) {
     const term = sqlLikeTerm(params.search);
     where.clauses.push(`(name ILIKE $${where.values.length + 1} OR contact ILIKE $${where.values.length + 2} OR notes ILIKE $${where.values.length + 3})`);
@@ -121,14 +128,16 @@ export async function dbCreateLead(
   await sql`
     INSERT INTO agro.leads (
       id, name, contact, region, crop, source, status, owner, account_id,
-      next_contact, notes, created_at, lead_type, legal_pain, interest_area, priority
+      next_contact, notes, created_at, lead_type, legal_pain, interest_area, priority,
+      list_id
     )
     VALUES (
       ${id}, ${input.name}, ${input.contact}, ${input.region}, ${input.crop},
       ${input.source}, ${input.status}, ${input.owner}, ${input.accountId ?? null},
       ${input.nextContact}, ${input.notes}, ${input.createdAt},
       ${input.leadType ?? null}, ${input.legalPain ?? null},
-      ${input.interestArea ?? null}, ${input.priority ?? null}
+      ${input.interestArea ?? null}, ${input.priority ?? null},
+      ${input.listId ?? null}
     )
   `;
   const lead = await dbGetLead(id);
@@ -138,7 +147,7 @@ export async function dbCreateLead(
 
 export async function dbUpdateLead(
   id: string,
-  patch: Partial<Pick<Lead, "status" | "owner" | "nextContact" | "notes" | "name">>,
+  patch: Partial<Pick<Lead, "status" | "owner" | "nextContact" | "notes" | "name" | "listId">>,
 ): Promise<Lead | null> {
   const sql = getSql();
   const sets: string[] = [];
@@ -148,6 +157,7 @@ export async function dbUpdateLead(
   if (patch.nextContact !== undefined) { sets.push(`next_contact = $${sets.length + 1}`); values.push(patch.nextContact); }
   if (patch.notes !== undefined) { sets.push(`notes = $${sets.length + 1}`); values.push(patch.notes); }
   if (patch.name !== undefined) { sets.push(`name = $${sets.length + 1}`); values.push(patch.name); }
+  if (patch.listId !== undefined) { sets.push(`list_id = $${sets.length + 1}`); values.push(patch.listId); }
   if (!sets.length) return dbGetLead(id);
   values.push(id);
   await sql.query(`UPDATE agro.leads SET ${sets.join(", ")}, updated_at = now() WHERE id = $${values.length}`, values);
@@ -158,6 +168,76 @@ export async function dbDeleteLead(id: string): Promise<boolean> {
   const sql = getSql();
   const rows = await sql`
     UPDATE agro.leads SET deleted_at = now(), updated_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+// ── Lead Lists ─────────────────────────────────────────────────────
+
+const LEAD_LIST_SELECT = `
+  SELECT ll.*, (
+    SELECT COUNT(*)::int FROM agro.leads l
+    WHERE l.list_id = ll.id AND l.deleted_at IS NULL
+  ) AS lead_count
+  FROM agro.lead_lists ll
+`;
+
+export async function dbListLeadLists(): Promise<LeadList[]> {
+  const sql = getSql();
+  const rows = await sql.query(
+    `${LEAD_LIST_SELECT} WHERE ll.deleted_at IS NULL ORDER BY ll.created_at DESC`,
+  );
+  return rows.map((r) => mapLeadList(r as Record<string, unknown>));
+}
+
+export async function dbGetLeadList(id: string): Promise<LeadList | null> {
+  const sql = getSql();
+  const rows = await sql.query(
+    `${LEAD_LIST_SELECT} WHERE ll.id = $1 AND ll.deleted_at IS NULL`,
+    [id],
+  );
+  if (!rows.length) return null;
+  return mapLeadList(rows[0] as Record<string, unknown>);
+}
+
+export async function dbCreateLeadList(
+  input: Omit<LeadList, "id" | "createdAt" | "leadCount"> & { id?: string },
+): Promise<LeadList> {
+  const sql = getSql();
+  const id = input.id ?? uuidPrefix("LL");
+  await sql`
+    INSERT INTO agro.lead_lists (id, name, description, owner)
+    VALUES (${id}, ${input.name}, ${input.description ?? null}, ${input.owner ?? null})
+  `;
+  const list = await dbGetLeadList(id);
+  if (!list) throw new Error("Falha ao criar lista de leads");
+  return list;
+}
+
+export async function dbUpdateLeadList(
+  id: string,
+  patch: Partial<Pick<LeadList, "name" | "description">>,
+): Promise<LeadList | null> {
+  const sql = getSql();
+  const sets: string[] = [];
+  const values: unknown[] = [];
+  if (patch.name !== undefined) { sets.push(`name = $${sets.length + 1}`); values.push(patch.name); }
+  if (patch.description !== undefined) { sets.push(`description = $${sets.length + 1}`); values.push(patch.description); }
+  if (!sets.length) return dbGetLeadList(id);
+  values.push(id);
+  await sql.query(
+    `UPDATE agro.lead_lists SET ${sets.join(", ")}, updated_at = now() WHERE id = $${values.length}`,
+    values,
+  );
+  return dbGetLeadList(id);
+}
+
+export async function dbDeleteLeadList(id: string): Promise<boolean> {
+  const sql = getSql();
+  await sql`UPDATE agro.leads SET list_id = NULL, updated_at = now() WHERE list_id = ${id}`;
+  const rows = await sql`
+    UPDATE agro.lead_lists SET deleted_at = now(), updated_at = now()
     WHERE id = ${id} AND deleted_at IS NULL RETURNING id
   `;
   return rows.length > 0;

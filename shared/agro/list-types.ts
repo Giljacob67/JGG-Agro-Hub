@@ -26,6 +26,8 @@ export interface LeadListParams extends ListParamsBase {
   source?: string;
   crop?: string;
   owner?: string;
+  /** Filtra por lista de prospecção. `none` = sem lista. */
+  listId?: string;
 }
 
 export interface AccountListParams extends ListParamsBase {

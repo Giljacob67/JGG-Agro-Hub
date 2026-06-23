@@ -44,6 +44,7 @@ export function filterLeads(leads: Lead[], params: LeadListParams): Lead[] {
     ]);
     return (
       matchSearch &&
+      matchesList(params.listId, l.listId) &&
       matchesExact(params.status, l.status) &&
       matchesExact(params.region, l.region) &&
       matchesExact(params.source, l.source) &&
@@ -51,6 +52,13 @@ export function filterLeads(leads: Lead[], params: LeadListParams): Lead[] {
       matchesExact(params.owner, l.owner)
     );
   });
+}
+
+/** `none` filtra leads sem lista; vazio/`all` não filtra. */
+function matchesList(filter: string | undefined, value: string | null | undefined) {
+  if (!filter || filter === ALL) return true;
+  if (filter === "none") return !value;
+  return filter === value;
 }
 
 export function filterAccounts(

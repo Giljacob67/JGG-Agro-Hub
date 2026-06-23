@@ -148,6 +148,7 @@ export const agroApi = {
         source: params.source,
         crop: params.crop,
         owner: params.owner,
+        listId: params.listId,
       })}`,
     ),
 
@@ -319,7 +320,7 @@ export const agroApi = {
     patch: Partial<
       Pick<
         import("@shared/agro/types").Lead,
-        "status" | "owner" | "nextContact" | "notes" | "name"
+        "status" | "owner" | "nextContact" | "notes" | "name" | "listId"
       >
     >,
   ) =>
@@ -343,10 +344,40 @@ export const agroApi = {
     legalPain?: string;
     interestArea?: string;
     priority?: import("@shared/agro/types").LeadPriority;
+    listId?: string | null;
   }) =>
     request<import("@shared/agro/types").Lead>("/api/agro/leads", {
       method: "POST",
       body: JSON.stringify(input),
+    }),
+
+  // ── Lead Lists ─────────────────────────────────────────────────────
+  leadLists: () =>
+    request<import("@shared/agro/types").LeadList[]>("/api/agro/lead-lists"),
+
+  leadList: (id: string) =>
+    request<import("@shared/agro/types").LeadList>(
+      `/api/agro/lead-lists?id=${id}`,
+    ),
+
+  createLeadList: (input: { name: string; description?: string }) =>
+    request<import("@shared/agro/types").LeadList>("/api/agro/lead-lists", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateLeadList: (
+    id: string,
+    patch: Partial<{ name: string; description: string }>,
+  ) =>
+    request<import("@shared/agro/types").LeadList>(
+      `/api/agro/lead-lists?id=${id}`,
+      { method: "PATCH", body: JSON.stringify(patch) },
+    ),
+
+  deleteLeadList: (id: string) =>
+    request<{ ok: true }>(`/api/agro/lead-lists?id=${id}`, {
+      method: "DELETE",
     }),
 
   createAccount: (input: {

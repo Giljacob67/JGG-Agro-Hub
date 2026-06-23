@@ -103,6 +103,7 @@ const PERMISSIONS: Record<AgroRole, Record<string, Permission[]>> = {
   },
   comercial: {
     leads: ["read", "create", "update", "delete"],
+    "lead-lists": ["read", "create", "update", "delete"],
     accounts: ["read", "create", "update", "delete"],
     opportunities: ["read", "create", "update", "delete"],
     contacts: ["read", "create", "update", "delete"],

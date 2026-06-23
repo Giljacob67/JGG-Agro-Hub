@@ -24,6 +24,7 @@ import {
 
 export type AuditEntityType =
   | "lead"
+  | "lead-list"
   | "account"
   | "opportunity"
   | "matter"

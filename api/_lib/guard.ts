@@ -16,6 +16,7 @@ export type GuardResult = { ok: true } | { ok: false; status: number; message: s
  */
 const DB_BACKED_RESOURCES = new Set([
   "leads",
+  "lead-lists",
   "accounts",
   "opportunities",
   "matters",

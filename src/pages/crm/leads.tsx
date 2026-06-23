@@ -10,6 +10,7 @@ import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateLeadForm } from "@/components/crm/create-lead-form";
+import { LeadListsBar, LIST_ALL, LIST_NONE } from "@/components/crm/lead-lists-bar";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -28,6 +29,7 @@ export default function CrmLeadsPage() {
   const [sourceFilter, setSourceFilter] = useState(FILTER_ALL);
   const [cropFilter, setCropFilter] = useState(FILTER_ALL);
   const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
+  const [listFilter, setListFilter] = useState(LIST_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
   const { page, setPage } = useCrmListPage(
@@ -37,6 +39,7 @@ export default function CrmLeadsPage() {
     sourceFilter,
     cropFilter,
     ownerFilter,
+    listFilter,
   );
 
   const listParams = useMemo(
@@ -50,6 +53,7 @@ export default function CrmLeadsPage() {
       source: sourceFilter !== FILTER_ALL ? sourceFilter : undefined,
       crop: cropFilter !== FILTER_ALL ? cropFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
+      listId: listFilter !== LIST_ALL ? listFilter : undefined,
     }),
     [
       page,
@@ -59,6 +63,7 @@ export default function CrmLeadsPage() {
       sourceFilter,
       cropFilter,
       ownerFilter,
+      listFilter,
     ],
   );
 
@@ -101,7 +106,14 @@ export default function CrmLeadsPage() {
             <Download className="w-3.5 h-3.5" /> Exportar CSV
           </Button>
         </header>
-        <CreateLeadForm />
+        <LeadListsBar value={listFilter} onChange={setListFilter} />
+        <CreateLeadForm
+          listId={
+            listFilter !== LIST_ALL && listFilter !== LIST_NONE
+              ? listFilter
+              : null
+          }
+        />
         <CrmFilters
           search={search}
           onSearchChange={setSearch}

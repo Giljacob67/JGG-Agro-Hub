@@ -30,10 +30,12 @@ import {
   addActivity,
   addDeadline,
   addLead,
+  addLeadList,
   addOpportunity,
   getAccount,
   getAccountTimeline,
   getLead,
+  getLeadList,
   getMatter,
   getOpportunity,
   getRelatedTasks,
@@ -41,6 +43,7 @@ import {
   listAccounts,
   listActivities,
   listDeadlines,
+  listLeadLists,
   listLeads,
   listMatters,
   listMattersByOpportunity,
@@ -51,6 +54,7 @@ import {
   nextOpportunityId,
   patchDeadline,
   patchLead,
+  patchLeadList,
   patchMatter,
   patchOpportunity,
   patchTask,
@@ -66,6 +70,7 @@ import type {
   ActivityEntityType,
   Deadline,
   Lead,
+  LeadList,
   LeadStatus,
   TaskStatus,
 } from "@shared/agro/types";
@@ -191,6 +196,7 @@ export async function handleLocalApi(
         legalPain: body.legalPain,
         interestArea: body.interestArea,
         priority: body.priority,
+        listId: body.listId ?? null,
       };
       addLead(lead);
       return { status: 201, data: lead };
@@ -219,6 +225,55 @@ export async function handleLocalApi(
     const result = paginate(filterLeads(all, query), query);
     if (query.facets) result.facets = buildLeadFacets(all);
     return { status: 200, data: result };
+  }
+
+  if (pathname === "/api/agro/lead-lists") {
+    if (init?.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      if (!body.name) return { status: 400, data: { error: "name é obrigatório" } };
+      const id = `LL-${String(listLeadLists().length + 1).padStart(3, "0")}`;
+      const list: LeadList = {
+        id,
+        name: body.name,
+        description: body.description,
+        owner: user.name,
+        createdAt: new Date().toISOString(),
+        leadCount: 0,
+      };
+      addLeadList(list);
+      return { status: 201, data: getLeadList(id) ?? list };
+    }
+
+    if (init?.method === "PATCH") {
+      const id = params.get("id");
+      if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+      const body = JSON.parse(String(init.body));
+      const list = patchLeadList(id, body);
+      return list
+        ? { status: 200, data: list }
+        : { status: 404, data: { error: "Lista não encontrada" } };
+    }
+
+    if (init?.method === "DELETE") {
+      const id = params.get("id");
+      if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+      for (const lead of listLeads()) {
+        if (lead.listId === id) patchLead(lead.id, { listId: null });
+      }
+      const ok = patchLeadList(id, { deletedAt: new Date().toISOString() });
+      return ok
+        ? { status: 200, data: { ok: true } }
+        : { status: 404, data: { error: "Lista não encontrada" } };
+    }
+
+    const id = params.get("id");
+    if (id) {
+      const list = getLeadList(id);
+      return list
+        ? { status: 200, data: list }
+        : { status: 404, data: { error: "Lista não encontrada" } };
+    }
+    return { status: 200, data: listLeadLists() };
   }
 
   if (pathname === "/api/agro/accounts") {

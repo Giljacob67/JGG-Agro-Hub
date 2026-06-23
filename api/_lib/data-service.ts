@@ -31,6 +31,7 @@ import type {
   FeeAgreement,
   Invoice,
   Lead,
+  LeadList,
   LeadPriority,
   LeadStatus,
   Matter,
@@ -107,6 +108,7 @@ export type CreateLeadInput = {
   legalPain?: string;
   interestArea?: string;
   priority?: LeadPriority;
+  listId?: string | null;
 };
 
 function withFacets<T, P extends PaginationParams & { facets?: boolean }>(
@@ -150,6 +152,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     legalPain: input.legalPain,
     interestArea: input.interestArea,
     priority: input.priority,
+    listId: input.listId ?? null,
     createdAt: today,
   };
   if (isDbEnabled()) return db.dbCreateLead(payload);
@@ -161,7 +164,7 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
 
 export async function updateLead(
   id: string,
-  patch: Partial<Pick<Lead, "status" | "owner" | "nextContact" | "notes" | "name">>,
+  patch: Partial<Pick<Lead, "status" | "owner" | "nextContact" | "notes" | "name" | "listId">>,
 ): Promise<Lead | null | undefined> {
   if (isDbEnabled()) return db.dbUpdateLead(id, patch);
   return memory.patchLead(id, patch) ?? undefined;
@@ -172,6 +175,58 @@ export async function deleteLead(id: string): Promise<boolean> {
   requireWritableOrThrow("leads");
   memory.patchLead(id, { deletedAt: new Date().toISOString() } as Partial<Lead>);
   return true;
+}
+
+// ── Lead Lists ─────────────────────────────────────────────────────
+
+export type CreateLeadListInput = {
+  name: string;
+  description?: string;
+  owner?: string;
+};
+
+export async function listLeadLists(): Promise<LeadList[]> {
+  if (isDbEnabled()) return db.dbListLeadLists();
+  return memory.listLeadLists();
+}
+
+export async function getLeadList(id: string): Promise<LeadList | null | undefined> {
+  if (isDbEnabled()) return db.dbGetLeadList(id);
+  return memory.getLeadList(id);
+}
+
+export async function createLeadList(input: CreateLeadListInput): Promise<LeadList> {
+  if (isDbEnabled()) return db.dbCreateLeadList(input);
+  requireWritableOrThrow("lead-lists");
+  const id = `LL-${String(memory.listLeadLists().length + 1).padStart(3, "0")}`;
+  const list: LeadList = {
+    id,
+    name: input.name,
+    description: input.description,
+    owner: input.owner,
+    createdAt: new Date().toISOString(),
+    leadCount: 0,
+  };
+  memory.addLeadList(list);
+  return list;
+}
+
+export async function updateLeadList(
+  id: string,
+  patch: Partial<Pick<LeadList, "name" | "description">>,
+): Promise<LeadList | null | undefined> {
+  if (isDbEnabled()) return db.dbUpdateLeadList(id, patch);
+  requireWritableOrThrow("lead-lists");
+  return memory.patchLeadList(id, patch) ?? undefined;
+}
+
+export async function deleteLeadList(id: string): Promise<boolean> {
+  if (isDbEnabled()) return db.dbDeleteLeadList(id);
+  requireWritableOrThrow("lead-lists");
+  for (const lead of memory.listLeads()) {
+    if (lead.listId === id) memory.patchLead(lead.id, { listId: null });
+  }
+  return Boolean(memory.patchLeadList(id, { deletedAt: new Date().toISOString() }));
 }
 
 export async function listAccounts(

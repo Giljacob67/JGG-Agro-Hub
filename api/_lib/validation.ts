@@ -159,6 +159,7 @@ export function parseLeadCreate(body: Body) {
       legalPain: optionalString(body.legalPain),
       interestArea: optionalString(body.interestArea),
       priority: priority.data as LeadPriority | undefined,
+      listId: optionalNullableString(body.listId) ?? null,
     },
   } satisfies ValidationResult<unknown>;
 }
@@ -176,8 +177,33 @@ export function parseLeadPatch(body: Body) {
       ...(body.nextContact !== undefined ? { nextContact: nextContact.data ?? null } : {}),
       ...(body.notes !== undefined ? { notes: String(body.notes) } : {}),
       ...(body.name !== undefined ? { name: String(body.name) } : {}),
+      ...(body.listId !== undefined ? { listId: optionalNullableString(body.listId) ?? null } : {}),
     },
   } satisfies ValidationResult<unknown>;
+}
+
+export function parseLeadListCreate(body: Body) {
+  const name = requiredString(body, "name");
+  if (!name.ok) return name;
+  return {
+    ok: true,
+    data: {
+      name: name.data,
+      description: optionalString(body.description),
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseLeadListPatch(
+  body: Body,
+): ValidationResult<{ name?: string; description?: string }> {
+  return {
+    ok: true,
+    data: {
+      ...(body.name !== undefined ? { name: String(body.name) } : {}),
+      ...(body.description !== undefined ? { description: optionalString(body.description) } : {}),
+    },
+  };
 }
 
 export function parseLeadConversion(body: Body) {

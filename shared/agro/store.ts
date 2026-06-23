@@ -2,6 +2,7 @@ import {
   SEED_ACCOUNTS,
   SEED_ACTIVITIES,
   SEED_DEADLINES,
+  SEED_LEAD_LISTS,
   SEED_LEADS,
   SEED_MATTERS,
   SEED_OPPORTUNITIES,
@@ -18,6 +19,7 @@ import type {
   FeeAgreement,
   Invoice,
   Lead,
+  LeadList,
   Matter,
   Opportunity,
   OpposingParty,
@@ -29,6 +31,7 @@ import type {
 /** Store em memória — substituível por PostgreSQL via repositório. */
 const store = {
   leads: structuredClone(SEED_LEADS),
+  leadLists: structuredClone(SEED_LEAD_LISTS),
   accounts: structuredClone(SEED_ACCOUNTS),
   opportunities: structuredClone(SEED_OPPORTUNITIES),
   matters: structuredClone(SEED_MATTERS),
@@ -116,6 +119,39 @@ export function getAccountTimeline(accountId: string) {
 
 export function addLead(lead: Lead) {
   store.leads.push(lead);
+}
+
+// ── Lead Lists ─────────────────────────────────────────────────────
+
+function withLeadCount(list: LeadList): LeadList {
+  return {
+    ...list,
+    leadCount: store.leads.filter((l) => l.listId === list.id && !l.deletedAt)
+      .length,
+  };
+}
+
+export function listLeadLists(): LeadList[] {
+  return store.leadLists.filter((l) => !l.deletedAt).map(withLeadCount);
+}
+
+export function getLeadList(id: string): LeadList | undefined {
+  const list = store.leadLists.find((l) => l.id === id && !l.deletedAt);
+  return list ? withLeadCount(list) : undefined;
+}
+
+export function addLeadList(list: LeadList) {
+  store.leadLists.push(list);
+}
+
+export function patchLeadList(
+  id: string,
+  patch: Partial<LeadList>,
+): LeadList | undefined {
+  const list = store.leadLists.find((l) => l.id === id && !l.deletedAt);
+  if (!list) return undefined;
+  Object.assign(list, patch);
+  return withLeadCount(list);
 }
 
 export function addAccount(account: Account) {
@@ -458,6 +494,7 @@ export function patchOpposingParty(id: string, patch: Partial<OpposingParty>): O
 /** Apenas para testes — reinicia o store. */
 export function resetStore() {
   store.leads = structuredClone(SEED_LEADS);
+  store.leadLists = structuredClone(SEED_LEAD_LISTS);
   store.accounts = structuredClone(SEED_ACCOUNTS);
   store.opportunities = structuredClone(SEED_OPPORTUNITIES);
   store.matters = structuredClone(SEED_MATTERS);

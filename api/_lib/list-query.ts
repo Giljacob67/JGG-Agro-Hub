@@ -43,6 +43,7 @@ export function parseLeadListQuery(req: VercelRequest): LeadListParams {
     source: str(req.query.source),
     crop: str(req.query.crop),
     owner: str(req.query.owner),
+    listId: str(req.query.listId),
   };
 }
 

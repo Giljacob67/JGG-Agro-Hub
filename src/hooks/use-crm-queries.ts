@@ -24,6 +24,7 @@ export const crmKeys = {
   all: ["crm"] as const,
   leads: ["crm", "leads"] as const,
   lead: (id: string) => ["crm", "leads", id] as const,
+  leadLists: ["crm", "lead-lists"] as const,
   accounts: ["crm", "accounts"] as const,
   account: (id: string) => ["crm", "accounts", id] as const,
   opportunities: ["crm", "opportunities"] as const,
@@ -67,6 +68,50 @@ export function useCreateLead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: crmKeys.leads });
       qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
+export function useLeadLists() {
+  return useQuery({
+    queryKey: crmKeys.leadLists,
+    queryFn: agroApi.leadLists,
+  });
+}
+
+export function useCreateLeadList() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: agroApi.createLeadList,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.leadLists });
+    },
+  });
+}
+
+export function useUpdateLeadList() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: Partial<{ name: string; description: string }>;
+    }) => agroApi.updateLeadList(id, patch),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.leadLists });
+    },
+  });
+}
+
+export function useDeleteLeadList() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => agroApi.deleteLeadList(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.leadLists });
+      qc.invalidateQueries({ queryKey: crmKeys.leads });
     },
   });
 }

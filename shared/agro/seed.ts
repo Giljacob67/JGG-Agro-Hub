@@ -3,10 +3,14 @@ import type {
   Activity,
   Deadline,
   Lead,
+  LeadList,
   Matter,
   Opportunity,
   Task,
 } from "./types.js";
+
+/** Listas de prospecção (frentes de trabalho). Vazio por padrão. */
+export const SEED_LEAD_LISTS: LeadList[] = [];
 
 /** Dados 100% fictícios — cenários Agro JGG Group. Nunca usar clientes reais. */
 

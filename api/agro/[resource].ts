@@ -5,6 +5,11 @@ import {
   getLead,
   listLeads,
   updateLead,
+  listLeadLists,
+  getLeadList,
+  createLeadList,
+  updateLeadList,
+  deleteLeadList,
   getAccount,
   getAccountTimeline,
   listAccounts,
@@ -41,6 +46,8 @@ import {
   parseLeadConversion,
   parseLeadCreate,
   parseLeadPatch,
+  parseLeadListCreate,
+  parseLeadListPatch,
   parseOpportunityPatch,
   parseOpportunityCreate,
   parseMatterPatch,
@@ -255,6 +262,80 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         "lead" as AuditEntityType,
         lead as unknown as Record<string, unknown>,
           { ip: clientIp(req) }
+      );
+      return json(res, { ok: true });
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Lead Lists ─────────────────────────────────────────────────────
+  if (resource === "lead-lists") {
+    const user = requireAuth(req, res, "lead-lists");
+    if (!user) return;
+    const isWrite = req.method === "POST" || req.method === "PATCH" || req.method === "DELETE";
+    if (isWrite && !guardWrite(res, "lead-lists")) return;
+    const rl = await checkUserRateLimit(user.id, isWrite ? "write" : "default");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) {
+      return json(res, { error: "Rate limit excedido" }, 429);
+    }
+
+    if (req.method === "GET") {
+      const id = req.query.id as string | undefined;
+      if (id) {
+        const list = await getLeadList(id);
+        if (!list) return json(res, { error: "Lista não encontrada" }, 404);
+        return json(res, list);
+      }
+      return json(res, await listLeadLists());
+    }
+
+    if (req.method === "POST") {
+      const input = parseLeadListCreate(getBody(req.body));
+      if (!input.ok) return json(res, { error: input.error }, 400);
+      const list = await createLeadList(input.data);
+      await auditCreate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead-list" as AuditEntityType,
+        list as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, list, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const patch = parseLeadListPatch(getBody(req.body));
+      if (!patch.ok) return json(res, { error: patch.error }, 400);
+      const before = await getLeadList(id);
+      if (!before) return json(res, { error: "Lista não encontrada" }, 404);
+      const list = await updateLeadList(id, patch.data);
+      if (!list) return json(res, { error: "Lista não encontrada" }, 404);
+      await auditUpdate(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead-list" as AuditEntityType,
+        id,
+        list.name,
+        before as unknown as Record<string, unknown>,
+        list as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, list);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const list = await getLeadList(id);
+      if (!list) return json(res, { error: "Lista não encontrada" }, 404);
+      await deleteLeadList(id);
+      await auditDelete(
+        { userId: user.id, userName: user.name, userRole: user.role },
+        "lead-list" as AuditEntityType,
+        list as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
       );
       return json(res, { ok: true });
     }

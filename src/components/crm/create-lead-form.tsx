@@ -10,7 +10,7 @@ import { useCreateLead } from "@/hooks/use-crm-queries";
 import { ROUTES } from "@/lib/routes";
 import { CnpjLookup } from "./cnpj-lookup";
 
-export function CreateLeadForm() {
+export function CreateLeadForm({ listId }: { listId?: string | null } = {}) {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const createLead = useCreateLead();
@@ -33,6 +33,7 @@ export function CreateLeadForm() {
         ...form,
         owner: user?.name ?? "Equipe Agro",
         nextContact: form.nextContact || null,
+        listId: listId ?? null,
       });
       toast.success("Lead criado com sucesso!");
       setOpen(false);

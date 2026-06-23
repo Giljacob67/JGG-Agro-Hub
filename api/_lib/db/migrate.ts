@@ -162,6 +162,32 @@ export async function runMigrations(
   await runTertiaryEntityMigrations(sql);
   await runAppConfigMigrations(sql);
   await runKnowledgeMigrations(sql);
+  await runLeadListMigrations(sql);
+}
+
+/**
+ * Listas de leads — agrupamento de prospecção por frente de trabalho
+ * (ex.: importação "Maringá"). `list_id` em agro.leads aponta para a lista;
+ * ON DELETE SET NULL preserva os leads quando a lista é removida.
+ */
+async function runLeadListMigrations(sql: NeonQueryFunction<false, false>) {
+  await sql`
+    CREATE TABLE IF NOT EXISTS agro.lead_lists (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      description TEXT,
+      owner TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      deleted_at TIMESTAMPTZ
+    )
+  `;
+  await sql`
+    ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS list_id TEXT
+    REFERENCES agro.lead_lists(id) ON DELETE SET NULL
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_leads_list ON agro.leads(list_id)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_lead_lists_active ON agro.lead_lists(deleted_at) WHERE deleted_at IS NULL`;
 }
 
 /**

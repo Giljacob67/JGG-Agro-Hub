@@ -12,6 +12,7 @@ import type {
   KnowledgeDocStatus,
   KnowledgeDocType,
   Lead,
+  LeadList,
   Matter,
   Opportunity,
   OpposingParty,
@@ -63,6 +64,7 @@ export function mapLead(row: Record<string, unknown>): Lead {
   if (row.converted_opportunity_id) {
     lead.convertedOpportunityId = String(row.converted_opportunity_id);
   }
+  if (row.list_id) lead.listId = String(row.list_id);
   if (row.deleted_at) {
     lead.deletedAt = row.deleted_at instanceof Date
       ? row.deleted_at.toISOString()
@@ -70,6 +72,25 @@ export function mapLead(row: Record<string, unknown>): Lead {
   }
 
   return lead;
+}
+
+export function mapLeadList(row: Record<string, unknown>): LeadList {
+  const list: LeadList = {
+    id: String(row.id),
+    name: String(row.name),
+    createdAt: toIso(row.created_at),
+  };
+  if (row.description) list.description = String(row.description);
+  if (row.owner) list.owner = String(row.owner);
+  if (row.lead_count !== undefined && row.lead_count !== null) {
+    list.leadCount = Number(row.lead_count);
+  }
+  if (row.deleted_at) {
+    list.deletedAt = row.deleted_at instanceof Date
+      ? row.deleted_at.toISOString()
+      : String(row.deleted_at);
+  }
+  return list;
 }
 
 export function mapAccount(row: Record<string, unknown>): Account {

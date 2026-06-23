@@ -28,6 +28,7 @@ export function parseLeadParams(search: URLSearchParams): LeadListParams {
     source: str(search, "source"),
     crop: str(search, "crop"),
     owner: str(search, "owner"),
+    listId: str(search, "listId"),
   };
 }
 
