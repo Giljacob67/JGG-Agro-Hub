@@ -116,6 +116,18 @@ export function useDeleteLeadList() {
   });
 }
 
+export function useImportLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: agroApi.importLeads,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: crmKeys.leads });
+      qc.invalidateQueries({ queryKey: crmKeys.leadLists });
+      qc.invalidateQueries({ queryKey: crmKeys.stats });
+    },
+  });
+}
+
 export function useCreateAccount() {
   const qc = useQueryClient();
   return useMutation({

@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "wouter";
-import { Download } from "lucide-react";
+import { Download, Upload } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateLeadForm } from "@/components/crm/create-lead-form";
 import { LeadListsBar, LIST_ALL, LIST_NONE } from "@/components/crm/lead-lists-bar";
+import { ImportLeadsDialog } from "@/components/crm/import-leads-dialog";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -30,6 +31,7 @@ export default function CrmLeadsPage() {
   const [cropFilter, setCropFilter] = useState(FILTER_ALL);
   const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
   const [listFilter, setListFilter] = useState(LIST_ALL);
+  const [importOpen, setImportOpen] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search);
   const { page, setPage } = useCrmListPage(
@@ -87,25 +89,43 @@ export default function CrmLeadsPage() {
               Prospecção e qualificação — relacionamento comercial inicial.
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() =>
-              exportToCsv(items, "leads-agro.csv", [
-                { key: "id", header: "ID" },
-                { key: "name", header: "Nome" },
-                { key: "region", header: "Região" },
-                { key: "crop", header: "Cultura" },
-                { key: "status", header: "Status" },
-                { key: "owner", header: "Responsável" },
-                { key: "nextContact", header: "Próximo contato" },
-              ])
-            }
-            disabled={items.length === 0}
-          >
-            <Download className="w-3.5 h-3.5" /> Exportar CSV
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setImportOpen(true)}
+            >
+              <Upload className="w-3.5 h-3.5" /> Importar
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                exportToCsv(items, "leads-agro.csv", [
+                  { key: "id", header: "ID" },
+                  { key: "name", header: "Nome" },
+                  { key: "region", header: "Região" },
+                  { key: "crop", header: "Cultura" },
+                  { key: "status", header: "Status" },
+                  { key: "owner", header: "Responsável" },
+                  { key: "nextContact", header: "Próximo contato" },
+                ])
+              }
+              disabled={items.length === 0}
+            >
+              <Download className="w-3.5 h-3.5" /> Exportar CSV
+            </Button>
+          </div>
         </header>
+        <ImportLeadsDialog
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          defaultListId={
+            listFilter !== LIST_ALL && listFilter !== LIST_NONE
+              ? listFilter
+              : null
+          }
+        />
         <LeadListsBar value={listFilter} onChange={setListFilter} />
         <CreateLeadForm
           listId={

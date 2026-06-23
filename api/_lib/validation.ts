@@ -159,6 +159,11 @@ export function parseLeadCreate(body: Body) {
       legalPain: optionalString(body.legalPain),
       interestArea: optionalString(body.interestArea),
       priority: priority.data as LeadPriority | undefined,
+      phone: optionalString(body.phone),
+      email: optionalString(body.email),
+      cnpj: optionalString(body.cnpj),
+      cpf: optionalString(body.cpf),
+      address: optionalString(body.address),
       listId: optionalNullableString(body.listId) ?? null,
     },
   } satisfies ValidationResult<unknown>;

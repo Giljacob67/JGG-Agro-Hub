@@ -177,6 +177,47 @@ export async function handleLocalApi(
         };
       }
 
+      if (params.get("action") === "import" || body.action === "import") {
+        const rawRows: Record<string, unknown>[] = Array.isArray(body.leads) ? body.leads : [];
+        if (!rawRows.length) return { status: 400, data: { error: "Nenhum lead para importar" } };
+        if (rawRows.length > 2000) {
+          return { status: 400, data: { error: "Máximo de 2000 leads por importação" } };
+        }
+        const listId = body.listId != null ? String(body.listId) : null;
+        const importToday = new Date().toISOString().slice(0, 10);
+        const errors: { row: number; error: string }[] = [];
+        let imported = 0;
+        rawRows.forEach((raw, i) => {
+          const name = raw.name != null ? String(raw.name).trim() : "";
+          const region = raw.region != null ? String(raw.region).trim() : "";
+          if (!name) { errors.push({ row: i + 1, error: "name é obrigatório" }); return; }
+          if (!region) { errors.push({ row: i + 1, error: "region é obrigatório" }); return; }
+          const id = `LD-${String(listLeads().length + 1).padStart(3, "0")}`;
+          addLead({
+            id,
+            name,
+            contact: raw.contact != null ? String(raw.contact) : "",
+            region,
+            crop: raw.crop != null ? String(raw.crop) : "",
+            source: raw.source != null ? String(raw.source) : "Importação",
+            status: "novo",
+            owner: raw.owner != null ? String(raw.owner) : user.name,
+            notes: raw.notes != null ? String(raw.notes) : "",
+            nextContact: null,
+            accountId: null,
+            createdAt: importToday,
+            phone: raw.phone != null ? String(raw.phone) : undefined,
+            email: raw.email != null ? String(raw.email) : undefined,
+            cnpj: raw.cnpj != null ? String(raw.cnpj) : undefined,
+            cpf: raw.cpf != null ? String(raw.cpf) : undefined,
+            address: raw.address != null ? String(raw.address) : undefined,
+            listId: listId ?? (raw.listId != null ? String(raw.listId) : null),
+          });
+          imported += 1;
+        });
+        return { status: 201, data: { imported, failed: errors.length, errors } };
+      }
+
       const today = new Date().toISOString().slice(0, 10);
       const id = `LD-${String(listLeads().length + 1).padStart(3, "0")}`;
       const lead: Lead = {
@@ -196,6 +237,11 @@ export async function handleLocalApi(
         legalPain: body.legalPain,
         interestArea: body.interestArea,
         priority: body.priority,
+        phone: body.phone,
+        email: body.email,
+        cnpj: body.cnpj,
+        cpf: body.cpf,
+        address: body.address,
         listId: body.listId ?? null,
       };
       addLead(lead);

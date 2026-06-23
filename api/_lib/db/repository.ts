@@ -129,7 +129,7 @@ export async function dbCreateLead(
     INSERT INTO agro.leads (
       id, name, contact, region, crop, source, status, owner, account_id,
       next_contact, notes, created_at, lead_type, legal_pain, interest_area, priority,
-      list_id
+      phone, email, cnpj, cpf, address, list_id
     )
     VALUES (
       ${id}, ${input.name}, ${input.contact}, ${input.region}, ${input.crop},
@@ -137,12 +137,51 @@ export async function dbCreateLead(
       ${input.nextContact}, ${input.notes}, ${input.createdAt},
       ${input.leadType ?? null}, ${input.legalPain ?? null},
       ${input.interestArea ?? null}, ${input.priority ?? null},
-      ${input.listId ?? null}
+      ${input.phone ?? null}, ${input.email ?? null}, ${input.cnpj ?? null},
+      ${input.cpf ?? null}, ${input.address ?? null}, ${input.listId ?? null}
     )
   `;
   const lead = await dbGetLead(id);
   if (!lead) throw new Error("Falha ao criar lead");
   return lead;
+}
+
+export async function dbImportLeads(
+  inputs: (Omit<Lead, "id"> & { id?: string })[],
+): Promise<Lead[]> {
+  if (!inputs.length) return [];
+  const sql = getSql();
+  const cols = [
+    "id", "name", "contact", "region", "crop", "source", "status", "owner",
+    "account_id", "next_contact", "notes", "created_at", "lead_type",
+    "legal_pain", "interest_area", "priority", "phone", "email", "cnpj",
+    "cpf", "address", "list_id",
+  ];
+  const values: unknown[] = [];
+  const rowsSql = inputs.map((input) => {
+    const row = [
+      input.id ?? uuidPrefix("LD"),
+      input.name, input.contact, input.region, input.crop, input.source,
+      input.status, input.owner, input.accountId ?? null,
+      input.nextContact ?? null, input.notes, input.createdAt,
+      input.leadType ?? null, input.legalPain ?? null,
+      input.interestArea ?? null, input.priority ?? null,
+      input.phone ?? null, input.email ?? null, input.cnpj ?? null,
+      input.cpf ?? null, input.address ?? null, input.listId ?? null,
+    ];
+    const placeholders = row.map((cell) => {
+      values.push(cell);
+      return `$${values.length}`;
+    });
+    return `(${placeholders.join(", ")})`;
+  });
+  const result = await sql.query(
+    `INSERT INTO agro.leads (${cols.join(", ")}) VALUES ${rowsSql.join(", ")} RETURNING *`,
+    values,
+  );
+  const rows = (result as { rows?: Record<string, unknown>[] }).rows
+    ?? (result as unknown as Record<string, unknown>[]);
+  return rows.map((r) => mapLead(r));
 }
 
 export async function dbUpdateLead(

@@ -64,6 +64,11 @@ export function mapLead(row: Record<string, unknown>): Lead {
   if (row.converted_opportunity_id) {
     lead.convertedOpportunityId = String(row.converted_opportunity_id);
   }
+  if (row.phone != null) lead.phone = String(row.phone);
+  if (row.email != null) lead.email = String(row.email);
+  if (row.cnpj != null) lead.cnpj = String(row.cnpj);
+  if (row.cpf != null) lead.cpf = String(row.cpf);
+  if (row.address != null) lead.address = String(row.address);
   if (row.list_id) lead.listId = String(row.list_id);
   if (row.deleted_at) {
     lead.deletedAt = row.deleted_at instanceof Date

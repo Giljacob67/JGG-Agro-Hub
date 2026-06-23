@@ -351,6 +351,15 @@ export const agroApi = {
       body: JSON.stringify(input),
     }),
 
+  importLeads: (input: {
+    leads: import("@shared/agro/lead-import").ImportLeadRow[];
+    listId?: string | null;
+  }) =>
+    request<import("@shared/agro/lead-import").ImportLeadsResult>(
+      "/api/agro/leads?action=import",
+      { method: "POST", body: JSON.stringify(input) },
+    ),
+
   // ── Lead Lists ─────────────────────────────────────────────────────
   leadLists: () =>
     request<import("@shared/agro/types").LeadList[]>("/api/agro/lead-lists"),

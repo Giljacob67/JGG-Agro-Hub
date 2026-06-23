@@ -77,6 +77,7 @@ export interface Lead {
   email?: string;
   cnpj?: string;
   cpf?: string;
+  address?: string;
   /** Lista de prospecção a que o lead pertence (frente de trabalho). */
   listId?: string | null;
   deletedAt?: string | null;

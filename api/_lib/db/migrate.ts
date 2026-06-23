@@ -509,6 +509,11 @@ async function runEnrichedFieldMigrations(
   await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS legal_pain TEXT`;
   await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS interest_area TEXT`;
   await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS priority agro.lead_priority`;
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS phone TEXT`;
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS email TEXT`;
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS cnpj TEXT`;
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS cpf TEXT`;
+  await sql`ALTER TABLE agro.leads ADD COLUMN IF NOT EXISTS address TEXT`;
 
   await sql`ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS probability SMALLINT`;
   await sql`ALTER TABLE agro.opportunities ADD COLUMN IF NOT EXISTS next_step TEXT`;

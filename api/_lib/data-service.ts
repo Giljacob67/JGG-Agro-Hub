@@ -108,6 +108,11 @@ export type CreateLeadInput = {
   legalPain?: string;
   interestArea?: string;
   priority?: LeadPriority;
+  phone?: string;
+  email?: string;
+  cnpj?: string;
+  cpf?: string;
+  address?: string;
   listId?: string | null;
 };
 
@@ -152,6 +157,11 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
     legalPain: input.legalPain,
     interestArea: input.interestArea,
     priority: input.priority,
+    phone: input.phone,
+    email: input.email,
+    cnpj: input.cnpj,
+    cpf: input.cpf,
+    address: input.address,
     listId: input.listId ?? null,
     createdAt: today,
   };
@@ -160,6 +170,43 @@ export async function createLead(input: CreateLeadInput): Promise<Lead> {
   const lead: Lead = { id, ...payload };
   memory.addLead(lead);
   return lead;
+}
+
+export async function importLeads(inputs: CreateLeadInput[]): Promise<Lead[]> {
+  const today = new Date().toISOString().slice(0, 10);
+  const payloads = inputs.map((input) => ({
+    name: input.name,
+    contact: input.contact,
+    region: input.region,
+    crop: input.crop,
+    source: input.source,
+    status: input.status ?? "novo",
+    owner: input.owner,
+    notes: input.notes ?? "",
+    nextContact: input.nextContact ?? null,
+    accountId: input.accountId ?? null,
+    leadType: input.leadType,
+    legalPain: input.legalPain,
+    interestArea: input.interestArea,
+    priority: input.priority,
+    phone: input.phone,
+    email: input.email,
+    cnpj: input.cnpj,
+    cpf: input.cpf,
+    address: input.address,
+    listId: input.listId ?? null,
+    createdAt: today,
+  }));
+  if (isDbEnabled()) return db.dbImportLeads(payloads);
+  const base = memory.listLeads().length;
+  return payloads.map((payload, i) => {
+    const lead: Lead = {
+      id: `LD-${String(base + i + 1).padStart(3, "0")}`,
+      ...payload,
+    };
+    memory.addLead(lead);
+    return lead;
+  });
 }
 
 export async function updateLead(

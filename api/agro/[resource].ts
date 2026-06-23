@@ -2,6 +2,7 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 import {
   convertLead,
   createLead,
+  importLeads,
   getLead,
   listLeads,
   updateLead,
@@ -215,6 +216,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           { ip: clientIp(req) }
         );
         return json(res, result, 201);
+      }
+
+      if (req.query.action === "import" || body.action === "import") {
+        const rawRows = Array.isArray(body.leads) ? body.leads : null;
+        if (!rawRows) return json(res, { error: "leads deve ser um array" }, 400);
+        if (rawRows.length === 0) return json(res, { error: "Nenhum lead para importar" }, 400);
+        if (rawRows.length > 2000) {
+          return json(res, { error: "Máximo de 2000 leads por importação" }, 400);
+        }
+        const listId = body.listId != null ? String(body.listId) : null;
+        const valid: Parameters<typeof importLeads>[0] = [];
+        const errors: { row: number; error: string }[] = [];
+        rawRows.forEach((raw: Record<string, unknown>, i: number) => {
+          const parsed = parseLeadCreate({
+            ...raw,
+            owner: raw.owner ?? user.name,
+            listId: listId ?? raw.listId,
+          });
+          if (parsed.ok) valid.push(parsed.data);
+          else errors.push({ row: i + 1, error: parsed.error });
+        });
+        const created = valid.length ? await importLeads(valid) : [];
+        await auditCreate(
+          { userId: user.id, userName: user.name, userRole: user.role },
+          "lead" as AuditEntityType,
+          { count: created.length, listId } as unknown as Record<string, unknown>,
+          { ip: clientIp(req) },
+        );
+        return json(res, { imported: created.length, failed: errors.length, errors }, 201);
       }
 
       const input = parseLeadCreate(body);
