@@ -548,6 +548,13 @@ export interface KnowledgeDocument {
   updatedAt: string;
   type: KnowledgeDocType;
   status: KnowledgeDocStatus;
+  /** Corpo completo (texto extraído de arquivo anexado), indexado pela busca semântica. */
+  body?: string;
+  /** URL pública do arquivo anexado (R2). */
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
 }
 
 /** Agro Copilot */
@@ -633,6 +640,11 @@ export interface KnowledgeDocumentInput {
   tags: string[];
   type: KnowledgeDocType;
   status: KnowledgeDocStatus;
+  body?: string;
+  fileUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  fileType?: string;
 }
 
 export interface KnowledgeListResponse {

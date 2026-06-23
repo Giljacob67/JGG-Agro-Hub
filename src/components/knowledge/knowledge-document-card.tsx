@@ -1,3 +1,4 @@
+import { Paperclip } from "lucide-react";
 import type { KnowledgeDocument } from "@shared/agro/types";
 import { getKnowledgeCategory } from "@shared/agro/knowledge";
 import { KnowledgeStatusBadge } from "./knowledge-status-badge";
@@ -32,6 +33,18 @@ export function KnowledgeDocumentCard({ document }: KnowledgeDocumentCardProps) 
       <p className="text-sm text-muted-foreground mt-3 leading-relaxed flex-1">
         {document.summary}
       </p>
+      {document.fileUrl && (
+        <a
+          href={document.fileUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary hover:underline w-fit"
+          title={document.fileName ?? "Baixar anexo"}
+        >
+          <Paperclip className="w-3 h-3" />
+          <span className="truncate max-w-[14rem]">{document.fileName ?? "Anexo"}</span>
+        </a>
+      )}
       <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border/60">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
           {TYPE_LABELS[document.type]}

@@ -187,6 +187,13 @@ async function runKnowledgeMigrations(sql: NeonQueryFunction<false, false>) {
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_kb_documents_category ON agro.kb_documents (category_id)`;
 
+  // Anexo de arquivo + corpo extraído (Nível 2: upload PDF/DOCX/MD → texto indexado).
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS body TEXT`;
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_url TEXT`;
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_name TEXT`;
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_size INTEGER`;
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_type TEXT`;
+
   const countRows = (await sql`SELECT COUNT(*)::int AS n FROM agro.kb_documents`) as Array<{ n: number }>;
   if (countRows[0]?.n > 0) return;
 

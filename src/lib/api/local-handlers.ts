@@ -451,6 +451,11 @@ export async function handleLocalApi(
         tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
         type: body.type ?? "guia",
         status: body.status ?? "rascunho",
+        body: body.body != null ? String(body.body) : undefined,
+        fileUrl: body.fileUrl != null ? String(body.fileUrl) : undefined,
+        fileName: body.fileName != null ? String(body.fileName) : undefined,
+        fileSize: body.fileSize != null ? Number(body.fileSize) : undefined,
+        fileType: body.fileType != null ? String(body.fileType) : undefined,
         updatedAt: new Date().toISOString(),
       };
       docs.unshift(doc);
@@ -474,6 +479,21 @@ export async function handleLocalApi(
           : {}),
         ...(body.type !== undefined ? { type: body.type } : {}),
         ...(body.status !== undefined ? { status: body.status } : {}),
+        ...(body.body !== undefined
+          ? { body: body.body != null ? String(body.body) : undefined }
+          : {}),
+        ...(body.fileUrl !== undefined
+          ? { fileUrl: body.fileUrl != null ? String(body.fileUrl) : undefined }
+          : {}),
+        ...(body.fileName !== undefined
+          ? { fileName: body.fileName != null ? String(body.fileName) : undefined }
+          : {}),
+        ...(body.fileSize !== undefined
+          ? { fileSize: body.fileSize != null ? Number(body.fileSize) : undefined }
+          : {}),
+        ...(body.fileType !== undefined
+          ? { fileType: body.fileType != null ? String(body.fileType) : undefined }
+          : {}),
         updatedAt: new Date().toISOString(),
       };
       docs[idx] = next;

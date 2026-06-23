@@ -89,6 +89,32 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Requisição direta a um endpoint serverless real (sem roteamento p/ mock local).
+ * Usada por upload R2 e extração de texto da base de conhecimento, que não têm
+ * equivalente no handler local. Inclui CSRF + cookie de sessão.
+ */
+async function directApi<T>(path: string, body: unknown): Promise<T> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const token = getCsrfToken();
+  if (token) headers["X-CSRF-Token"] = token;
+  if (shouldUseLocalApi()) {
+    const legacy = getAuthToken();
+    if (legacy) headers.Authorization = `Bearer ${legacy}`;
+  }
+  const res = await fetch(path, {
+    method: "POST",
+    headers,
+    credentials: "include",
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(res.status, (data as { error?: string }).error ?? "Erro na API");
+  }
+  return data as T;
+}
+
 export const agroApi = {
   login: (email: string, password: string) =>
     request<{ token?: string; user: import("@shared/agro/types").AgroUser; csrfToken?: string }>(
@@ -452,6 +478,23 @@ export const agroApi = {
   deleteKnowledgeDocument: (id: string) =>
     request<{ ok: true }>(`/api/agro/knowledge?id=${encodeURIComponent(id)}`, {
       method: "DELETE",
+    }),
+
+  /** Gera URL presignada R2 para upload direto do arquivo (anexo da base). */
+  presignKnowledgeUpload: (fileName: string, contentType: string) =>
+    directApi<{ uploadUrl: string; fileUrl: string; key: string }>("/api/upload", {
+      fileName,
+      contentType,
+      prefix: "knowledge",
+    }),
+
+  /** Extrai texto (server-side) de um arquivo já enviado ao R2. */
+  extractKnowledgeDocument: (fileUrl: string, contentType: string, fileName: string) =>
+    directApi<{ text: string; chars: number; truncated: boolean }>("/api/upload", {
+      op: "extract",
+      fileUrl,
+      contentType,
+      fileName,
     }),
 
   getCopilotConfig: () =>

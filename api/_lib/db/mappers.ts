@@ -407,6 +407,11 @@ export function mapKnowledgeDocument(row: Record<string, unknown>): KnowledgeDoc
     type: String(row.type) as KnowledgeDocType,
     status: String(row.status) as KnowledgeDocStatus,
     updatedAt: toIso(row.updated_at),
+    body: row.body == null ? undefined : String(row.body),
+    fileUrl: row.file_url == null ? undefined : String(row.file_url),
+    fileName: row.file_name == null ? undefined : String(row.file_name),
+    fileSize: row.file_size == null ? undefined : Number(row.file_size),
+    fileType: row.file_type == null ? undefined : String(row.file_type),
   };
 }
 

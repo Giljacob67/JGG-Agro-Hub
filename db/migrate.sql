@@ -302,6 +302,17 @@ CREATE TABLE IF NOT EXISTS agro.kb_documents (
   tags JSONB NOT NULL DEFAULT '[]'::jsonb,
   type TEXT NOT NULL,
   status TEXT NOT NULL,
+  body TEXT,
+  file_url TEXT,
+  file_name TEXT,
+  file_size INTEGER,
+  file_type TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_kb_documents_category ON agro.kb_documents (category_id);
+-- Migração idempotente para tabelas pré-existentes (Nível 2: anexo + corpo extraído).
+ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS body TEXT;
+ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_url TEXT;
+ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_name TEXT;
+ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_size INTEGER;
+ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_type TEXT;

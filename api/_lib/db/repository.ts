@@ -1537,10 +1537,15 @@ export async function dbGetKnowledgeDocument(id: string): Promise<KnowledgeDocum
 export async function dbCreateKnowledgeDocument(doc: KnowledgeDocument): Promise<KnowledgeDocument> {
   const sql = getSql();
   await sql`
-    INSERT INTO agro.kb_documents (id, category_id, title, summary, tags, type, status, updated_at)
+    INSERT INTO agro.kb_documents (
+      id, category_id, title, summary, tags, type, status,
+      body, file_url, file_name, file_size, file_type, updated_at
+    )
     VALUES (
       ${doc.id}, ${doc.categoryId}, ${doc.title}, ${doc.summary},
-      ${toJsonValue(doc.tags ?? [])}, ${doc.type}, ${doc.status}, ${doc.updatedAt}
+      ${toJsonValue(doc.tags ?? [])}, ${doc.type}, ${doc.status},
+      ${doc.body ?? null}, ${doc.fileUrl ?? null}, ${doc.fileName ?? null},
+      ${doc.fileSize ?? null}, ${doc.fileType ?? null}, ${doc.updatedAt}
     )
   `;
   const created = await dbGetKnowledgeDocument(doc.id);
@@ -1565,6 +1570,11 @@ export async function dbUpdateKnowledgeDocument(
   if (patch.tags !== undefined) set("tags", toJsonValue(patch.tags ?? []));
   if (patch.type !== undefined) set("type", patch.type);
   if (patch.status !== undefined) set("status", patch.status);
+  if (patch.body !== undefined) set("body", patch.body ?? null);
+  if (patch.fileUrl !== undefined) set("file_url", patch.fileUrl ?? null);
+  if (patch.fileName !== undefined) set("file_name", patch.fileName ?? null);
+  if (patch.fileSize !== undefined) set("file_size", patch.fileSize ?? null);
+  if (patch.fileType !== undefined) set("file_type", patch.fileType ?? null);
   set("updated_at", patch.updatedAt ?? new Date().toISOString());
   values.push(id);
   await sql.query(

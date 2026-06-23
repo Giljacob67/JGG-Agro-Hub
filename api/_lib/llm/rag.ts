@@ -40,8 +40,19 @@ async function getKbDocs(): Promise<KnowledgeDocument[]> {
 
 let embeddingCache: EmbeddingEntry[] | null = null;
 
+/**
+ * Limite de caracteres do corpo concatenado no texto de embedding.
+ * Mantém abaixo do limite de tokens do modelo (text-embedding-3-small ≈ 8191).
+ * ~24k chars ≈ 6k tokens, margem segura.
+ */
+const EMBED_BODY_MAX = 24_000;
+
 function kbDocText(doc: KnowledgeDocument): string {
-  return `${doc.title}: ${doc.summary}. Tags: ${doc.tags.join(", ")}. Categoria: ${doc.categoryId}`;
+  const base = `${doc.title}: ${doc.summary}. Tags: ${doc.tags.join(", ")}. Categoria: ${doc.categoryId}`;
+  if (doc.body && doc.body.trim()) {
+    return `${base}\n\n${doc.body.slice(0, EMBED_BODY_MAX)}`;
+  }
+  return base;
 }
 
 async function ensureMemoryEmbeddings(): Promise<EmbeddingEntry[]> {

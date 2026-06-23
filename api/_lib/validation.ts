@@ -1108,6 +1108,26 @@ function validCategory(value: unknown): ValidationResult<string> {
   return { ok: true, data: text };
 }
 
+/** Limite defensivo do corpo extraído persistido (espelha MAX_EXTRACTED_CHARS). */
+const KNOWLEDGE_BODY_MAX = 200_000;
+
+/** Extrai e valida os campos de anexo/corpo do payload de documento KB. */
+function knowledgeFileFields(body: Body): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (body.body !== undefined) {
+    const text = body.body === null ? "" : String(body.body);
+    out.body = text.slice(0, KNOWLEDGE_BODY_MAX) || undefined;
+  }
+  if (body.fileUrl !== undefined) out.fileUrl = optionalString(body.fileUrl);
+  if (body.fileName !== undefined) out.fileName = optionalString(body.fileName);
+  if (body.fileType !== undefined) out.fileType = optionalString(body.fileType);
+  if (body.fileSize !== undefined) {
+    const n = Number(body.fileSize);
+    out.fileSize = Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
+  }
+  return out;
+}
+
 export function parseKnowledgeDocCreate(body: Body) {
   const title = requiredString(body, "title");
   if (!title.ok) return title;
@@ -1129,6 +1149,7 @@ export function parseKnowledgeDocCreate(body: Body) {
       tags: optionalStringArray(body.tags) ?? [],
       type: type.data ?? "guia",
       status: status.data ?? "rascunho",
+      ...knowledgeFileFields(body),
       updatedAt: nowIso(),
     },
   } satisfies ValidationResult<unknown>;
@@ -1164,6 +1185,7 @@ export function parseKnowledgeDocUpdate(body: Body) {
   if (body.tags !== undefined) {
     patch.tags = optionalStringArray(body.tags) ?? [];
   }
+  Object.assign(patch, knowledgeFileFields(body));
   patch.updatedAt = nowIso();
   return { ok: true, data: patch } satisfies ValidationResult<unknown>;
 }

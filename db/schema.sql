@@ -266,6 +266,11 @@ CREATE TABLE agro.kb_documents (
   tags JSONB NOT NULL DEFAULT '[]'::jsonb,
   type TEXT NOT NULL,
   status TEXT NOT NULL,
+  body TEXT,
+  file_url TEXT,
+  file_name TEXT,
+  file_size INTEGER,
+  file_type TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_kb_documents_category ON agro.kb_documents (category_id);
