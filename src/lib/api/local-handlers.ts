@@ -74,6 +74,7 @@ import type {
   LeadList,
   LeadStatus,
   ManagedUser,
+  Meeting,
   TaskStatus,
 } from "@shared/agro/types";
 
@@ -103,6 +104,13 @@ function getMockUsers(): ManagedUser[] {
     ];
   }
   return mockUsers;
+}
+
+// Espelho mutável de reuniões para o modo mock (preview/dev local).
+let mockMeetings: Meeting[] | null = null;
+function getMockMeetings(): Meeting[] {
+  if (!mockMeetings) mockMeetings = [];
+  return mockMeetings;
 }
 
 export async function handleLocalApi(
@@ -612,6 +620,66 @@ export async function handleLocalApi(
         ...(body.active !== undefined ? { active: Boolean(body.active) } : {}),
       };
       return { status: 200, data: users[idx] };
+    }
+
+    return { status: 405, data: { error: "Método não permitido" } };
+  }
+
+  if (pathname === "/api/agro/meetings") {
+    const meetings = getMockMeetings();
+    const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+    const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+    if (!init?.method || init.method === "GET") {
+      const id = params.get("id") ?? undefined;
+      if (id) {
+        const found = meetings.find((m) => m.id === id);
+        if (!found) return { status: 404, data: { error: "Reunião não encontrada" } };
+        return { status: 200, data: found };
+      }
+      const sorted = [...meetings].sort((a, b) => {
+        const d = a.date.localeCompare(b.date);
+        return d !== 0 ? d : (a.time ?? "").localeCompare(b.time ?? "");
+      });
+      return { status: 200, data: sorted };
+    }
+
+    if (init.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      const title = String(body.title ?? "").trim();
+      if (!title) return { status: 400, data: { error: "title é obrigatório" } };
+      const date = String(body.date ?? "");
+      if (!ISO_DATE_RE.test(date)) return { status: 400, data: { error: "date deve usar YYYY-MM-DD" } };
+      let time: string | null = null;
+      if (body.time !== undefined && body.time !== null && body.time !== "") {
+        const t = String(body.time);
+        if (!TIME_RE.test(t)) return { status: 400, data: { error: "time deve usar HH:MM" } };
+        time = t;
+      }
+      const now = new Date().toISOString();
+      const created: Meeting = {
+        id: `mtg-${crypto.randomUUID().slice(0, 12)}`,
+        title,
+        date,
+        time,
+        location: body.location != null && String(body.location).trim() !== "" ? String(body.location) : null,
+        description: body.description != null && String(body.description).trim() !== "" ? String(body.description) : null,
+        createdBy: user.id,
+        createdByName: user.name,
+        createdAt: now,
+        updatedAt: now,
+      };
+      meetings.push(created);
+      return { status: 201, data: created };
+    }
+
+    if (init.method === "DELETE") {
+      const id = params.get("id") ?? undefined;
+      if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+      const idx = meetings.findIndex((m) => m.id === id);
+      if (idx < 0) return { status: 404, data: { error: "Reunião não encontrada" } };
+      meetings.splice(idx, 1);
+      return { status: 200, data: { ok: true } };
     }
 
     return { status: 405, data: { error: "Método não permitido" } };

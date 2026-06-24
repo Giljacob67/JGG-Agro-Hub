@@ -67,6 +67,23 @@ export async function runMigrations(
   await sql`ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true`;
 
   await sql`
+    CREATE TABLE IF NOT EXISTS agro.meetings (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      meeting_date DATE NOT NULL,
+      meeting_time TEXT,
+      location TEXT,
+      description TEXT,
+      created_by TEXT,
+      created_by_name TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      deleted_at TIMESTAMPTZ
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_meetings_date ON agro.meetings(meeting_date) WHERE deleted_at IS NULL`;
+
+  await sql`
     CREATE TABLE IF NOT EXISTS agro.accounts (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,

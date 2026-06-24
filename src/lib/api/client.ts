@@ -577,6 +577,26 @@ export const agroApi = {
       { method: "PATCH", body: JSON.stringify({ password }) },
     ),
 
+  meetings: () =>
+    request<import("@shared/agro/types").Meeting[]>("/api/agro/meetings"),
+
+  createMeeting: (input: {
+    title: string;
+    date: string;
+    time?: string | null;
+    location?: string | null;
+    description?: string | null;
+  }) =>
+    request<import("@shared/agro/types").Meeting>("/api/agro/meetings", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  deleteMeeting: (id: string) =>
+    request<{ ok: true }>(`/api/agro/meetings?id=${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+
   getCopilotConfig: () =>
     request<import("@shared/agro/types").CopilotConfigStatus>(
       "/api/agro/copilot-config",

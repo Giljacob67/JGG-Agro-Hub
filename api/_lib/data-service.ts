@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import * as memory from "../../shared/agro/store.js";
 import {
   buildAccountFacets,
@@ -35,6 +36,7 @@ import type {
   LeadPriority,
   LeadStatus,
   ManagedUser,
+  Meeting,
   Matter,
   Opportunity,
   OpposingParty,
@@ -1304,4 +1306,83 @@ export async function getUser(id: string): Promise<ManagedUser | null> {
 export async function countActiveGestao(): Promise<number> {
   if (isDbEnabled()) return db.dbCountActiveUsersByRole("gestao");
   return getMemoryUsers().filter((u) => u.role === "gestao" && u.active).length;
+}
+
+// ── Meetings (calendário de reuniões) ─────────────────────────────────
+
+/** Store em memória para dev local (sem DB). */
+let memoryMeetings: Meeting[] | null = null;
+function getMemoryMeetings(): Meeting[] {
+  if (!memoryMeetings) memoryMeetings = [];
+  return memoryMeetings;
+}
+
+function generateMeetingId(): string {
+  return `mtg-${randomUUID().slice(0, 12)}`;
+}
+
+export async function listMeetings(): Promise<Meeting[]> {
+  if (isDbEnabled()) return db.dbListMeetings();
+  return getMemoryMeetings()
+    .map((m) => ({ ...m }))
+    .sort((a, b) =>
+      a.date === b.date
+        ? (a.time ?? "").localeCompare(b.time ?? "")
+        : a.date.localeCompare(b.date),
+    );
+}
+
+export async function getMeeting(id: string): Promise<Meeting | null> {
+  if (isDbEnabled()) return db.dbGetMeeting(id);
+  return getMemoryMeetings().find((m) => m.id === id) ?? null;
+}
+
+export interface CreateMeetingInput {
+  title: string;
+  date: string;
+  time?: string | null;
+  location?: string | null;
+  description?: string | null;
+  createdBy?: string | null;
+  createdByName?: string | null;
+}
+
+export async function createMeeting(input: CreateMeetingInput): Promise<Meeting> {
+  requireWritableOrThrow("meetings");
+  const id = generateMeetingId();
+  if (isDbEnabled()) {
+    return db.dbCreateMeeting({
+      id,
+      title: input.title,
+      date: input.date,
+      time: input.time ?? null,
+      location: input.location ?? null,
+      description: input.description ?? null,
+      createdBy: input.createdBy ?? null,
+      createdByName: input.createdByName ?? null,
+    });
+  }
+  const meeting: Meeting = {
+    id,
+    title: input.title,
+    date: input.date,
+    time: input.time ?? null,
+    location: input.location ?? null,
+    description: input.description ?? null,
+    createdBy: input.createdBy ?? null,
+    createdByName: input.createdByName ?? null,
+    createdAt: new Date().toISOString(),
+  };
+  getMemoryMeetings().push(meeting);
+  return { ...meeting };
+}
+
+export async function deleteMeeting(id: string): Promise<boolean> {
+  requireWritableOrThrow("meetings");
+  if (isDbEnabled()) return db.dbDeleteMeeting(id);
+  const meetings = getMemoryMeetings();
+  const idx = meetings.findIndex((m) => m.id === id);
+  if (idx < 0) return false;
+  meetings.splice(idx, 1);
+  return true;
 }

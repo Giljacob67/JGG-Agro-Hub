@@ -371,6 +371,22 @@ export interface OpposingParty {
   deletedAt?: string | null;
 }
 
+/** Reunião agendada no calendário (criada/excluída direto na tela). */
+export interface Meeting {
+  id: string;
+  title: string;
+  /** Data no formato YYYY-MM-DD. */
+  date: string;
+  /** Hora opcional no formato HH:MM. */
+  time?: string | null;
+  location?: string | null;
+  description?: string | null;
+  createdBy?: string | null;
+  createdByName?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 /** Interação (ligação, reunião, e-mail, WhatsApp…) vinculada a uma entidade. */
 export interface Activity {
   id: string;

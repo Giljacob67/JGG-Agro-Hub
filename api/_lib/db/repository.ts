@@ -21,6 +21,7 @@ import type {
   Lead,
   LeadList,
   ManagedUser,
+  Meeting,
   Matter,
   Opportunity,
   OpposingParty,
@@ -2444,4 +2445,79 @@ export async function dbSetAppConfig(
           updated_by = EXCLUDED.updated_by,
           updated_at = now()
   `;
+}
+
+// ── Meetings (calendário de reuniões) ──────────────────────────────────
+
+function mapMeeting(r: Record<string, unknown>): Meeting {
+  const rawDate = r.meeting_date;
+  const date =
+    rawDate instanceof Date
+      ? rawDate.toISOString().slice(0, 10)
+      : String(rawDate).slice(0, 10);
+  return {
+    id: String(r.id),
+    title: String(r.title),
+    date,
+    time: r.meeting_time ? String(r.meeting_time) : null,
+    location: r.location ? String(r.location) : null,
+    description: r.description ? String(r.description) : null,
+    createdBy: r.created_by ? String(r.created_by) : null,
+    createdByName: r.created_by_name ? String(r.created_by_name) : null,
+    createdAt: r.created_at ? new Date(r.created_at as string).toISOString() : undefined,
+    updatedAt: r.updated_at ? new Date(r.updated_at as string).toISOString() : undefined,
+  };
+}
+
+export async function dbListMeetings(): Promise<Meeting[]> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT id, title, meeting_date, meeting_time, location, description,
+           created_by, created_by_name, created_at, updated_at
+    FROM agro.meetings
+    WHERE deleted_at IS NULL
+    ORDER BY meeting_date ASC, meeting_time ASC NULLS FIRST, created_at ASC
+  `;
+  return rows.map((r: Record<string, unknown>) => mapMeeting(r));
+}
+
+export async function dbGetMeeting(id: string): Promise<Meeting | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT id, title, meeting_date, meeting_time, location, description,
+           created_by, created_by_name, created_at, updated_at
+    FROM agro.meetings WHERE id = ${id} AND deleted_at IS NULL LIMIT 1
+  `;
+  return rows.length ? mapMeeting(rows[0]) : null;
+}
+
+export async function dbCreateMeeting(input: {
+  id: string;
+  title: string;
+  date: string;
+  time: string | null;
+  location: string | null;
+  description: string | null;
+  createdBy: string | null;
+  createdByName: string | null;
+}): Promise<Meeting> {
+  const sql = getSql();
+  const rows = await sql`
+    INSERT INTO agro.meetings
+      (id, title, meeting_date, meeting_time, location, description, created_by, created_by_name)
+    VALUES (${input.id}, ${input.title}, ${input.date}, ${input.time},
+            ${input.location}, ${input.description}, ${input.createdBy}, ${input.createdByName})
+    RETURNING id, title, meeting_date, meeting_time, location, description,
+              created_by, created_by_name, created_at, updated_at
+  `;
+  return mapMeeting(rows[0]);
+}
+
+export async function dbDeleteMeeting(id: string): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.meetings SET deleted_at = now(), updated_at = now()
+    WHERE id = ${id} AND deleted_at IS NULL RETURNING id
+  `;
+  return rows.length > 0;
 }

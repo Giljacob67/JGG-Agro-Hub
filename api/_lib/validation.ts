@@ -1162,3 +1162,41 @@ export function parseUserPassword(body: Body): ValidationResult<{ password: stri
   if (!pw.ok) return { ok: false, error: pw.error };
   return { ok: true, data: { password: pw.data } };
 }
+
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export interface ParsedMeetingCreate {
+  title: string;
+  date: string;
+  time: string | null;
+  location: string | null;
+  description: string | null;
+}
+
+export function parseMeetingCreate(body: Body): ValidationResult<ParsedMeetingCreate> {
+  const title = requiredString(body, "title");
+  if (!title.ok) return { ok: false, error: title.error };
+
+  const dateRaw = body.date;
+  if (typeof dateRaw !== "string" || !ISO_DATE_RE.test(dateRaw)) {
+    return { ok: false, error: "date deve usar YYYY-MM-DD" };
+  }
+
+  let time: string | null = null;
+  if (body.time !== undefined && body.time !== null && body.time !== "") {
+    const t = String(body.time);
+    if (!TIME_RE.test(t)) return { ok: false, error: "time deve usar HH:MM" };
+    time = t;
+  }
+
+  return {
+    ok: true,
+    data: {
+      title: title.data,
+      date: dateRaw,
+      time,
+      location: optionalNullableString(body.location) ?? null,
+      description: optionalNullableString(body.description) ?? null,
+    },
+  };
+}

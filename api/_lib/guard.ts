@@ -34,6 +34,7 @@ const DB_BACKED_RESOURCES = new Set([
   "fee-agreements",
   "opposing-parties",
   "knowledge",
+  "meetings",
 ]);
 
 /**

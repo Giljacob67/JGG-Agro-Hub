@@ -39,7 +39,8 @@ export type AuditEntityType =
   | "contact"
   | "property"
   | "opposing-party"
-  | "knowledge";
+  | "knowledge"
+  | "meeting";
 
 export type AuditAction = "create" | "update" | "delete";
 

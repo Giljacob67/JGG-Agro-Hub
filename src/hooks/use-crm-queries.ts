@@ -46,6 +46,7 @@ export const crmKeys = {
   mattersByOpportunity: (opportunityId: string) =>
     ["crm", "matters", "by-opportunity", opportunityId] as const,
   users: ["crm", "users"] as const,
+  meetings: ["crm", "meetings"] as const,
 };
 
 export function useLeads(params: LeadListParams = { facets: true }) {
@@ -571,5 +572,34 @@ export function useSetUserPassword() {
   return useMutation({
     mutationFn: ({ id, password }: { id: string; password: string }) =>
       agroApi.setUserPassword(id, password),
+  });
+}
+
+export function useMeetings() {
+  return useQuery({
+    queryKey: crmKeys.meetings,
+    queryFn: () => agroApi.meetings(),
+  });
+}
+
+export function useCreateMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      title: string;
+      date: string;
+      time?: string | null;
+      location?: string | null;
+      description?: string | null;
+    }) => agroApi.createMeeting(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.meetings }),
+  });
+}
+
+export function useDeleteMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => agroApi.deleteMeeting(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.meetings }),
   });
 }

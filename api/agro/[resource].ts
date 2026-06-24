@@ -36,6 +36,10 @@ import {
   updateUser,
   setUserPassword,
   countActiveGestao,
+  listMeetings,
+  getMeeting,
+  createMeeting,
+  deleteMeeting,
 } from "../_lib/data-service.js";
 import { resolveCopilotQuery } from "../../shared/agro/copilot.js";
 import { KNOWLEDGE_CATEGORIES } from "../../shared/agro/knowledge.js";
@@ -87,6 +91,7 @@ import {
   parseUserCreate,
   parseUserUpdate,
   parseUserPassword,
+  parseMeetingCreate,
 } from "../_lib/validation.js";
 import { auditCreate, auditUpdate, auditDelete, type AuditEntityType } from "../_lib/audit.js";
 
@@ -1099,6 +1104,62 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         { ip: clientIp(req) },
       );
       return json(res, updated);
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Meetings (calendário de reuniões) ──────────────────────────────
+  if (resource === "meetings") {
+    const user = requireAuth(req, res, "meetings");
+    if (!user) return;
+
+    const isWrite = req.method !== "GET";
+    if (isWrite && !guardWrite(res, "meetings")) return;
+
+    const actor = { userId: user.id, userName: user.name, userRole: user.role };
+
+    if (req.method === "GET") {
+      const id = req.query.id as string | undefined;
+      if (id) {
+        const found = await getMeeting(id);
+        if (!found) return json(res, { error: "Reunião não encontrada" }, 404);
+        return json(res, found);
+      }
+      return json(res, await listMeetings());
+    }
+
+    if (req.method === "POST") {
+      const parsed = parseMeetingCreate(getBody(req.body));
+      if (!parsed.ok) return json(res, { error: parsed.error }, 400);
+      const created = await createMeeting({
+        ...parsed.data,
+        createdBy: user.id,
+        createdByName: user.name,
+      });
+      await auditCreate(
+        actor,
+        "meeting" as AuditEntityType,
+        created as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, created, 201);
+    }
+
+    if (req.method === "DELETE") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const target = await getMeeting(id);
+      if (!target) return json(res, { error: "Reunião não encontrada" }, 404);
+      const ok = await deleteMeeting(id);
+      if (!ok) return json(res, { error: "Reunião não encontrada" }, 404);
+      await auditDelete(
+        actor,
+        "meeting" as AuditEntityType,
+        target as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, { ok: true });
     }
 
     return methodNotAllowed(res);

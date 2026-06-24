@@ -86,7 +86,7 @@ export default function App() {
       </Route>
 
       <Route path={ROUTES.calendar}>
-        <AgroRoute component={CalendarPage} resource="matters" />
+        <AgroRoute component={CalendarPage} resource="meetings" />
       </Route>
 
       <Route path={ROUTES.reports}>

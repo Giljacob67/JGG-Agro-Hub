@@ -71,7 +71,7 @@ export const CRM_NAV: NavItem[] = [
 
 export const OPERATION_NAV: NavItem[] = [
   { path: ROUTES.crm.matters, label: "Demandas jurídicas", icon: Scale, resource: "matters" },
-  { path: ROUTES.calendar, label: "Calendário", icon: CalendarDays, resource: "matters" },
+  { path: ROUTES.calendar, label: "Reuniões", icon: CalendarDays, resource: "meetings" },
   { path: ROUTES.crm.tasks, label: "Tarefas", icon: CheckSquare, resource: "tasks" },
   { path: ROUTES.reports, label: "Relatórios", icon: BarChart3, resource: "stats" },
   { path: ROUTES.productivity, label: "Produtividade", icon: Activity, resource: "stats" },
