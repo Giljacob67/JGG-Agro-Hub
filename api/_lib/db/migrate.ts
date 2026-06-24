@@ -64,6 +64,7 @@ export async function runMigrations(
   await sql`ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS password_hash TEXT`;
   await sql`ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS salt TEXT`;
   await sql`ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT now()`;
+  await sql`ALTER TABLE agro.users ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true`;
 
   await sql`
     CREATE TABLE IF NOT EXISTS agro.accounts (

@@ -10,6 +10,7 @@ export const ROUTES = {
   calendar: "/agro/calendar",
   reports: "/agro/reports",
   productivity: "/agro/productivity",
+  settings: "/agro/settings",
   institucional: "/institucional",
   crm: {
     root: "/agro/crm",

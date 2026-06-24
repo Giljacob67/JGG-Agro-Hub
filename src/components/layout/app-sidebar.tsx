@@ -12,6 +12,7 @@ import {
   JGG_GROUP_NAME,
 } from "@/lib/brand";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { shouldUseLocalApi } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 export function AppSidebar() {
@@ -50,12 +51,14 @@ export function AppSidebar() {
           </div>
         </Link>
 
-        <div className="mt-4 flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar-muted/60 px-2.5 py-2">
-          <Database className="w-3.5 h-3.5 text-sidebar-foreground/50 shrink-0" />
-          <span className="text-[10px] font-medium uppercase tracking-widest text-sidebar-foreground/60">
-            Mock / Demo data
-          </span>
-        </div>
+        {shouldUseLocalApi() && (
+          <div className="mt-4 flex items-center gap-2 rounded-md border border-sidebar-border bg-sidebar-muted/60 px-2.5 py-2">
+            <Database className="w-3.5 h-3.5 text-sidebar-foreground/50 shrink-0" />
+            <span className="text-[10px] font-medium uppercase tracking-widest text-sidebar-foreground/60">
+              Mock / Demo data
+            </span>
+          </div>
+        )}
 
         {user && (
           <p className="text-[11px] text-sidebar-foreground/55 mt-3 leading-snug">

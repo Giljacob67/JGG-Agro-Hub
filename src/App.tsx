@@ -24,6 +24,7 @@ const CrmTasksPage = lazy(() => import("./pages/crm/tasks"));
 const CalendarPage = lazy(() => import("./pages/agro/calendar"));
 const ReportsPage = lazy(() => import("./pages/agro/reports"));
 const ProductivityPage = lazy(() => import("./pages/agro/productivity"));
+const SettingsPage = lazy(() => import("./pages/agro/settings"));
 
 function PageLoader() {
   return (
@@ -94,6 +95,10 @@ export default function App() {
 
       <Route path={ROUTES.productivity}>
         <AgroRoute component={ProductivityPage} resource="stats" />
+      </Route>
+
+      <Route path={ROUTES.settings}>
+        <AgroRoute component={SettingsPage} resource="users" />
       </Route>
 
       <Route path={ROUTES.crm.root}>

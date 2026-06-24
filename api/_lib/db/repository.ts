@@ -20,6 +20,7 @@ import type {
   KnowledgeDocument,
   Lead,
   LeadList,
+  ManagedUser,
   Matter,
   Opportunity,
   OpposingParty,
@@ -1573,6 +1574,130 @@ export async function dbUpsertUsers(users: Array<AgroUser & { passwordHash?: str
         updated_at = now()
     `;
   }
+}
+
+interface UserAuthRow {
+  id: string;
+  email: string;
+  name: string;
+  role: AgroUser["role"];
+  active: boolean;
+  passwordHash: string | null;
+  salt: string | null;
+}
+
+/** Credenciais por-usuário para o login (hash/salt/active). */
+export async function dbFindUserAuthByEmail(email: string): Promise<UserAuthRow | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT id, email, name, role, active, password_hash, salt
+    FROM agro.users WHERE lower(email) = lower(${email}) LIMIT 1
+  `;
+  if (!rows.length) return null;
+  const r = rows[0];
+  return {
+    id: String(r.id),
+    email: String(r.email),
+    name: String(r.name),
+    role: String(r.role) as AgroUser["role"],
+    active: r.active !== false,
+    passwordHash: r.password_hash ? String(r.password_hash) : null,
+    salt: r.salt ? String(r.salt) : null,
+  };
+}
+
+function mapManagedUser(r: Record<string, unknown>): ManagedUser {
+  return {
+    id: String(r.id),
+    email: String(r.email),
+    name: String(r.name),
+    role: String(r.role) as ManagedUser["role"],
+    active: r.active !== false,
+    hasPassword: Boolean(r.has_password),
+    createdAt: r.created_at ? new Date(r.created_at as string).toISOString() : undefined,
+    updatedAt: r.updated_at ? new Date(r.updated_at as string).toISOString() : undefined,
+  };
+}
+
+export async function dbListUsers(): Promise<ManagedUser[]> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT id, email, name, role, active,
+           (password_hash IS NOT NULL) AS has_password,
+           created_at, updated_at
+    FROM agro.users ORDER BY created_at ASC, name ASC
+  `;
+  return rows.map((r: Record<string, unknown>) => mapManagedUser(r));
+}
+
+export async function dbGetUser(id: string): Promise<ManagedUser | null> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT id, email, name, role, active,
+           (password_hash IS NOT NULL) AS has_password,
+           created_at, updated_at
+    FROM agro.users WHERE id = ${id} LIMIT 1
+  `;
+  return rows.length ? mapManagedUser(rows[0]) : null;
+}
+
+export async function dbCreateUser(input: {
+  id: string;
+  email: string;
+  name: string;
+  role: AgroUser["role"];
+  active: boolean;
+  passwordHash: string | null;
+  salt: string | null;
+}): Promise<ManagedUser> {
+  const sql = getSql();
+  const rows = await sql`
+    INSERT INTO agro.users (id, email, name, role, active, password_hash, salt)
+    VALUES (${input.id}, ${input.email}, ${input.name}, ${input.role},
+            ${input.active}, ${input.passwordHash}, ${input.salt})
+    RETURNING id, email, name, role, active,
+              (password_hash IS NOT NULL) AS has_password, created_at, updated_at
+  `;
+  return mapManagedUser(rows[0]);
+}
+
+export async function dbUpdateUser(
+  id: string,
+  patch: { name?: string; role?: AgroUser["role"]; active?: boolean },
+): Promise<ManagedUser | null> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.users SET
+      name = COALESCE(${patch.name ?? null}, name),
+      role = COALESCE(${patch.role ?? null}, role),
+      active = COALESCE(${patch.active ?? null}, active),
+      updated_at = now()
+    WHERE id = ${id}
+    RETURNING id, email, name, role, active,
+              (password_hash IS NOT NULL) AS has_password, created_at, updated_at
+  `;
+  return rows.length ? mapManagedUser(rows[0]) : null;
+}
+
+export async function dbSetUserPassword(
+  id: string,
+  passwordHash: string,
+  salt: string,
+): Promise<boolean> {
+  const sql = getSql();
+  const rows = await sql`
+    UPDATE agro.users SET password_hash = ${passwordHash}, salt = ${salt}, updated_at = now()
+    WHERE id = ${id} RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+export async function dbCountActiveUsersByRole(role: AgroUser["role"]): Promise<number> {
+  const sql = getSql();
+  const rows = await sql`
+    SELECT COUNT(*)::int AS n FROM agro.users WHERE role = ${role} AND active = true
+  `;
+  return Number(rows[0]?.n ?? 0);
 }
 
 // ── KB embeddings (E-6 pgvector) ──────────────────────────────────────

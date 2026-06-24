@@ -26,7 +26,7 @@ export function clearLegacyAuthToken() {
   localStorage.removeItem(TOKEN_KEY);
 }
 
-function shouldUseLocalApi() {
+export function shouldUseLocalApi() {
   return import.meta.env.DEV && import.meta.env.VITE_USE_API !== "true";
 }
 
@@ -536,6 +536,40 @@ export const agroApi = {
       contentType,
       fileName,
     }),
+
+  users: () =>
+    request<import("@shared/agro/types").ManagedUser[]>("/api/agro/users"),
+
+  createUser: (input: {
+    email: string;
+    name: string;
+    role: import("@shared/agro/types").AgroRole;
+    active?: boolean;
+    password?: string;
+  }) =>
+    request<import("@shared/agro/types").ManagedUser>("/api/agro/users", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateUser: (
+    id: string,
+    patch: {
+      name?: string;
+      role?: import("@shared/agro/types").AgroRole;
+      active?: boolean;
+    },
+  ) =>
+    request<import("@shared/agro/types").ManagedUser>(
+      `/api/agro/users?id=${encodeURIComponent(id)}`,
+      { method: "PATCH", body: JSON.stringify(patch) },
+    ),
+
+  setUserPassword: (id: string, password: string) =>
+    request<{ ok: true }>(
+      `/api/agro/users?id=${encodeURIComponent(id)}&action=password`,
+      { method: "PATCH", body: JSON.stringify({ password }) },
+    ),
 
   getCopilotConfig: () =>
     request<import("@shared/agro/types").CopilotConfigStatus>(

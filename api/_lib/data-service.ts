@@ -34,6 +34,7 @@ import type {
   LeadList,
   LeadPriority,
   LeadStatus,
+  ManagedUser,
   Matter,
   Opportunity,
   OpposingParty,
@@ -52,6 +53,7 @@ import {
 } from "../../shared/agro/convert.js";
 import { isDbEnabled } from "./db/client.js";
 import * as db from "./db/repository.js";
+import { getSeedUsers, hashPassword, generateUserId } from "./auth-server.js";
 import type { AccountPatch, MatterPatch, TaskPatch } from "./db/repository.js";
 import { assertWritableInProd, WritableGuardError } from "./guard.js";
 import { computeCrmStats } from "../../shared/agro/stats.js";
@@ -1190,4 +1192,116 @@ export async function deleteKnowledgeDocument(id: string): Promise<boolean> {
   }
   await invalidateKbEmbedding(id);
   return true;
+}
+
+// ── Users (gestão de acesso) ──────────────────────────────────────────
+
+/**
+ * Store em memória para dev local (sem DB). Semeado a partir de
+ * getSeedUsers(); senhas não são materializadas (login local usa o
+ * caminho legado de shared/agro/auth). Em produção tudo vem do DB.
+ */
+let memoryUsers: ManagedUser[] | null = null;
+function getMemoryUsers(): ManagedUser[] {
+  if (!memoryUsers) {
+    memoryUsers = getSeedUsers().map((u) => ({
+      id: u.id,
+      email: u.email,
+      name: u.name,
+      role: u.role,
+      active: true,
+      hasPassword: true,
+    }));
+  }
+  return memoryUsers;
+}
+
+export async function listUsers(): Promise<ManagedUser[]> {
+  if (isDbEnabled()) return db.dbListUsers();
+  return getMemoryUsers().map((u) => ({ ...u }));
+}
+
+export interface CreateUserInput {
+  email: string;
+  name: string;
+  role: AgroUser["role"];
+  active?: boolean;
+  password?: string;
+}
+
+export async function createUser(input: CreateUserInput): Promise<ManagedUser> {
+  requireWritableOrThrow("users");
+  const id = generateUserId();
+  const active = input.active ?? true;
+  const creds = input.password ? hashPassword(input.password) : null;
+  if (isDbEnabled()) {
+    return db.dbCreateUser({
+      id,
+      email: input.email,
+      name: input.name,
+      role: input.role,
+      active,
+      passwordHash: creds?.hash ?? null,
+      salt: creds?.salt ?? null,
+    });
+  }
+  const user: ManagedUser = {
+    id,
+    email: input.email,
+    name: input.name,
+    role: input.role,
+    active,
+    hasPassword: Boolean(creds),
+  };
+  getMemoryUsers().push(user);
+  return { ...user };
+}
+
+export interface UpdateUserInput {
+  name?: string;
+  role?: AgroUser["role"];
+  active?: boolean;
+}
+
+export async function updateUser(
+  id: string,
+  patch: UpdateUserInput,
+): Promise<ManagedUser | null> {
+  requireWritableOrThrow("users");
+  if (isDbEnabled()) return db.dbUpdateUser(id, patch);
+  const users = getMemoryUsers();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx < 0) return null;
+  users[idx] = {
+    ...users[idx],
+    ...(patch.name !== undefined ? { name: patch.name } : {}),
+    ...(patch.role !== undefined ? { role: patch.role } : {}),
+    ...(patch.active !== undefined ? { active: patch.active } : {}),
+  };
+  return { ...users[idx] };
+}
+
+export async function setUserPassword(
+  id: string,
+  password: string,
+): Promise<boolean> {
+  requireWritableOrThrow("users");
+  const { hash, salt } = hashPassword(password);
+  if (isDbEnabled()) return db.dbSetUserPassword(id, hash, salt);
+  const users = getMemoryUsers();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx < 0) return false;
+  users[idx] = { ...users[idx], hasPassword: true };
+  return true;
+}
+
+export async function getUser(id: string): Promise<ManagedUser | null> {
+  if (isDbEnabled()) return db.dbGetUser(id);
+  return getMemoryUsers().find((u) => u.id === id) ?? null;
+}
+
+/** Conta usuários gestão ativos (guarda contra remover o último admin). */
+export async function countActiveGestao(): Promise<number> {
+  if (isDbEnabled()) return db.dbCountActiveUsersByRole("gestao");
+  return getMemoryUsers().filter((u) => u.role === "gestao" && u.active).length;
 }

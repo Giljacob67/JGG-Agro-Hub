@@ -68,10 +68,12 @@ import {
 import type {
   Activity,
   ActivityEntityType,
+  AgroRole,
   Deadline,
   Lead,
   LeadList,
   LeadStatus,
+  ManagedUser,
   TaskStatus,
 } from "@shared/agro/types";
 
@@ -88,6 +90,19 @@ function getMockKbDocs(): KnowledgeDocument[] {
     mockKbDocs = KNOWLEDGE_DOCUMENTS.map((d) => ({ ...d, tags: [...d.tags] }));
   }
   return mockKbDocs;
+}
+
+// Espelho mutável de usuários para o modo mock (preview/dev local).
+let mockUsers: ManagedUser[] | null = null;
+function getMockUsers(): ManagedUser[] {
+  if (!mockUsers) {
+    mockUsers = [
+      { id: "usr-1", email: "agro@jgggroup.com.br", name: "Ana Ribeiro", role: "gestao", active: true, hasPassword: true },
+      { id: "usr-2", email: "comercial@jgggroup.com.br", name: "Carlos Mendes", role: "comercial", active: true, hasPassword: true },
+      { id: "usr-3", email: "juridico@jgggroup.com.br", name: "Equipe Jurídica Agro", role: "juridico", active: true, hasPassword: true },
+    ];
+  }
+  return mockUsers;
 }
 
 export async function handleLocalApi(
@@ -514,6 +529,92 @@ export async function handleLocalApi(
         stats,
       ),
     };
+  }
+
+  if (pathname === "/api/agro/users") {
+    if (user.role !== "gestao") {
+      return { status: 403, data: { error: "Apenas perfis de gestão" } };
+    }
+    const users = getMockUsers();
+    const VALID_ROLES: AgroRole[] = ["gestao", "comercial", "juridico"];
+
+    if (!init?.method || init.method === "GET") {
+      const id = params.get("id") ?? undefined;
+      if (id) {
+        const found = users.find((u) => u.id === id);
+        if (!found) return { status: 404, data: { error: "Usuário não encontrado" } };
+        return { status: 200, data: found };
+      }
+      return { status: 200, data: users.map((u) => ({ ...u })) };
+    }
+
+    if (init.method === "POST") {
+      const body = JSON.parse(String(init.body));
+      const email = String(body.email ?? "").trim().toLowerCase();
+      const name = String(body.name ?? "").trim();
+      const role = body.role as AgroRole;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return { status: 400, data: { error: "email inválido" } };
+      }
+      if (!name) return { status: 400, data: { error: "name é obrigatório" } };
+      if (!VALID_ROLES.includes(role)) return { status: 400, data: { error: "role inválido" } };
+      if (body.password !== undefined && body.password !== null && body.password !== "" &&
+          String(body.password).length < 8) {
+        return { status: 400, data: { error: "password deve ter ao menos 8 caracteres" } };
+      }
+      if (users.some((u) => u.email.toLowerCase() === email)) {
+        return { status: 409, data: { error: "E-mail já cadastrado" } };
+      }
+      const created: ManagedUser = {
+        id: `usr-${crypto.randomUUID().slice(0, 8)}`,
+        email,
+        name,
+        role,
+        active: body.active === undefined ? true : Boolean(body.active),
+        hasPassword: Boolean(body.password),
+      };
+      users.push(created);
+      return { status: 201, data: created };
+    }
+
+    const id = params.get("id") ?? undefined;
+    if (!id) return { status: 400, data: { error: "id é obrigatório" } };
+    const idx = users.findIndex((u) => u.id === id);
+    if (idx < 0) return { status: 404, data: { error: "Usuário não encontrado" } };
+
+    if (init.method === "PATCH") {
+      const body = JSON.parse(String(init.body));
+
+      if (params.get("action") === "password") {
+        if (!body.password || String(body.password).length < 8) {
+          return { status: 400, data: { error: "password deve ter ao menos 8 caracteres" } };
+        }
+        users[idx] = { ...users[idx], hasPassword: true };
+        return { status: 200, data: { ok: true } };
+      }
+
+      const role = body.role !== undefined ? (body.role as AgroRole) : undefined;
+      if (role !== undefined && !VALID_ROLES.includes(role)) {
+        return { status: 400, data: { error: "role inválido" } };
+      }
+      const target = users[idx];
+      const losingGestao =
+        target.role === "gestao" &&
+        ((body.active === false) || (role !== undefined && role !== "gestao"));
+      const activeGestao = users.filter((u) => u.role === "gestao" && u.active).length;
+      if (losingGestao && target.active && activeGestao <= 1) {
+        return { status: 409, data: { error: "Não é possível desativar ou rebaixar o último gestor ativo" } };
+      }
+      users[idx] = {
+        ...target,
+        ...(body.name !== undefined ? { name: String(body.name) } : {}),
+        ...(role !== undefined ? { role } : {}),
+        ...(body.active !== undefined ? { active: Boolean(body.active) } : {}),
+      };
+      return { status: 200, data: users[idx] };
+    }
+
+    return { status: 405, data: { error: "Método não permitido" } };
   }
 
   if (pathname === "/api/agro/knowledge") {

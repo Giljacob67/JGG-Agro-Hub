@@ -10,6 +10,7 @@ import type {
 import type {
   ActivityEntityType,
   ActivityType,
+  AgroRole,
   DeadlineType,
   MatterPhase,
   LeadStatus,
@@ -44,6 +45,7 @@ export const crmKeys = {
       : (["crm", "activities"] as const),
   mattersByOpportunity: (opportunityId: string) =>
     ["crm", "matters", "by-opportunity", opportunityId] as const,
+  users: ["crm", "users"] as const,
 };
 
 export function useLeads(params: LeadListParams = { facets: true }) {
@@ -525,5 +527,49 @@ export function useProperties() {
   return useQuery({
     queryKey: ["crm", "properties"],
     queryFn: () => agroApi.listProperties({}),
+  });
+}
+
+// ── Users (gestão de acesso) ──────────────────────────────────────────
+
+export function useUsers() {
+  return useQuery({
+    queryKey: crmKeys.users,
+    queryFn: () => agroApi.users(),
+  });
+}
+
+export function useCreateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: {
+      email: string;
+      name: string;
+      role: AgroRole;
+      active?: boolean;
+      password?: string;
+    }) => agroApi.createUser(input),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.users }),
+  });
+}
+
+export function useUpdateUser() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: string;
+      patch: { name?: string; role?: AgroRole; active?: boolean };
+    }) => agroApi.updateUser(id, patch),
+    onSuccess: () => qc.invalidateQueries({ queryKey: crmKeys.users }),
+  });
+}
+
+export function useSetUserPassword() {
+  return useMutation({
+    mutationFn: ({ id, password }: { id: string; password: string }) =>
+      agroApi.setUserPassword(id, password),
   });
 }

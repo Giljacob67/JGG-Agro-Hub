@@ -1,4 +1,4 @@
-import { createHmac, scryptSync, timingSafeEqual } from "node:crypto";
+import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import {
   roleCanAccess,
   hasPermission,
@@ -87,6 +87,22 @@ function verifyPassword(
   return timingSafeEqual(derived, expected);
 }
 
+/**
+ * Gera hash scrypt + salt aleatório para uma senha individual (gestão de
+ * usuários). O salt é por-usuário (independente de AUTH_PASSWORD_SALT) e
+ * armazenado junto do hash em `agro.users`.
+ */
+export function hashPassword(password: string): { hash: string; salt: string } {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 32).toString("hex");
+  return { hash, salt };
+}
+
+/** ID estável para novos usuários criados via gestão. */
+export function generateUserId(): string {
+  return `usr-${randomBytes(8).toString("hex")}`;
+}
+
 function signToken(user: AgroUser, secret: string): string {
   const payload: TokenPayload = { ...user, exp: Date.now() + TOKEN_TTL_MS };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -144,10 +160,40 @@ export async function authenticate(
   email: string,
   password: string,
 ): Promise<{ token: string; user: AgroUser } | null> {
-  const user = await findUserByEmail(email);
-  if (!user) return null;
+  // Em DB, buscar credenciais por-usuário (hash/salt/active) antes de cair
+  // no fallback por papel. Usuários inativos são rejeitados no login.
+  let user: AgroUser | null = null;
+  let perUserHash: string | null = null;
+  let perUserSalt: string | null = null;
 
-  const { hash, salt } = resolvePasswordHash(user.role);
+  if (isDbEnabled()) {
+    try {
+      const auth = await db.dbFindUserAuthByEmail(email);
+      if (auth) {
+        if (!auth.active) return null; // conta desativada
+        user = { id: auth.id, email: auth.email, name: auth.name, role: auth.role };
+        perUserHash = auth.passwordHash;
+        perUserSalt = auth.salt;
+      }
+    } catch (err) {
+      console.warn("[auth] dbFindUserAuthByEmail falhou, fallback", err);
+    }
+  }
+
+  if (!user) {
+    user = await findUserByEmail(email);
+    if (!user) return null;
+  }
+
+  // Senha individual (agro.users) tem precedência; senão, hash por papel (env).
+  let hash: string | null;
+  let salt: string | null;
+  if (perUserHash && perUserSalt) {
+    hash = perUserHash;
+    salt = perUserSalt;
+  } else {
+    ({ hash, salt } = resolvePasswordHash(user.role));
+  }
   if (!hash || !salt) return null;
 
   if (!verifyPassword(password, hash, salt)) return null;

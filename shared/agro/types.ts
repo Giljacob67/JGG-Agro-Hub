@@ -407,6 +407,19 @@ export interface AgroUser {
   avatar?: string;
   barNumber?: string;
   department?: string;
+  active?: boolean;
+}
+
+/** Usuário gerenciável na tela de configurações (gestão). */
+export interface ManagedUser {
+  id: string;
+  email: string;
+  name: string;
+  role: AgroRole;
+  active: boolean;
+  hasPassword: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PracticeBreakdown {

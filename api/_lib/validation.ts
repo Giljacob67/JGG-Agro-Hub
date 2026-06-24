@@ -58,6 +58,9 @@ const TASK_STATUSES = ["pendente", "em_andamento", "concluida", "atrasada"] as c
 const DEADLINE_TYPES = ["fatal", "ordinatorio"] as const;
 const DEADLINE_STATUSES = ["pendente", "cumprido", "cancelado"] as const;
 const ACTIVITY_ENTITY_TYPES = ["lead", "account", "opportunity", "matter"] as const;
+const USER_ROLES = ["gestao", "comercial", "juridico"] as const;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LEN = 8;
 const ACTIVITY_TYPES = [
   "ligacao",
   "reuniao",
@@ -1073,4 +1076,75 @@ export function parseKnowledgeDocUpdate(body: Body) {
   Object.assign(patch, knowledgeFileFields(body));
   patch.updatedAt = nowIso();
   return { ok: true, data: patch } satisfies ValidationResult<unknown>;
+}
+
+// ── Users (gestão de acesso) ──────────────────────────────────────────
+
+function validEmail(body: Body): ValidationResult<string> {
+  const value = body.email;
+  if (typeof value !== "string" || !value.trim()) {
+    return { ok: false, error: "email é obrigatório" };
+  }
+  const email = value.trim().toLowerCase();
+  if (!EMAIL_RE.test(email)) return { ok: false, error: "email inválido" };
+  return { ok: true, data: email };
+}
+
+function validPassword(value: unknown, field = "password"): ValidationResult<string> {
+  if (typeof value !== "string" || value.length < MIN_PASSWORD_LEN) {
+    return { ok: false, error: `${field} deve ter ao menos ${MIN_PASSWORD_LEN} caracteres` };
+  }
+  return { ok: true, data: value };
+}
+
+export function parseUserCreate(body: Body) {
+  const email = validEmail(body);
+  if (!email.ok) return email;
+  const name = requiredString(body, "name");
+  if (!name.ok) return name;
+  const role = enumValue(body.role, USER_ROLES, "role");
+  if (!role.ok) return role;
+  if (!role.data) return { ok: false, error: "role é obrigatório" };
+
+  let password: string | undefined;
+  if (body.password !== undefined && body.password !== null && body.password !== "") {
+    const pw = validPassword(body.password);
+    if (!pw.ok) return pw;
+    password = pw.data;
+  }
+
+  return {
+    ok: true,
+    data: {
+      email: email.data,
+      name: name.data,
+      role: role.data,
+      active: body.active === undefined ? true : Boolean(body.active),
+      password,
+    },
+  } satisfies ValidationResult<unknown>;
+}
+
+export function parseUserUpdate(body: Body) {
+  const patch: Record<string, unknown> = {};
+  if (body.name !== undefined) {
+    const name = requiredString(body, "name");
+    if (!name.ok) return name;
+    patch.name = name.data;
+  }
+  if (body.role !== undefined) {
+    const role = enumValue(body.role, USER_ROLES, "role");
+    if (!role.ok) return role;
+    if (role.data) patch.role = role.data;
+  }
+  if (body.active !== undefined) {
+    patch.active = Boolean(body.active);
+  }
+  return { ok: true, data: patch } satisfies ValidationResult<unknown>;
+}
+
+export function parseUserPassword(body: Body) {
+  const pw = validPassword(body.password);
+  if (!pw.ok) return pw;
+  return { ok: true, data: { password: pw.data } } satisfies ValidationResult<unknown>;
 }

@@ -13,6 +13,7 @@ import {
   CalendarDays,
   BarChart3,
   Activity,
+  Settings,
 } from "lucide-react";
 import { ROUTES } from "./routes";
 
@@ -76,10 +77,15 @@ export const OPERATION_NAV: NavItem[] = [
   { path: ROUTES.productivity, label: "Produtividade", icon: Activity, resource: "stats" },
 ];
 
+export const ADMIN_NAV: NavItem[] = [
+  { path: ROUTES.settings, label: "Configurações", icon: Settings, resource: "users" },
+];
+
 export const NAV_GROUPS: NavGroup[] = [
   { id: "intelligence", label: "IA Agro", items: INTELLIGENCE_NAV },
   { id: "crm", label: "CRM Agro", items: CRM_NAV },
   { id: "operation", label: "Operação", items: OPERATION_NAV },
+  { id: "admin", label: "Administração", items: ADMIN_NAV },
 ];
 
 /** @deprecated Use NAV_GROUPS */

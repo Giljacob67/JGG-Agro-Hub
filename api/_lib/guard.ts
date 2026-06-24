@@ -15,6 +15,7 @@ export type GuardResult = { ok: true } | { ok: false; status: number; message: s
  * sincronia com os branches de DB de `data-service.ts`.
  */
 const DB_BACKED_RESOURCES = new Set([
+  "users",
   "leads",
   "lead-lists",
   "accounts",

@@ -30,6 +30,12 @@ import {
   listActivities,
   createActivity,
   getCrmStats,
+  listUsers,
+  getUser,
+  createUser,
+  updateUser,
+  setUserPassword,
+  countActiveGestao,
 } from "../_lib/data-service.js";
 import { resolveCopilotQuery } from "../../shared/agro/copilot.js";
 import { KNOWLEDGE_CATEGORIES } from "../../shared/agro/knowledge.js";
@@ -78,6 +84,9 @@ import {
   parseOpposingPartyPatch,
   parseKnowledgeDocCreate,
   parseKnowledgeDocUpdate,
+  parseUserCreate,
+  parseUserUpdate,
+  parseUserPassword,
 } from "../_lib/validation.js";
 import { auditCreate, auditUpdate, auditDelete, type AuditEntityType } from "../_lib/audit.js";
 
@@ -991,6 +1000,105 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       );
 
       return json(res, response);
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  // ── Users (gestão de acesso) ───────────────────────────────────────
+  if (resource === "users") {
+    // requireAuth(…, "users") já restringe a leitura/escrita a gestão
+    // (roleCanAccess: comercial/juridico não têm "users" na matriz).
+    const user = requireAuth(req, res, "users");
+    if (!user) return;
+
+    const isWrite = req.method !== "GET";
+    if (isWrite && !guardWrite(res, "users")) return;
+
+    const actor = { userId: user.id, userName: user.name, userRole: user.role };
+
+    if (req.method === "GET") {
+      const id = req.query.id as string | undefined;
+      if (id) {
+        const found = await getUser(id);
+        if (!found) return json(res, { error: "Usuário não encontrado" }, 404);
+        return json(res, found);
+      }
+      return json(res, await listUsers());
+    }
+
+    if (req.method === "POST") {
+      const body = getBody(req.body);
+      const parsed = parseUserCreate(body);
+      if (!parsed.ok) return json(res, { error: parsed.error }, 400);
+
+      // E-mail único: bloqueia duplicado antes do INSERT.
+      const existing = (await listUsers()).find(
+        (u) => u.email.toLowerCase() === parsed.data.email,
+      );
+      if (existing) return json(res, { error: "E-mail já cadastrado" }, 409);
+
+      const created = await createUser(parsed.data);
+      await auditCreate(
+        actor,
+        "config" as AuditEntityType,
+        created as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, created, 201);
+    }
+
+    if (req.method === "PATCH") {
+      const id = req.query.id as string | undefined;
+      if (!id) return json(res, { error: "id é obrigatório" }, 400);
+      const target = await getUser(id);
+      if (!target) return json(res, { error: "Usuário não encontrado" }, 404);
+
+      // Troca de senha: rota dedicada (?action=password).
+      if (req.query.action === "password") {
+        const parsed = parseUserPassword(getBody(req.body));
+        if (!parsed.ok) return json(res, { error: parsed.error }, 400);
+        await setUserPassword(id, parsed.data.password);
+        await auditUpdate(
+          actor,
+          "config" as AuditEntityType,
+          id,
+          target.name,
+          { password: "***" },
+          { password: "***changed***" },
+          { ip: clientIp(req) },
+        );
+        return json(res, { ok: true });
+      }
+
+      const parsed = parseUserUpdate(getBody(req.body));
+      if (!parsed.ok) return json(res, { error: parsed.error }, 400);
+
+      // Guarda: não desativar/rebaixar o último gestor ativo.
+      const losingGestao =
+        target.role === "gestao" &&
+        ((parsed.data.active === false) ||
+          (parsed.data.role !== undefined && parsed.data.role !== "gestao"));
+      if (losingGestao && target.active && (await countActiveGestao()) <= 1) {
+        return json(
+          res,
+          { error: "Não é possível desativar ou rebaixar o último gestor ativo" },
+          409,
+        );
+      }
+
+      const updated = await updateUser(id, parsed.data);
+      if (!updated) return json(res, { error: "Usuário não encontrado" }, 404);
+      await auditUpdate(
+        actor,
+        "config" as AuditEntityType,
+        id,
+        updated.name,
+        target as unknown as Record<string, unknown>,
+        updated as unknown as Record<string, unknown>,
+        { ip: clientIp(req) },
+      );
+      return json(res, updated);
     }
 
     return methodNotAllowed(res);
