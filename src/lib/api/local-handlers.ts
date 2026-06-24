@@ -98,7 +98,7 @@ let mockUsers: ManagedUser[] | null = null;
 function getMockUsers(): ManagedUser[] {
   if (!mockUsers) {
     mockUsers = [
-      { id: "usr-1", email: "agro@jgggroup.com.br", name: "Ana Ribeiro", role: "gestao", active: true, hasPassword: true },
+      { id: "usr-1", email: "agro@jgggroup.com.br", name: "Equipe Gestão Agro", role: "gestao", active: true, hasPassword: true },
       { id: "usr-2", email: "comercial@jgggroup.com.br", name: "Carlos Mendes", role: "comercial", active: true, hasPassword: true },
       { id: "usr-3", email: "juridico@jgggroup.com.br", name: "Equipe Jurídica Agro", role: "juridico", active: true, hasPassword: true },
     ];

@@ -567,6 +567,17 @@ export async function setupDatabase(options?: { force?: boolean; purge?: boolean
 
   await runMigrations();
 
+  // Sincroniza nomes/identidade canônica dos usuários-semente. ON CONFLICT
+  // (email) DO UPDATE name preserva password_hash/salt via COALESCE — corrige
+  // nomes antigos persistidos sem afetar credenciais existentes.
+  if (isDbEnabled()) {
+    try {
+      await db.dbUpsertUsers(getSeedUsers());
+    } catch (err) {
+      console.warn("[setup] dbUpsertUsers falhou", err);
+    }
+  }
+
   if (options?.purge === true) {
     const removed = await db.dbPurgeDemoData(DEMO_SEED_IDS);
     const leads = await listLeads();

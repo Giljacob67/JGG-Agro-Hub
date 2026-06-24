@@ -20,7 +20,7 @@ export { roleCanAccess, hasPermission, getResourcePermissions, getAccessibleReso
  * hashes no banco.
  */
 const USERS: AgroUser[] = [
-  { id: "usr-1", email: "agro@jgggroup.com.br", name: "Ana Ribeiro", role: "gestao" },
+  { id: "usr-1", email: "agro@jgggroup.com.br", name: "Equipe Gestão Agro", role: "gestao" },
   { id: "usr-2", email: "comercial@jgggroup.com.br", name: "Carlos Mendes", role: "comercial" },
   { id: "usr-3", email: "juridico@jgggroup.com.br", name: "Equipe Jurídica Agro", role: "juridico" },
 ];

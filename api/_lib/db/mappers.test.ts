@@ -22,7 +22,7 @@ describe("db mappers", () => {
       name: "Test",
       region: "MT",
       status: "novo",
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       created_at: "2026-06-01",
       lead_type: "Produtor",
       legal_pain: "CAR",
@@ -60,7 +60,7 @@ describe("db mappers", () => {
       account_name: "Conta",
       stage: "qualificacao",
       value_brl: 1000,
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       expected_close: "2026-07-01",
     });
     expect(legacy.stage).toBe("diagnostico_agendado");
@@ -70,7 +70,7 @@ describe("db mappers", () => {
       account_name: "Conta",
       stage: "proposta",
       value_brl: 1000,
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       expected_close: "2026-07-01",
       probability: 50,
       next_step: "Enviar minuta",
@@ -90,7 +90,7 @@ describe("db mappers", () => {
       status: "aberta",
       risk: "alto",
       deadline: "2026-06-10",
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       urgency: "critica",
       next_steps: "Protocolar",
       pending_documents: ["Laudo"],
@@ -108,7 +108,7 @@ describe("db mappers", () => {
       name: "Test",
       region: "MT",
       status: "novo",
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       created_at: "2026-06-01",
       deleted_at: date,
     });
@@ -121,7 +121,7 @@ describe("db mappers", () => {
       name: "Test",
       region: "MT",
       status: "novo",
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       created_at: "2026-06-01",
     });
     expect(lead.deletedAt).toBeUndefined();
@@ -137,7 +137,7 @@ describe("db mappers", () => {
       priority: "media",
       status: "pendente",
       due_date: "2026-12-01",
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       deleted_at: date,
     });
     expect(task.deletedAt).toBe("2026-01-02T03:04:05.000Z");
@@ -152,7 +152,7 @@ describe("db mappers", () => {
       priority: "media",
       status: "pendente",
       due_date: "2026-12-01",
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
     });
     expect(task.deletedAt).toBeUndefined();
   });
@@ -167,11 +167,11 @@ describe("db mappers", () => {
       entity_id: "MT-1",
       version: 2,
       versions: [
-        { version: 1, fileName: "v1.pdf", uploadedBy: "Ana", uploadedAt: "2026-06-01T00:00:00.000Z" },
-        { version: 2, fileName: "v2.pdf", uploadedBy: "Ana", uploadedAt: "2026-06-02T00:00:00.000Z" },
+        { version: 1, fileName: "v1.pdf", uploadedBy: "Equipe Gestão Agro", uploadedAt: "2026-06-01T00:00:00.000Z" },
+        { version: 2, fileName: "v2.pdf", uploadedBy: "Equipe Gestão Agro", uploadedAt: "2026-06-02T00:00:00.000Z" },
       ],
       tags: '["urgente","revisar"]',
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       created_at: "2026-06-01T00:00:00.000Z",
       updated_at: "2026-06-02T00:00:00.000Z",
       matter_id: "MT-1",
@@ -190,7 +190,7 @@ describe("db mappers", () => {
       role: "proprietario",
       is_primary: true,
       account_ids: '["AC-1","AC-2"]',
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       created_at: "2026-06-01T00:00:00.000Z",
       email: "joao@demo.br",
     });
@@ -209,7 +209,7 @@ describe("db mappers", () => {
       gps: "-15.0,-47.0",
       encumbrances: ["hipoteca"],
       restrictions: '["reserva legal"]',
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       created_at: "2026-06-01T00:00:00.000Z",
     });
     expect(property.areaHa).toBe(1500.5);
@@ -265,7 +265,7 @@ describe("db mappers", () => {
       total_brl: "1000.00",
       type: "horas",
       date: "2026-06-10",
-      owner: "Ana",
+      owner: "Equipe Gestão Agro",
       billable: true,
       invoiced: false,
       task_id: "TK-9",

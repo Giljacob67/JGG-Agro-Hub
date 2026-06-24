@@ -51,7 +51,7 @@ describe("prazos processuais", () => {
       type: "ordinatorio",
       status: "pendente",
       dueDate: "2026-07-01",
-      owner: "Ana Ribeiro",
+      owner: "Equipe Gestão Agro",
       completedAt: null,
     });
     const done = patchDeadline(id, {

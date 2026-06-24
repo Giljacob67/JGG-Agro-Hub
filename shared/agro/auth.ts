@@ -14,7 +14,7 @@ const USERS: AuthUserRecord[] = [
   {
     id: "usr-1",
     email: "agro@jgggroup.com.br",
-    name: "Ana Ribeiro",
+    name: "Equipe Gestão Agro",
     role: "gestao",
     password: DEV_PASSWORD,
   },
