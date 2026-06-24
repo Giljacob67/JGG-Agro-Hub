@@ -62,8 +62,9 @@ export function createProvider(providerId: LlmProviderId) {
     }
 
     case "ollama": {
-      const apiKey = process.env.OLLAMA_API_KEY ?? "ollama";
-      const baseURL = process.env.OLLAMA_BASE_URL ?? "https://ollama.com/v1";
+      // `||` (não `??`): trata string vazia como ausente e cai no Ollama Cloud.
+      const apiKey = process.env.OLLAMA_API_KEY || "ollama";
+      const baseURL = process.env.OLLAMA_BASE_URL || "https://ollama.com/v1";
       const openai = createOpenAI({ apiKey, baseURL });
       return (modelId: string): LanguageModel => openai(modelId);
     }
