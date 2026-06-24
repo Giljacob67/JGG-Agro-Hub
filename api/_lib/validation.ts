@@ -1097,19 +1097,27 @@ function validPassword(value: unknown, field = "password"): ValidationResult<str
   return { ok: true, data: value };
 }
 
-export function parseUserCreate(body: Body) {
+export interface ParsedUserCreate {
+  email: string;
+  name: string;
+  role: (typeof USER_ROLES)[number];
+  active: boolean;
+  password?: string;
+}
+
+export function parseUserCreate(body: Body): ValidationResult<ParsedUserCreate> {
   const email = validEmail(body);
-  if (!email.ok) return email;
+  if (!email.ok) return { ok: false, error: email.error };
   const name = requiredString(body, "name");
-  if (!name.ok) return name;
+  if (!name.ok) return { ok: false, error: name.error };
   const role = enumValue(body.role, USER_ROLES, "role");
-  if (!role.ok) return role;
+  if (!role.ok) return { ok: false, error: role.error };
   if (!role.data) return { ok: false, error: "role é obrigatório" };
 
   let password: string | undefined;
   if (body.password !== undefined && body.password !== null && body.password !== "") {
     const pw = validPassword(body.password);
-    if (!pw.ok) return pw;
+    if (!pw.ok) return { ok: false, error: pw.error };
     password = pw.data;
   }
 
@@ -1122,29 +1130,35 @@ export function parseUserCreate(body: Body) {
       active: body.active === undefined ? true : Boolean(body.active),
       password,
     },
-  } satisfies ValidationResult<unknown>;
+  };
 }
 
-export function parseUserUpdate(body: Body) {
-  const patch: Record<string, unknown> = {};
+export interface ParsedUserUpdate {
+  name?: string;
+  role?: (typeof USER_ROLES)[number];
+  active?: boolean;
+}
+
+export function parseUserUpdate(body: Body): ValidationResult<ParsedUserUpdate> {
+  const patch: ParsedUserUpdate = {};
   if (body.name !== undefined) {
     const name = requiredString(body, "name");
-    if (!name.ok) return name;
+    if (!name.ok) return { ok: false, error: name.error };
     patch.name = name.data;
   }
   if (body.role !== undefined) {
     const role = enumValue(body.role, USER_ROLES, "role");
-    if (!role.ok) return role;
+    if (!role.ok) return { ok: false, error: role.error };
     if (role.data) patch.role = role.data;
   }
   if (body.active !== undefined) {
     patch.active = Boolean(body.active);
   }
-  return { ok: true, data: patch } satisfies ValidationResult<unknown>;
+  return { ok: true, data: patch };
 }
 
-export function parseUserPassword(body: Body) {
+export function parseUserPassword(body: Body): ValidationResult<{ password: string }> {
   const pw = validPassword(body.password);
-  if (!pw.ok) return pw;
-  return { ok: true, data: { password: pw.data } } satisfies ValidationResult<unknown>;
+  if (!pw.ok) return { ok: false, error: pw.error };
+  return { ok: true, data: { password: pw.data } };
 }
