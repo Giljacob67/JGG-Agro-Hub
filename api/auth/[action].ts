@@ -79,10 +79,17 @@ async function login(req: VercelRequest, res: VercelResponse) {
 function me(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") return methodNotAllowed(res);
 
-  const user = resolveSession(getToken(req));
-  if (!user) return json(res, { error: "Não autenticado" }, 401);
+  const token = getToken(req);
+  const user = resolveSession(token);
+  if (!user || !token) return json(res, { error: "Não autenticado" }, 401);
 
-  return json(res, user);
+  // Reemite o CSRF a cada restauração de sessão: no reload o token em
+  // memória do SPA é perdido e o cookie CSRF (Max-Age 1h) pode ter expirado.
+  // Sem isso, escritas falham com "CSRF token ausente" até novo login.
+  const csrfToken = generateCsrfToken(token);
+  setCsrfCookie(res, csrfToken);
+
+  return json(res, { ...user, csrfToken });
 }
 
 function logout(req: VercelRequest, res: VercelResponse) {

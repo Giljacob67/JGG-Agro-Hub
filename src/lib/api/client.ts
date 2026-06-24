@@ -126,7 +126,13 @@ export const agroApi = {
       return res;
     }),
 
-  me: () => request<import("@shared/agro/types").AgroUser>("/api/auth/me"),
+  me: () =>
+    request<import("@shared/agro/types").AgroUser & { csrfToken?: string }>(
+      "/api/auth/me",
+    ).then((res) => {
+      if (res.csrfToken) setCsrfToken(res.csrfToken);
+      return res;
+    }),
 
   logout: () =>
     request<{ ok: true }>("/api/auth/logout", {
