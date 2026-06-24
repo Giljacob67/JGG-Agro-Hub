@@ -7,7 +7,7 @@ export interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   /** @deprecated token é gerenciado pelo backend via cookie HttpOnly. */
   acceptToken: (token: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   canAccess: (resource: string) => boolean;
 }
 

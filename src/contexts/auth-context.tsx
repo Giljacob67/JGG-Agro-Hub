@@ -42,8 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(loggedUser);
   }, []);
 
-  const logout = useCallback(() => {
-    void agroApi.logout().catch(() => undefined);
+  const logout = useCallback(async () => {
+    // Aguarda o backend limpar o cookie de sessão ANTES de zerar o estado e
+    // redirecionar. Sem o await, a tela de login monta e chama me() enquanto
+    // o cookie ainda existe → re-autentica sozinho (sessão "ressuscita").
+    try {
+      await agroApi.logout();
+    } catch {
+      /* mesmo em falha, limpamos o estado local abaixo */
+    }
     clearLegacyAuthToken();
     setUser(null);
   }, []);
