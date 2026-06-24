@@ -495,7 +495,7 @@ export const agroApi = {
 
   copilotQuery: (input: import("@shared/agro/types").CopilotQueryRequest) =>
     request<import("@shared/agro/types").CopilotResponse>(
-      "/api/agro/copilot/query",
+      "/api/agro/copilot",
       { method: "POST", body: JSON.stringify(input) },
     ),
 

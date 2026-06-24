@@ -609,7 +609,7 @@ export async function handleLocalApi(
     return { status: 200, data: computeCrmStats() };
   }
 
-  if (pathname === "/api/agro/copilot/query" && init?.method === "POST") {
+  if (pathname === "/api/agro/copilot" && init?.method === "POST") {
     const body = JSON.parse(String(init.body)) as CopilotQueryRequest;
     if (!body.query?.trim()) {
       return { status: 400, data: { error: "query é obrigatório" } };
