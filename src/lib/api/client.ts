@@ -499,6 +499,12 @@ export const agroApi = {
       { method: "POST", body: JSON.stringify(input) },
     ),
 
+  aiAssist: (input: import("@shared/agro/types").AiAssistRequest) =>
+    request<import("@shared/agro/types").AiAssistResponse>(
+      "/api/agro/ai-assist",
+      { method: "POST", body: JSON.stringify(input) },
+    ),
+
   knowledge: (categoryId?: string) =>
     request<import("@shared/agro/types").KnowledgeListResponse>(
       `/api/agro/knowledge${categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : ""}`,

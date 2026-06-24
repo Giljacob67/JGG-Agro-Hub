@@ -571,6 +571,38 @@ export interface CopilotQueryRequest {
   history?: Array<{ role: "user" | "assistant"; content: string }>;
 }
 
+// ── AI-assist (campos do CRM) ──────────────────────────────────────
+export type AiAssistTask =
+  | "summarize_matter"
+  | "draft_notes"
+  | "enrich_lead"
+  | "next_steps";
+
+export type AiAssistEntityType =
+  | "matter"
+  | "lead"
+  | "opportunity"
+  | "account";
+
+export interface AiAssistRequest {
+  task: AiAssistTask;
+  entityType?: AiAssistEntityType;
+  entityId?: string;
+  /** Texto livre adicional do usuário (opcional). */
+  context?: string;
+}
+
+export interface AiAssistResponse {
+  task: AiAssistTask;
+  title: string;
+  content: string;
+  bullets: string[];
+  /** true = mock determinístico, false = LLM-generated */
+  simulated: boolean;
+  disclaimer: string;
+  generatedAt: string;
+}
+
 export type LlmProviderId =
   | "openai"
   | "anthropic"

@@ -1200,3 +1200,58 @@ export function parseMeetingCreate(body: Body): ValidationResult<ParsedMeetingCr
     },
   };
 }
+
+const AI_ASSIST_TASKS = [
+  "summarize_matter",
+  "draft_notes",
+  "enrich_lead",
+  "next_steps",
+] as const;
+const AI_ASSIST_ENTITY_TYPES = [
+  "matter",
+  "lead",
+  "opportunity",
+  "account",
+] as const;
+
+export interface ParsedAiAssist {
+  task: (typeof AI_ASSIST_TASKS)[number];
+  entityType: (typeof AI_ASSIST_ENTITY_TYPES)[number] | null;
+  entityId: string | null;
+  context: string | null;
+}
+
+export function parseAiAssist(body: Body): ValidationResult<ParsedAiAssist> {
+  const task = String(body.task ?? "");
+  if (!AI_ASSIST_TASKS.includes(task as (typeof AI_ASSIST_TASKS)[number])) {
+    return { ok: false, error: "task inválido" };
+  }
+
+  let entityType: (typeof AI_ASSIST_ENTITY_TYPES)[number] | null = null;
+  if (body.entityType !== undefined && body.entityType !== null && body.entityType !== "") {
+    const et = String(body.entityType);
+    if (!AI_ASSIST_ENTITY_TYPES.includes(et as (typeof AI_ASSIST_ENTITY_TYPES)[number])) {
+      return { ok: false, error: "entityType inválido" };
+    }
+    entityType = et as (typeof AI_ASSIST_ENTITY_TYPES)[number];
+  }
+
+  const entityId = optionalNullableString(body.entityId) ?? null;
+  const context = optionalNullableString(body.context) ?? null;
+
+  // Tarefas ligadas a registro exigem entityType+entityId; só draft_notes
+  // tolera contexto livre sem registro.
+  if (task !== "draft_notes" && (!entityType || !entityId)) {
+    return { ok: false, error: "entityType e entityId são obrigatórios para esta tarefa" };
+  }
+
+  return {
+    ok: true,
+    data: {
+      task: task as (typeof AI_ASSIST_TASKS)[number],
+      entityType,
+      entityId,
+      context,
+    },
+  };
+}

@@ -23,6 +23,8 @@ import { resolveCopilotQuery } from "@shared/agro/copilot";
 import { KNOWLEDGE_CATEGORIES, KNOWLEDGE_DOCUMENTS } from "@shared/agro/knowledge";
 import { computeCrmStats } from "@shared/agro/stats";
 import type {
+  AiAssistRequest,
+  AiAssistResponse,
   CopilotQueryRequest,
   KnowledgeDocument,
 } from "@shared/agro/types";
@@ -111,6 +113,89 @@ let mockMeetings: Meeting[] | null = null;
 function getMockMeetings(): Meeting[] {
   if (!mockMeetings) mockMeetings = [];
   return mockMeetings;
+}
+
+const AI_ASSIST_DISCLAIMER =
+  "Conteúdo gerado por IA (modo offline determinístico). Revise antes de usar — não substitui parecer de advogado responsável.";
+
+/**
+ * Mock determinístico do AI-assist para dev/preview sem LLM. Espelha o
+ * formato da resposta real, derivando texto do próprio registro.
+ */
+function resolveAiAssistMock(
+  body: AiAssistRequest,
+):
+  | AiAssistResponse
+  | { error: string; status: number } {
+  const TASKS = ["summarize_matter", "draft_notes", "enrich_lead", "next_steps"];
+  if (!TASKS.includes(body.task)) return { error: "task inválido", status: 400 };
+
+  let entity: Record<string, unknown> | null = null;
+  if (body.entityType && body.entityId) {
+    let found: unknown = null;
+    if (body.entityType === "matter") found = getMatter(body.entityId);
+    else if (body.entityType === "lead") found = getLead(body.entityId);
+    else if (body.entityType === "opportunity") found = getOpportunity(body.entityId);
+    else if (body.entityType === "account") found = getAccount(body.entityId);
+    entity = (found as Record<string, unknown> | undefined) ?? null;
+    if (!entity) return { error: "Registro não encontrado", status: 404 };
+  } else if (body.task !== "draft_notes") {
+    return { error: "entityType e entityId são obrigatórios para esta tarefa", status: 400 };
+  }
+
+  const name = String(entity?.title ?? entity?.name ?? "registro");
+  const base: Omit<AiAssistResponse, "title" | "content" | "bullets"> = {
+    task: body.task,
+    simulated: true,
+    disclaimer: AI_ASSIST_DISCLAIMER,
+    generatedAt: new Date().toISOString(),
+  };
+
+  switch (body.task) {
+    case "summarize_matter":
+      return {
+        ...base,
+        title: `Resumo — ${name}`,
+        content: `Resumo determinístico (modo offline) da demanda "${name}". Configure um provedor de IA para análise completa baseada no conteúdo do registro.`,
+        bullets: [
+          `Status: ${entity?.status ?? "não informado"}`,
+          `Risco: ${entity?.risk ?? "não informado"}`,
+          `Prazo: ${entity?.deadline ?? "não informado"}`,
+          `Responsável: ${entity?.owner ?? "não informado"}`,
+        ],
+      };
+    case "draft_notes":
+      return {
+        ...base,
+        title: `Rascunho de notas — ${name}`,
+        content: `Rascunho determinístico (modo offline) para "${name}". ${body.context ? `Contexto: ${body.context}` : "Sem contexto adicional fornecido."}`,
+        bullets: ["Confirmar fatos do registro", "Revisar e completar antes de salvar"],
+      };
+    case "enrich_lead":
+      return {
+        ...base,
+        title: `Enriquecimento — ${name}`,
+        content: `Análise determinística (modo offline) do lead "${name}". Configure a IA para leitura estratégica completa.`,
+        bullets: [
+          `Região: ${entity?.region ?? "não informado"}`,
+          `Cultura: ${entity?.crop ?? "não informado"}`,
+          `Dor jurídica: ${entity?.legalPain ?? "a coletar"}`,
+        ],
+      };
+    case "next_steps":
+      return {
+        ...base,
+        title: `Próximos passos — ${name}`,
+        content: `Plano determinístico (modo offline) para "${name}". Configure a IA para recomendações contextualizadas.`,
+        bullets: [
+          "Revisar pendências do registro",
+          "Definir responsável e prazo da próxima ação",
+          "Registrar atualização no histórico",
+        ],
+      };
+    default:
+      return { error: "task inválido", status: 400 };
+  }
 }
 
 export async function handleLocalApi(
@@ -537,6 +622,13 @@ export async function handleLocalApi(
         stats,
       ),
     };
+  }
+
+  if (pathname === "/api/agro/ai-assist" && init?.method === "POST") {
+    const body = JSON.parse(String(init.body)) as AiAssistRequest;
+    const data = resolveAiAssistMock(body);
+    if ("error" in data) return { status: data.status, data: { error: data.error } };
+    return { status: 200, data };
   }
 
   if (pathname === "/api/agro/users") {

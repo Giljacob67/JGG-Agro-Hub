@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { ConvertLeadCard } from "@/components/crm/convert-lead-card";
+import { AiAssistPanel } from "@/components/crm/ai-assist-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -141,6 +142,13 @@ export default function CrmLeadDetailPage() {
             <p className="text-sm leading-relaxed">{lead.notes}</p>
           </div>
         </Card>
+
+        <AiAssistPanel
+          task="enrich_lead"
+          entityType="lead"
+          entityId={lead.id}
+          heading="Enriquecimento IA do lead"
+        />
 
         <ActivityTimeline entityType="lead" entityId={lead.id} />
 

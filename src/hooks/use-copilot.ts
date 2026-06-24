@@ -1,10 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { agroApi } from "@/lib/api/client";
-import type { CopilotQueryRequest } from "@shared/agro/types";
+import type { AiAssistRequest, CopilotQueryRequest } from "@shared/agro/types";
 
 export function useCopilotQuery() {
   return useMutation({
     mutationFn: (input: CopilotQueryRequest) => agroApi.copilotQuery(input),
+  });
+}
+
+export function useAiAssist() {
+  return useMutation({
+    mutationFn: (input: AiAssistRequest) => agroApi.aiAssist(input),
   });
 }
 

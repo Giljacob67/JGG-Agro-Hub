@@ -92,6 +92,7 @@ import {
   parseUserUpdate,
   parseUserPassword,
   parseMeetingCreate,
+  parseAiAssist,
 } from "../_lib/validation.js";
 import { auditCreate, auditUpdate, auditDelete, type AuditEntityType } from "../_lib/audit.js";
 
@@ -1008,6 +1009,86 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     return methodNotAllowed(res);
+  }
+
+  // ── AI-assist (campos do CRM) ──────────────────────────────────────
+  if (resource === "ai-assist") {
+    const user = requireAuth(req, res, "copilot");
+    if (!user) return;
+
+    if (req.method !== "POST") return methodNotAllowed(res);
+
+    const rl = await checkUserRateLimit(user.id, "copilot");
+    res.setHeader("X-RateLimit-Remaining", String(rl.remaining));
+    if (!rl.allowed) {
+      return json(res, { error: "Rate limit excedido — ai-assist" }, 429);
+    }
+
+    const parsed = parseAiAssist(getBody(req));
+    if (!parsed.ok) return json(res, { error: parsed.error }, 400);
+    const { task, entityType, entityId, context } = parsed.data;
+
+    // Carrega o registro de apoio (quando informado).
+    let entity: Record<string, unknown> | null = null;
+    if (entityType && entityId) {
+      let found: unknown = null;
+      if (entityType === "matter") found = await getMatter(entityId);
+      else if (entityType === "lead") found = await getLead(entityId);
+      else if (entityType === "opportunity") found = await getOpportunity(entityId);
+      else if (entityType === "account") found = await getAccount(entityId);
+      entity = (found as Record<string, unknown> | undefined) ?? null;
+
+      if (!entity) return json(res, { error: "Registro não encontrado" }, 404);
+    }
+
+    const disclaimer =
+      "Conteúdo gerado por IA, de caráter informativo. Revise antes de usar — não substitui parecer de advogado responsável.";
+
+    try {
+      const { resolveLlmConfig } = await import("../_lib/llm/config.js");
+      const { config: llmConfig } = await resolveLlmConfig();
+
+      if (!llmConfig) {
+        return json(
+          res,
+          { error: "IA não configurada. Configure um provedor em Configurações do Copilot." },
+          503,
+        );
+      }
+
+      const { createProvider } = await import("../_lib/llm/providers.js");
+      const { buildAssistSystemPrompt, buildAssistUserMessage, AiAssistResponseSchema } =
+        await import("../_lib/llm/assist.js");
+      const { generateText, Output } = await import("ai");
+
+      const systemPrompt = buildAssistSystemPrompt(task);
+      const userMessage = buildAssistUserMessage(entityType ?? "registro", entity, context ?? undefined);
+      const modelFactory = createProvider(llmConfig.provider);
+
+      const { output } = await generateText({
+        model: modelFactory(llmConfig.model),
+        system: systemPrompt,
+        prompt: userMessage,
+        output: Output.object({ schema: AiAssistResponseSchema }),
+        temperature: llmConfig.temperature ?? 0.4,
+      });
+
+      if (!output) throw new Error("LLM returned no output");
+
+      const response: import("../../shared/agro/types.js").AiAssistResponse = {
+        task,
+        title: output.title,
+        content: output.content,
+        bullets: output.bullets,
+        simulated: false,
+        disclaimer,
+        generatedAt: new Date().toISOString(),
+      };
+      return json(res, response);
+    } catch (err) {
+      console.error("[AI-assist] pipeline failed:", err);
+      return json(res, { error: "Falha ao gerar resposta da IA" }, 502);
+    }
   }
 
   // ── Users (gestão de acesso) ───────────────────────────────────────

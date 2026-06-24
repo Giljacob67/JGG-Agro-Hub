@@ -10,6 +10,7 @@ import { DocumentChecklist } from "@/components/crm/document-checklist";
 import { TimeEntryManager } from "@/components/crm/time-entry-manager";
 import { DeadlineCalculator } from "@/components/crm/deadline-calculator";
 import { DetailBackLink } from "@/components/crm/detail-back-link";
+import { AiAssistPanel } from "@/components/crm/ai-assist-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -336,6 +337,21 @@ export default function CrmMatterDetailPage() {
             </div>
           )}
         </Card>
+
+        <AiAssistPanel
+          task="summarize_matter"
+          entityType="matter"
+          entityId={matter.id}
+          heading="Resumo IA da demanda"
+        />
+
+        <AiAssistPanel
+          task="next_steps"
+          entityType="matter"
+          entityId={matter.id}
+          heading="Próximos passos (IA)"
+          autoRun={false}
+        />
 
         <ProceduralDataCard matter={matter} key={`pd-${matter.id}`} />
 
