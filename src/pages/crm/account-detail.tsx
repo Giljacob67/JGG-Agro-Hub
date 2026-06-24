@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, useRoute } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { DetailBackLink } from "@/components/crm/detail-back-link";
+import { AiAssistPanel } from "@/components/crm/ai-assist-panel";
 import { ContactManager } from "@/components/crm/contact-manager";
 import { PropertyManager } from "@/components/crm/property-manager";
 import { Badge } from "@/components/ui/badge";
@@ -136,6 +137,14 @@ export default function CrmAccountDetailPage() {
             </TimelineBlock>
           </div>
         </section>
+
+        <AiAssistPanel
+          task="draft_notes"
+          entityType="account"
+          entityId={account.id}
+          heading="Rascunho de notas (IA)"
+          autoRun={false}
+        />
 
         <div className="space-y-6">
           <ContactManager accountId={account.id} />

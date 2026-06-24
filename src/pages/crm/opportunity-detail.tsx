@@ -2,6 +2,7 @@ import { useRoute } from "wouter";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { DetailBackLink } from "@/components/crm/detail-back-link";
+import { AiAssistPanel } from "@/components/crm/ai-assist-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { usePageTitle } from "@/hooks/use-page-title";
@@ -134,6 +135,22 @@ export default function CrmOpportunityDetailPage() {
             )}
           </div>
         </Card>
+
+        <AiAssistPanel
+          task="next_steps"
+          entityType="opportunity"
+          entityId={opp.id}
+          heading="Próximos passos (IA)"
+          autoRun={false}
+        />
+
+        <AiAssistPanel
+          task="draft_notes"
+          entityType="opportunity"
+          entityId={opp.id}
+          heading="Rascunho de notas (IA)"
+          autoRun={false}
+        />
 
         {tasks && tasks.length > 0 && (
           <section>
