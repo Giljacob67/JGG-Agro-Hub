@@ -21,4 +21,25 @@ export default defineConfig({
     port,
     host: "0.0.0.0",
   },
+  build: {
+    // Sourcemaps "hidden": gerados para upload a ferramentas de erro (ex.:
+    // Sentry) sem referência no bundle servido ao cliente.
+    sourcemap: "hidden",
+    rollupOptions: {
+      output: {
+        // Rolldown (Vite 8) exige função. Isola vendors pesados em chunks
+        // próprios para cache de longo prazo e melhor paralelismo de download.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("react-dom") || /[\\/]react[\\/]/.test(id))
+            return "react-vendor";
+          if (id.includes("@tanstack")) return "query";
+          if (id.includes("framer-motion")) return "motion";
+          // xlsx é pesado e usado só no import de leads.
+          if (id.includes("xlsx")) return "xlsx";
+          return undefined;
+        },
+      },
+    },
+  },
 });

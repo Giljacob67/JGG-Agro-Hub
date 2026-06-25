@@ -9,7 +9,15 @@ export default defineConfig({
     },
   },
   test: {
+    // Node por padrão; testes de componente declaram jsdom via docblock
+    // `// @vitest-environment jsdom` no topo do arquivo.
     environment: "node",
-    include: ["shared/**/*.test.ts", "src/**/*.test.ts", "api/**/*.test.ts"],
+    setupFiles: ["src/test/setup.ts"],
+    include: [
+      "shared/**/*.test.ts",
+      "src/**/*.test.ts",
+      "src/**/*.test.tsx",
+      "api/**/*.test.ts",
+    ],
   },
 });

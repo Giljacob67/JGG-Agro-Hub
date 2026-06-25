@@ -1962,11 +1962,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     return await dispatch(req, res);
   } catch (err) {
-    // Log completo no servidor; resposta genérica sem vazar stack ao cliente.
-    console.error(
-      `[agro/${getResource(req) ?? "?"}] erro não tratado:`,
-      err instanceof Error ? err.stack ?? err.message : err,
-    );
+    // Log completo no servidor + reporter (Sentry se provisionado); resposta
+    // genérica sem vazar stack ao cliente.
+    const { captureServerError } = await import("../_lib/report.js");
+    await captureServerError(err, {
+      scope: `agro/${getResource(req) ?? "?"}`,
+      method: req.method,
+    });
     if (!res.headersSent) {
       return json(res, { error: "Erro interno do servidor" }, 500);
     }

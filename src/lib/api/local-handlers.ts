@@ -86,6 +86,29 @@ function parseQuery(path: string) {
   return { pathname, params };
 }
 
+// Sessão do modo mock: o backend real usa cookie HttpOnly, que o mock não
+// consegue ler. Persistimos o token retornado pelo /login em sessionStorage
+// dedicado para emular a sessão nas chamadas seguintes, sem depender do
+// Authorization header (que o client limpa em favor do cookie de produção).
+const MOCK_SESSION_KEY = "agro_mock_session";
+
+function readMockSession(): string | undefined {
+  try {
+    return sessionStorage.getItem(MOCK_SESSION_KEY) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeMockSession(token: string | null) {
+  try {
+    if (token) sessionStorage.setItem(MOCK_SESSION_KEY, token);
+    else sessionStorage.removeItem(MOCK_SESSION_KEY);
+  } catch {
+    /* sessionStorage indisponível (SSR/headless) — ignora. */
+  }
+}
+
 // Espelho mutável da base de conhecimento para o modo mock (preview).
 let mockKbDocs: KnowledgeDocument[] | null = null;
 function getMockKbDocs(): KnowledgeDocument[] {
@@ -203,16 +226,16 @@ export async function handleLocalApi(
   init?: RequestInit,
 ): Promise<{ status: number; data: unknown }> {
   const { pathname, params } = parseQuery(path);
-  const token = init?.headers
-    ? (init.headers as Record<string, string>)["Authorization"]?.replace("Bearer ", "")
-    : undefined;
 
   if (pathname === "/api/auth/login" && init?.method === "POST") {
     const body = JSON.parse(String(init.body));
     const result = authenticate(body.email, body.password);
     if (!result) return { status: 401, data: { error: "Credenciais inválidas" } };
+    writeMockSession(result.token);
     return { status: 200, data: result };
   }
+
+  const token = readMockSession();
 
   if (pathname === "/api/auth/me") {
     const user = resolveSession(token);
@@ -221,6 +244,7 @@ export async function handleLocalApi(
   }
 
   if (pathname === "/api/auth/logout" && init?.method === "POST") {
+    writeMockSession(null);
     return { status: 200, data: { ok: true } };
   }
 
