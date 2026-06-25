@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState } from "@/components/crm/loading-state";
+import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { CreateMatterForm } from "@/components/crm/create-matter-form";
@@ -67,7 +67,7 @@ export default function CrmMattersPage() {
     ],
   );
 
-  const { data, isLoading } = useMatters(listParams);
+  const { data, isLoading, isError, error } = useMatters(listParams);
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const facets = data?.facets;
@@ -153,6 +153,8 @@ export default function CrmMattersPage() {
         </CrmFilters>
         {isLoading ? (
           <CrmLoadingState />
+        ) : isError ? (
+          <CrmErrorState error={error} />
         ) : (
           <EntityTable
             data={items}
@@ -212,7 +214,7 @@ export default function CrmMattersPage() {
             ]}
           />
         )}
-        {!isLoading && (
+        {!isLoading && !isError && (
           <CrmPagination
             page={data?.page ?? page}
             pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}

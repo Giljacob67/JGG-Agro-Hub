@@ -35,6 +35,7 @@ const DB_BACKED_RESOURCES = new Set([
   "opposing-parties",
   "knowledge",
   "meetings",
+  "copilot-config",
 ]);
 
 /**

@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState } from "@/components/crm/loading-state";
+import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { CreateOpportunityForm } from "@/components/crm/create-opportunity-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
@@ -68,7 +68,7 @@ export default function CrmOpportunitiesPage() {
     ],
   );
 
-  const { data, isLoading } = useOpportunities(listParams);
+  const { data, isLoading, isError, error } = useOpportunities(listParams);
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const facets = data?.facets;
@@ -164,6 +164,8 @@ export default function CrmOpportunitiesPage() {
 
         {isLoading ? (
           <CrmLoadingState />
+        ) : isError ? (
+          <CrmErrorState error={error} />
         ) : items.length === 0 ? (
           <p className="text-sm text-muted-foreground py-12 text-center border border-dashed border-border rounded-xl">
             {isFiltered
@@ -236,7 +238,7 @@ export default function CrmOpportunitiesPage() {
             </div>
           </div>
         )}
-        {!isLoading && (
+        {!isLoading && !isError && (
           <CrmPagination
             page={data?.page ?? page}
             pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}

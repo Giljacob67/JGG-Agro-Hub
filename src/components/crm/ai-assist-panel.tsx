@@ -1,4 +1,3 @@
-import { useEffect, useRef } from "react";
 import { Sparkles, RefreshCw, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,24 +28,17 @@ export function AiAssistPanel({
   autoRun = true,
 }: AiAssistPanelProps) {
   const { user, canAccess } = useAuth();
-  const assist = useAiAssist();
-  const ranFor = useRef<string | null>(null);
-
   const allowed = Boolean(user && canAccess("copilot"));
 
-  useEffect(() => {
-    if (!allowed || !autoRun || !entityId) return;
-    const key = `${task}:${entityId}`;
-    if (ranFor.current === key) return;
-    ranFor.current = key;
-    assist.mutate({ task, entityType, entityId });
-    // assist intentionally excluded — mutate identity stable, guard via ref
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [allowed, autoRun, task, entityType, entityId]);
+  const assist = useAiAssist(
+    { task, entityType, entityId },
+    allowed && autoRun && Boolean(entityId),
+  );
 
   if (!allowed) return null;
 
   const result = assist.data;
+  const busy = assist.isFetching;
 
   return (
     <Card className="p-5 space-y-3 border-primary/30">
@@ -58,10 +50,10 @@ export function AiAssistPanel({
         <Button
           variant="outline"
           size="sm"
-          onClick={() => assist.mutate({ task, entityType, entityId })}
-          disabled={assist.isPending}
+          onClick={() => assist.refetch()}
+          disabled={busy}
         >
-          {assist.isPending ? (
+          {busy ? (
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : (
             <RefreshCw className="h-3.5 w-3.5" />
@@ -70,14 +62,14 @@ export function AiAssistPanel({
         </Button>
       </div>
 
-      {assist.isPending && (
+      {busy && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
           Gerando análise…
         </div>
       )}
 
-      {assist.isError && !assist.isPending && (
+      {assist.isError && !busy && (
         <p className="text-sm text-red-600 dark:text-red-400">
           {assist.error instanceof Error
             ? assist.error.message
@@ -85,7 +77,7 @@ export function AiAssistPanel({
         </p>
       )}
 
-      {result && !assist.isPending && (
+      {result && !busy && (
         <div className="space-y-2">
           {result.title && (
             <p className="text-sm font-semibold">{result.title}</p>

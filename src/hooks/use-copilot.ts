@@ -8,9 +8,20 @@ export function useCopilotQuery() {
   });
 }
 
-export function useAiAssist() {
-  return useMutation({
-    mutationFn: (input: AiAssistRequest) => agroApi.aiAssist(input),
+/**
+ * Apoio por IA cacheado por (task, entidade). `enabled` controla disparo
+ * automático; chamada manual usa `refetch`. staleTime alto evita recompra
+ * de LLM a cada abertura do detalhe.
+ */
+export function useAiAssist(input: AiAssistRequest, enabled: boolean) {
+  return useQuery({
+    queryKey: ["ai-assist", input.task, input.entityType ?? null, input.entityId ?? null],
+    queryFn: () => agroApi.aiAssist(input),
+    enabled,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 }
 

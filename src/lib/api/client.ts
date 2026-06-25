@@ -73,9 +73,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   const res = await fetch(path, { ...init, headers, credentials: "include" });
-  const data = await res.json();
+  const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new ApiError(res.status, data.error ?? "Erro na API");
+    throw new ApiError(res.status, (data as { error?: string }).error ?? "Erro na API");
   }
   return data as T;
 }

@@ -12,6 +12,7 @@ import { DashboardSection } from "@/components/crm/dashboard-section";
 import { KpiCard } from "@/components/crm/kpi-card";
 import { PracticeBreakdownTable } from "@/components/crm/practice-breakdown";
 import { QuickActions } from "@/components/crm/quick-actions";
+import { CrmErrorState } from "@/components/crm/loading-state";
 import { useAuth } from "@/contexts/use-auth";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmStats } from "@/hooks/use-crm-queries";
@@ -58,7 +59,7 @@ const MODULES = [
 
 export default function CrmOverviewPage() {
   usePageTitle("CRM Agro");
-  const { data: stats, isLoading } = useCrmStats();
+  const { data: stats, isLoading, isError, error } = useCrmStats();
   const { canAccess } = useAuth();
 
   const visibleModules = MODULES.filter((m) => canAccess(m.resource));
@@ -79,6 +80,8 @@ export default function CrmOverviewPage() {
           </div>
           <QuickActions />
         </header>
+
+        {isError && <CrmErrorState error={error} />}
 
         {!isLoading && stats && alertCount > 0 && (
           <div className="rounded-xl border border-accent/30 bg-accent/8 px-4 py-3 flex items-center gap-3">

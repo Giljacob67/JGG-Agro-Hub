@@ -51,6 +51,7 @@ import {
   parseTaskListQuery,
 } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth, requireCsrf, guardWrite, applyCors, clientIp } from "../_lib/http.js";
+import { assertValidEnv } from "../_lib/env-validate.js";
 import { checkUserRateLimit, getRateLimitHeaders } from "../_lib/rate-limit.js";
 import {
   getBody,
@@ -143,7 +144,9 @@ function arrayToCsv(rows: Record<string, unknown>[]): string {
   return lines.join("\n");
 }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
+async function dispatch(req: VercelRequest, res: VercelResponse) {
+  assertValidEnv();
+
   const resource = getResource(req);
 
   if (!resource) {
@@ -1272,6 +1275,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         model?: string;
         temperature?: number;
       };
+      if (!guardWrite(res, "copilot-config")) return;
+
       if (!body.provider || !body.model) {
         return json(res, { error: "provider e model são obrigatórios" }, 400);
       }
@@ -1951,4 +1956,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   return json(res, { error: "Recurso não encontrado" }, 404);
+}
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  try {
+    return await dispatch(req, res);
+  } catch (err) {
+    // Log completo no servidor; resposta genérica sem vazar stack ao cliente.
+    console.error(
+      `[agro/${getResource(req) ?? "?"}] erro não tratado:`,
+      err instanceof Error ? err.stack ?? err.message : err,
+    );
+    if (!res.headersSent) {
+      return json(res, { error: "Erro interno do servidor" }, 500);
+    }
+  }
 }
