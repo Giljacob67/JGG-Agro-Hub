@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Redirect, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { JGG_AGRO_HUB_NAME, JGG_GROUP_NAME } from "@/lib/brand";
 
 export default function AgroLoginPage() {
   usePageTitle("Acesso");
-  const { user, login, acceptToken } = useAuth();
+  const { user, login } = useAuth();
   const [location] = useLocation();
   const ssoEnabled = import.meta.env.VITE_SSO_ENABLED === "true";
   const isDev = import.meta.env.DEV;
@@ -23,11 +23,12 @@ export default function AgroLoginPage() {
   const params = new URLSearchParams(location.split("?")[1] ?? "");
   const from = params.get("from") || ROUTES.commandCenter;
 
-  useEffect(() => {
-    // Após SSO o backend já setou cookie HttpOnly; confirmamos sessão.
-    void acceptToken("");
-  }, [acceptToken]);
-
+  // A restauração de sessão é feita uma única vez pelo AuthProvider no
+  // carregamento da app (e em todo full-reload, inclusive no retorno do SSO,
+  // que redireciona via window.location). Reconfirmar a sessão aqui, a cada
+  // mount da tela de login, reautenticava logo após o logout — a sessão
+  // "ressuscitava" e a tela de login nunca aparecia. Por isso NÃO chamamos
+  // me()/acceptToken aqui: se há sessão válida, `user` já vem do contexto.
   if (user) return <Redirect to={from} />;
 
   async function handleSubmit(e: React.FormEvent) {

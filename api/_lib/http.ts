@@ -80,8 +80,8 @@ function cookieBase() {
 
 export function setSessionCookie(res: VercelResponse, token: string) {
   const name = sessionCookieName();
-  res.setHeader(
-    "Set-Cookie",
+  appendSetCookie(
+    res,
     `${name}=${encodeURIComponent(token)}; Max-Age=${7 * 24 * 60 * 60}; ${cookieBase()}`,
   );
 }
@@ -96,19 +96,31 @@ export function setSessionCookie(res: VercelResponse, token: string) {
  * `X-CSRF-Token` (double-submit). Como é o HMAC da sessão, expô-lo ao JS
  * não vaza a sessão. `SameSite=Lax` segue como defesa em profundidade.
  */
+/**
+ * Anexa um `Set-Cookie` preservando os já presentes na resposta.
+ * `res.setHeader` SOBRESCREVE — sem este merge, setar/limpar um cookie logo
+ * após outro descartaria o anterior (foi a causa do logout não limpar a
+ * sessão: clearOAuthCookies sobrescrevia o Set-Cookie de clearSessionCookie).
+ */
+function appendSetCookie(res: VercelResponse, cookie: string) {
+  const existing = res.getHeader("Set-Cookie");
+  if (Array.isArray(existing)) {
+    res.setHeader("Set-Cookie", [...existing, cookie]);
+  } else if (typeof existing === "string" && existing.length > 0) {
+    res.setHeader("Set-Cookie", [existing, cookie]);
+  } else {
+    res.setHeader("Set-Cookie", cookie);
+  }
+}
+
 export function setCsrfCookie(res: VercelResponse, token: string) {
   const name = csrfCookieName();
   const isProd = process.env.VERCEL_ENV === "production";
   const secure = isProd ? "; Secure" : "";
-  const csrf = `${name}=${encodeURIComponent(token)}; Max-Age=3600; Path=/; SameSite=Lax${secure}`;
-  const existing = res.getHeader("Set-Cookie");
-  if (Array.isArray(existing)) {
-    res.setHeader("Set-Cookie", [...existing, csrf]);
-  } else if (typeof existing === "string" && existing.length > 0) {
-    res.setHeader("Set-Cookie", [existing, csrf]);
-  } else {
-    res.setHeader("Set-Cookie", csrf);
-  }
+  appendSetCookie(
+    res,
+    `${name}=${encodeURIComponent(token)}; Max-Age=3600; Path=/; SameSite=Lax${secure}`,
+  );
 }
 
 /**
@@ -147,10 +159,16 @@ export function applyCors(req: VercelRequest, res: VercelResponse) {
 }
 
 export function clearSessionCookie(res: VercelResponse) {
-  const name = sessionCookieName();
-  res.setHeader(
-    "Set-Cookie",
-    `${name}=; Max-Age=0; ${cookieBase()}`,
+  const base = cookieBase();
+  // Limpa sessão E o cookie CSRF associado. Usa append para não descartar
+  // (nem ser descartado por) outros Set-Cookie da mesma resposta.
+  appendSetCookie(res, `${sessionCookieName()}=; Max-Age=0; ${base}`);
+  const isProd = process.env.VERCEL_ENV === "production";
+  const secure = isProd ? "; Secure" : "";
+  // CSRF não é HttpOnly (double-submit), mas Path/SameSite/Secure batem.
+  appendSetCookie(
+    res,
+    `${csrfCookieName()}=; Max-Age=0; Path=/; SameSite=Lax${secure}`,
   );
 }
 
@@ -164,10 +182,10 @@ export function setOAuthStateCookie(res: VercelResponse, state: string, pkceVeri
 
 export function clearOAuthCookies(res: VercelResponse) {
   const base = cookieBase();
-  res.setHeader("Set-Cookie", [
-    `${OAUTH_STATE_COOKIE}=; Max-Age=0; ${base}`,
-    `${OAUTH_PKCE_COOKIE}=; Max-Age=0; ${base}`,
-  ]);
+  // Append (não setHeader direto): preserva outros Set-Cookie da resposta —
+  // ex.: a limpeza de sessão emitida por clearSessionCookie no logout.
+  appendSetCookie(res, `${OAUTH_STATE_COOKIE}=; Max-Age=0; ${base}`);
+  appendSetCookie(res, `${OAUTH_PKCE_COOKIE}=; Max-Age=0; ${base}`);
 }
 
 export function readOAuthCookies(req: VercelRequest) {
