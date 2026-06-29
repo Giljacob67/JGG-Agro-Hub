@@ -1,5 +1,4 @@
 import { AppSidebar } from "./app-sidebar";
-import { CopilotChatWidget } from "@/components/copilot/copilot-chat-widget";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -19,7 +18,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </div>
-      <CopilotChatWidget />
     </div>
   );
 }

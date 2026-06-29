@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "@/contexts/auth-context";
 import { ThemeProvider } from "@/contexts/theme-context";
 import { ErrorBoundary } from "@/components/ui/error-boundary";
+import { CopilotChatWidget } from "@/components/copilot/copilot-chat-widget";
 import App from "./App";
 import "./index.css";
 
@@ -22,6 +23,9 @@ createRoot(document.getElementById("root")!).render(
       <ThemeProvider>
         <AuthProvider>
           <App />
+          {/* Renderizado fora das rotas para sobreviver à troca de aba/rota —
+              o painel do Copilot e a conversa não remontam ao navegar. */}
+          <CopilotChatWidget />
           <Toaster position="top-right" richColors closeButton />
         </AuthProvider>
       </ThemeProvider>
