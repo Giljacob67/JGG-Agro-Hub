@@ -93,46 +93,44 @@ export function revokeSession() {
 
 export type Permission = "read" | "create" | "update" | "delete" | "export";
 
+const FULL_PERMISSIONS: Permission[] = [
+  "read",
+  "create",
+  "update",
+  "delete",
+  "export",
+];
+
+/**
+ * Recursos restritos a administração (gestao), mesmo para papéis com wildcard.
+ * Não são "compartilháveis": gestão de usuários/acesso e a configuração do
+ * provedor de IA do Copilot permanecem exclusivas de gestao.
+ *  - "users": criar/editar/excluir usuários e trocar papéis.
+ *  - copilot (write): troca de provider/model/keys é tratada à parte via
+ *    `hasPermission(role, "copilot", "update")` — comercial/juridico têm apenas
+ *    "read" no copilot (ver matriz abaixo), então só leem/usam o chat.
+ */
+const ADMIN_ONLY_RESOURCES = new Set<string>(["users"]);
+
 /**
  * Permission matrix per role and resource.
- * gestao has full access to everything.
+ * gestao has full access to everything. comercial e juridico compartilham o
+ * workspace inteiro (wildcard de acesso máximo), com duas exceções: o Copilot
+ * é somente-leitura (uso do chat sim, troca de configuração não) e os recursos
+ * em ADMIN_ONLY_RESOURCES continuam exclusivos de gestao.
  */
 const PERMISSIONS: Record<AgroRole, Record<string, Permission[]>> = {
   gestao: {
-    "*": ["read", "create", "update", "delete", "export"],
+    "*": FULL_PERMISSIONS,
   },
   comercial: {
-    leads: ["read", "create", "update", "delete"],
-    "lead-lists": ["read", "create", "update", "delete"],
-    accounts: ["read", "create", "update", "delete"],
-    opportunities: ["read", "create", "update", "delete"],
-    contacts: ["read", "create", "update", "delete"],
-    properties: ["read", "create", "update"],
-    activities: ["read", "create"],
-    meetings: ["read", "create", "update", "delete"],
-    stats: ["read"],
+    // Exato vence wildcard: Copilot fica somente-leitura (config é gestao-only).
     copilot: ["read"],
-    knowledge: ["read"],
-    audit: ["read"],
-    email: ["read", "create"],
+    "*": FULL_PERMISSIONS,
   },
   juridico: {
-    matters: ["read", "create", "update", "delete"],
-    tasks: ["read", "create", "update", "delete"],
-    deadlines: ["read", "create", "update", "delete"],
-    documents: ["read", "create", "update", "delete"],
-    "document-checklist": ["read", "create", "update", "delete"],
-    "time-entries": ["read", "create", "update"],
-    contacts: ["read"],
-    properties: ["read"],
-    "opposing-parties": ["read", "create", "update"],
-    activities: ["read", "create"],
-    meetings: ["read", "create", "update", "delete"],
-    stats: ["read"],
     copilot: ["read"],
-    knowledge: ["read"],
-    audit: ["read"],
-    email: ["read", "create"],
+    "*": FULL_PERMISSIONS,
   },
 };
 
@@ -143,7 +141,10 @@ export function roleCanAccess(role: AgroRole, resource: string): boolean {
   if (role === "gestao") return true;
   const rolePerms = PERMISSIONS[role];
   if (!rolePerms) return false;
-  return resource in rolePerms;
+  // Recursos de administração nunca são alcançáveis por wildcard.
+  if (ADMIN_ONLY_RESOURCES.has(resource)) return false;
+  if (resource in rolePerms) return true;
+  return Boolean(rolePerms["*"]);
 }
 
 /**
@@ -159,6 +160,9 @@ export function hasPermission(
 
   const rolePerms = PERMISSIONS[role];
   if (!rolePerms) return false;
+
+  // Recursos de administração permanecem exclusivos de gestao.
+  if (ADMIN_ONLY_RESOURCES.has(resource)) return false;
 
   // Check exact resource match
   const resourcePerms = rolePerms[resource];
@@ -182,9 +186,10 @@ export function getResourcePermissions(
   role: AgroRole,
   resource: string,
 ): Permission[] {
-  if (role === "gestao") return ["read", "create", "update", "delete", "export"];
+  if (role === "gestao") return [...FULL_PERMISSIONS];
   const rolePerms = PERMISSIONS[role];
   if (!rolePerms) return [];
+  if (ADMIN_ONLY_RESOURCES.has(resource)) return [];
   return rolePerms[resource] ?? rolePerms["*"] ?? [];
 }
 
@@ -195,5 +200,7 @@ export function getAccessibleResources(role: AgroRole): string[] {
   if (role === "gestao") return ["*"];
   const rolePerms = PERMISSIONS[role];
   if (!rolePerms) return [];
+  // Wildcard ⇒ acesso amplo (exceto ADMIN_ONLY, filtrado em roleCanAccess).
+  if (rolePerms["*"]) return ["*"];
   return Object.keys(rolePerms);
 }
