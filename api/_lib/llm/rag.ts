@@ -120,6 +120,8 @@ export interface RagResult {
   documentId: string;
   title: string;
   excerpt: string;
+  /** Corpo completo do documento (quando houver), para fundamentar a resposta. */
+  body?: string;
   categoryLabel: string;
   score: number;
 }
@@ -141,6 +143,7 @@ async function searchViaDb(query: string, topK: number): Promise<RagResult[]> {
       documentId: hit.docId,
       title: doc?.title ?? hit.title ?? hit.docId,
       excerpt: doc?.summary ?? "",
+      body: doc?.body,
       categoryLabel: category?.label ?? "",
       score: hit.score,
     };
@@ -167,6 +170,7 @@ async function searchViaMemory(query: string, topK: number): Promise<RagResult[]
       documentId: entry.id,
       title: doc?.title ?? entry.id,
       excerpt: doc?.summary ?? "",
+      body: doc?.body,
       categoryLabel: category?.label ?? "",
       score: entry.score,
     };
