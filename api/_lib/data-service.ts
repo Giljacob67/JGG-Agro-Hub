@@ -66,7 +66,11 @@ import * as db from "./db/repository.js";
 import { getSeedUsers, hashPassword, generateUserId } from "./auth-server.js";
 import type { AccountPatch, MatterPatch, TaskPatch } from "./db/repository.js";
 import { assertWritableInProd, WritableGuardError } from "./guard.js";
-import { computeCrmStats } from "../../shared/agro/stats.js";
+import {
+  computeCrmStats,
+  computeCrmTimeseries,
+  type CrmTimeseries,
+} from "../../shared/agro/stats.js";
 import type { CrmStats, KnowledgeDocument } from "../../shared/agro/types.js";
 import { KNOWLEDGE_DOCUMENTS } from "../../shared/agro/knowledge.js";
 
@@ -556,6 +560,22 @@ export async function getCrmStats(): Promise<CrmStats> {
   }
   const dataset = await loadCrmDataset();
   return computeCrmStats({
+    leads: dataset.leads,
+    accounts: dataset.accounts,
+    opportunities: dataset.opportunities,
+    matters: dataset.matters,
+    tasks: dataset.tasks,
+  });
+}
+
+/**
+ * Séries temporais do CRM. Computadas em JS a partir de loadCrmDataset()
+ * (DB ou memória) — sem agregação SQL dedicada, mantendo paridade entre os
+ * caminhos sem nova migration.
+ */
+export async function getCrmTimeseries(): Promise<CrmTimeseries> {
+  const dataset = await loadCrmDataset();
+  return computeCrmTimeseries({
     leads: dataset.leads,
     accounts: dataset.accounts,
     opportunities: dataset.opportunities,

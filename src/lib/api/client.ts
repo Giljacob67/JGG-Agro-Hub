@@ -329,6 +329,9 @@ export const agroApi = {
 
   stats: () => request<import("@shared/agro/types").CrmStats>("/api/agro/stats"),
 
+  timeseries: () =>
+    request<import("@shared/agro/stats").CrmTimeseries>("/api/agro/timeseries"),
+
   updateLead: (
     id: string,
     patch: Partial<

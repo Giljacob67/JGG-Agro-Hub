@@ -29,7 +29,7 @@ import {
 } from "@shared/agro/list-params";
 import { resolveCopilotQuery } from "@shared/agro/copilot";
 import { KNOWLEDGE_CATEGORIES, KNOWLEDGE_DOCUMENTS } from "@shared/agro/knowledge";
-import { computeCrmStats } from "@shared/agro/stats";
+import { computeCrmStats, computeCrmTimeseries } from "@shared/agro/stats";
 import type {
   AiAssistRequest,
   AiAssistResponse,
@@ -639,6 +639,10 @@ export async function handleLocalApi(
 
   if (pathname === "/api/agro/stats") {
     return { status: 200, data: computeCrmStats() };
+  }
+
+  if (pathname === "/api/agro/timeseries") {
+    return { status: 200, data: computeCrmTimeseries() };
   }
 
   if (pathname === "/api/agro/copilot" && init?.method === "POST") {

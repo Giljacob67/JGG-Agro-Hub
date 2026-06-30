@@ -34,6 +34,7 @@ export const crmKeys = {
   matter: (id: string) => ["crm", "matters", id] as const,
   tasks: ["crm", "tasks"] as const,
   stats: ["crm", "stats"] as const,
+  timeseries: ["crm", "timeseries"] as const,
   relatedTasks: (id: string) => ["crm", "tasks", "related", id] as const,
   deadlines: (matterId?: string) =>
     matterId
@@ -237,6 +238,13 @@ export function useRelatedTasks(entityId: string) {
 
 export function useCrmStats() {
   return useQuery({ queryKey: crmKeys.stats, queryFn: agroApi.stats });
+}
+
+export function useCrmTimeseries() {
+  return useQuery({
+    queryKey: crmKeys.timeseries,
+    queryFn: agroApi.timeseries,
+  });
 }
 
 export function useUpdateLead() {

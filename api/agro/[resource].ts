@@ -30,6 +30,7 @@ import {
   listActivities,
   createActivity,
   getCrmStats,
+  getCrmTimeseries,
   listUsers,
   getUser,
   createUser,
@@ -873,6 +874,16 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
 
     if (req.method === "GET") {
       return json(res, await getCrmStats());
+    }
+
+    return methodNotAllowed(res);
+  }
+
+  if (resource === "timeseries") {
+    if (!requireAuth(req, res, "timeseries")) return;
+
+    if (req.method === "GET") {
+      return json(res, await getCrmTimeseries());
     }
 
     return methodNotAllowed(res);

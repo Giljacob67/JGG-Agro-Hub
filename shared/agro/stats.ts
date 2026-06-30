@@ -232,3 +232,111 @@ export function computeCrmStats(dataset?: CrmDataset): CrmStats {
     upcomingTasksList: upcomingTasks,
   };
 }
+
+// ── Séries temporais (trends) ──────────────────────────────────────────
+
+export interface TimeseriesPoint {
+  /** Chave estável do mês — formato YYYY-MM. */
+  month: string;
+  /** Rótulo curto pt-BR, ex: "jan/26". */
+  label: string;
+  value: number;
+}
+
+export interface CrmTimeseries {
+  /** Novos leads criados por mês — últimos 6 meses (inclui mês atual). */
+  leadsByMonth: TimeseriesPoint[];
+  /** Pipeline aberto (R$) por mês de fechamento esperado — 6 meses à frente. */
+  pipelineByMonth: TimeseriesPoint[];
+}
+
+const MONTH_LABELS = [
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
+];
+
+function monthKeyOf(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthLabelOf(d: Date): string {
+  return `${MONTH_LABELS[d.getMonth()]}/${String(d.getFullYear()).slice(2)}`;
+}
+
+/** Janela contígua de meses a partir de um offset (negativo = passado). */
+function buildMonthWindow(
+  offset: number,
+  count: number,
+): { key: string; label: string }[] {
+  const now = new Date();
+  const out: { key: string; label: string }[] = [];
+  for (let i = 0; i < count; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth() + offset + i, 1);
+    out.push({ key: monthKeyOf(d), label: monthLabelOf(d) });
+  }
+  return out;
+}
+
+/** Mapeia uma string de data ISO para sua chave de mês, ou null se inválida. */
+function isoMonthKey(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return null;
+  return monthKeyOf(d);
+}
+
+/**
+ * Séries temporais do CRM, computadas em JS a partir do dataset — funciona
+ * igual em DB e memória. Leads usam `createdAt` (aquisição histórica);
+ * pipeline usa `expectedClose` de oportunidades abertas (projeção futura).
+ */
+export function computeCrmTimeseries(dataset?: CrmDataset): CrmTimeseries {
+  const data = resolveDataset(dataset);
+
+  // Leads: últimos 6 meses, contagem por mês de criação.
+  const leadWindow = buildMonthWindow(-5, 6);
+  const leadCounts = new Map<string, number>(
+    leadWindow.map((m) => [m.key, 0]),
+  );
+  for (const lead of data.leads) {
+    const key = isoMonthKey(lead.createdAt);
+    if (key && leadCounts.has(key)) {
+      leadCounts.set(key, (leadCounts.get(key) ?? 0) + 1);
+    }
+  }
+  const leadsByMonth: TimeseriesPoint[] = leadWindow.map((m) => ({
+    month: m.key,
+    label: m.label,
+    value: leadCounts.get(m.key) ?? 0,
+  }));
+
+  // Pipeline: mês atual + 5 à frente, soma de valor de oportunidades abertas
+  // pelo mês de fechamento esperado.
+  const pipeWindow = buildMonthWindow(0, 6);
+  const pipeValues = new Map<string, number>(
+    pipeWindow.map((m) => [m.key, 0]),
+  );
+  for (const opp of getOpenOpportunities(data.opportunities)) {
+    const key = isoMonthKey(opp.expectedClose);
+    if (key && pipeValues.has(key)) {
+      pipeValues.set(key, (pipeValues.get(key) ?? 0) + opp.valueBrl);
+    }
+  }
+  const pipelineByMonth: TimeseriesPoint[] = pipeWindow.map((m) => ({
+    month: m.key,
+    label: m.label,
+    value: pipeValues.get(m.key) ?? 0,
+  }));
+
+  return { leadsByMonth, pipelineByMonth };
+}
