@@ -1,8 +1,9 @@
-import { useRoute } from "wouter";
+import { Link, useRoute } from "wouter";
 import { toast } from "sonner";
 import { AppShell } from "@/components/layout/app-shell";
 import { DetailBackLink } from "@/components/crm/detail-back-link";
 import { AiAssistPanel } from "@/components/crm/ai-assist-panel";
+import { ActivityTimeline } from "@/components/crm/activity-timeline";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { CrmDetailSkeleton } from "@/components/crm/loading-state";
@@ -10,13 +11,17 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import {
   useOpportunity,
   useRelatedTasks,
+  useMattersByOpportunity,
   useUpdateOpportunity,
 } from "@/hooks/use-crm-queries";
 import {
   OPPORTUNITY_STAGE,
   OPPORTUNITY_PRIORITY,
+  MATTER_STATUS,
+  RISK_LEVEL,
   formatBrl,
   formatDate,
+  riskBadgeVariant,
 } from "@/lib/crm-labels";
 import type { OpportunityPriority, OpportunityStage } from "@shared/agro/types";
 import { ROUTES } from "@/lib/routes";
@@ -27,6 +32,7 @@ export default function CrmOpportunityDetailPage() {
   const id = params?.id ?? "";
   const { data: opp, isLoading, error } = useOpportunity(id);
   const { data: tasks } = useRelatedTasks(id);
+  const { data: linkedMatters } = useMattersByOpportunity(id);
   const updateOpp = useUpdateOpportunity();
 
   usePageTitle(opp ? opp.title : "Oportunidade");
@@ -58,14 +64,50 @@ export default function CrmOpportunityDetailPage() {
           <p className="text-xs font-mono text-muted-foreground">{opp.id}</p>
           <h1 className="text-2xl font-bold mt-1">{opp.title}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {opp.accountName} · {opp.practice}
+            {opp.accountId ? (
+              <Link
+                href={ROUTES.crm.accountDetail(opp.accountId)}
+                className="text-primary hover:underline"
+              >
+                {opp.accountName}
+              </Link>
+            ) : (
+              opp.accountName
+            )}{" "}
+            · {opp.practice}
+            {opp.leadId && (
+              <>
+                {" "}
+                ·{" "}
+                <Link
+                  href={ROUTES.crm.leadDetail(opp.leadId)}
+                  className="text-primary hover:underline"
+                >
+                  origem: lead
+                </Link>
+              </>
+            )}
           </p>
         </header>
 
         <Card className="p-5 space-y-4">
-          <p className="text-xl font-semibold text-primary tabular-nums">
-            {formatBrl(opp.valueBrl)}
-          </p>
+          <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+            <p className="text-xl font-semibold text-primary tabular-nums">
+              {formatBrl(opp.valueBrl)}
+            </p>
+            {opp.probability !== undefined && (
+              <p className="text-sm text-muted-foreground tabular-nums">
+                Valor ponderado:{" "}
+                <span className="font-medium text-foreground">
+                  {formatBrl(Math.round(opp.valueBrl * (opp.probability / 100)))}
+                </span>{" "}
+                ({opp.probability}%)
+              </p>
+            )}
+          </div>
+          {opp.description && (
+            <p className="text-sm text-muted-foreground">{opp.description}</p>
+          )}
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
@@ -138,6 +180,31 @@ export default function CrmOpportunityDetailPage() {
             )}
           </div>
         </Card>
+
+        {linkedMatters && linkedMatters.length > 0 && (
+          <section>
+            <h2 className="text-lg font-bold mb-3">Demandas vinculadas</h2>
+            <div className="space-y-2">
+              {linkedMatters.map((m) => (
+                <Link key={m.id} href={ROUTES.crm.matterDetail(m.id)}>
+                  <Card className="p-4 flex items-center justify-between gap-3 text-sm hover:bg-muted/25 transition-colors">
+                    <span className="font-medium text-primary truncate">
+                      {m.title}
+                    </span>
+                    <span className="flex items-center gap-2 shrink-0">
+                      <Badge variant="outline">{MATTER_STATUS[m.status]}</Badge>
+                      <Badge variant={riskBadgeVariant(m.risk)}>
+                        {RISK_LEVEL[m.risk]}
+                      </Badge>
+                    </span>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <ActivityTimeline entityType="opportunity" entityId={opp.id} />
 
         <AiAssistPanel
           task="next_steps"
