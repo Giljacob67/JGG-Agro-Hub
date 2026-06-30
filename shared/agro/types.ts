@@ -493,7 +493,8 @@ export type KnowledgeDocType =
   | "checklist"
   | "nota_tecnica"
   | "modelo"
-  | "faq";
+  | "faq"
+  | "jurisprudencia";
 
 export type KnowledgeDocStatus = "publicado" | "rascunho" | "em_revisao";
 
@@ -519,6 +520,14 @@ export interface KnowledgeDocument {
   fileName?: string;
   fileSize?: number;
   fileType?: string;
+  /** Metadados jurídicos (preenchidos sobretudo em type="jurisprudencia"). */
+  tribunal?: string;
+  relator?: string;
+  /** Data do julgamento (ISO 8601, ex.: 2025-03-14). */
+  dataJulgamento?: string;
+  numeroProcesso?: string;
+  /** Ementa completa da decisão. */
+  ementa?: string;
 }
 
 /** Agro Copilot */
@@ -641,6 +650,11 @@ export interface KnowledgeDocumentInput {
   fileName?: string;
   fileSize?: number;
   fileType?: string;
+  tribunal?: string;
+  relator?: string;
+  dataJulgamento?: string;
+  numeroProcesso?: string;
+  ementa?: string;
 }
 
 export interface KnowledgeListResponse {

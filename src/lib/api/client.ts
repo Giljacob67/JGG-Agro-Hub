@@ -543,6 +543,20 @@ export const agroApi = {
       method: "DELETE",
     }),
 
+  /**
+   * Dispara uma passada orçada de (re)geração de embeddings da KB.
+   * Retorna o progresso; chame em loop até `done === true`.
+   */
+  reindexKnowledgeEmbeddings: () =>
+    request<{
+      total: number;
+      pending: number;
+      seeded: number;
+      remaining: number;
+      done: boolean;
+      skipped?: boolean;
+    }>("/api/agro/knowledge?action=reindex-embeddings", { method: "POST" }),
+
   /** Gera URL presignada R2 para upload direto do arquivo (anexo da base). */
   presignKnowledgeUpload: (fileName: string, contentType: string) =>
     directApi<{ uploadUrl: string; fileUrl: string; key: string }>("/api/upload", {

@@ -417,6 +417,13 @@ export function mapKnowledgeDocument(row: Record<string, unknown>): KnowledgeDoc
     fileName: row.file_name == null ? undefined : String(row.file_name),
     fileSize: row.file_size == null ? undefined : Number(row.file_size),
     fileType: row.file_type == null ? undefined : String(row.file_type),
+    tribunal: row.tribunal == null ? undefined : String(row.tribunal),
+    relator: row.relator == null ? undefined : String(row.relator),
+    dataJulgamento:
+      row.data_julgamento == null ? undefined : toDateStr(row.data_julgamento),
+    numeroProcesso:
+      row.numero_processo == null ? undefined : String(row.numero_processo),
+    ementa: row.ementa == null ? undefined : String(row.ementa),
   };
 }
 

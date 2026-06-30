@@ -1357,6 +1357,12 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
+      // Reindexação de embeddings: passada orçada, chamável em loop até `done`.
+      if (req.query.action === "reindex-embeddings") {
+        const { ensureKbEmbeddingsSeeded } = await import("../_lib/llm/rag.js");
+        const progress = await ensureKbEmbeddingsSeeded({ budgetMs: 45_000 });
+        return json(res, progress);
+      }
       const parsed = parseKnowledgeDocCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const doc = await createKnowledgeDocument(parsed.data as never);

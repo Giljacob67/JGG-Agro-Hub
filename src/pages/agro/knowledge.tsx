@@ -3,6 +3,7 @@ import { Library, Settings2 } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { KnowledgeCategoryCard } from "@/components/knowledge/knowledge-category-card";
 import { KnowledgeDocumentCard } from "@/components/knowledge/knowledge-document-card";
+import { KnowledgeDocumentDialog } from "@/components/knowledge/knowledge-document-dialog";
 import { KnowledgeManager } from "@/components/knowledge/knowledge-manager";
 import { CrmLoadingState } from "@/components/crm/loading-state";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,14 @@ import { useAuth } from "@/contexts/use-auth";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useKnowledge } from "@/hooks/use-knowledge";
 import { COPILOT_KNOWLEDGE_NOTICE } from "@shared/agro/copilot";
+import type { KnowledgeDocument } from "@shared/agro/types";
 
 export default function KnowledgePage() {
   usePageTitle("Base de Conhecimento Agro");
   const [categoryId, setCategoryId] = useState<string | undefined>();
   const [search, setSearch] = useState("");
   const [showManager, setShowManager] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<KnowledgeDocument | null>(null);
   const { user } = useAuth();
   const canManage = user?.role === "gestao";
   const { data, isLoading } = useKnowledge(categoryId);
@@ -29,6 +32,11 @@ export default function KnowledgePage() {
       (doc) =>
         doc.title.toLowerCase().includes(q) ||
         doc.summary.toLowerCase().includes(q) ||
+        (doc.body?.toLowerCase().includes(q) ?? false) ||
+        (doc.ementa?.toLowerCase().includes(q) ?? false) ||
+        (doc.tribunal?.toLowerCase().includes(q) ?? false) ||
+        (doc.relator?.toLowerCase().includes(q) ?? false) ||
+        (doc.numeroProcesso?.toLowerCase().includes(q) ?? false) ||
         doc.tags.some((t) => t.toLowerCase().includes(q)),
     );
   }, [data, search]);
@@ -163,12 +171,20 @@ export default function KnowledgePage() {
           ) : (
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
               {documents.map((doc) => (
-                <KnowledgeDocumentCard key={doc.id} document={doc} />
+                <KnowledgeDocumentCard
+                  key={doc.id}
+                  document={doc}
+                  onOpen={setSelectedDoc}
+                />
               ))}
             </div>
           )}
         </section>
       </div>
+      <KnowledgeDocumentDialog
+        document={selectedDoc}
+        onClose={() => setSelectedDoc(null)}
+      />
     </AppShell>
   );
 }

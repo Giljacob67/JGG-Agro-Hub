@@ -983,7 +983,7 @@ export function parseOpposingPartyPatch(body: Body) {
   } satisfies ValidationResult<unknown>;
 }
 
-const KNOWLEDGE_DOC_TYPES = ["guia", "checklist", "nota_tecnica", "modelo", "faq"] as const;
+const KNOWLEDGE_DOC_TYPES = ["guia", "checklist", "nota_tecnica", "modelo", "faq", "jurisprudencia"] as const;
 const KNOWLEDGE_DOC_STATUSES = ["publicado", "rascunho", "em_revisao"] as const;
 const KNOWLEDGE_CATEGORY_IDS = KNOWLEDGE_CATEGORIES.map((c) => c.id) as readonly string[];
 
@@ -1012,6 +1012,17 @@ function knowledgeFileFields(body: Body): Record<string, unknown> {
   if (body.fileSize !== undefined) {
     const n = Number(body.fileSize);
     out.fileSize = Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
+  }
+  // Metadados jurídicos (jurisprudência) — todos opcionais.
+  if (body.tribunal !== undefined) out.tribunal = optionalString(body.tribunal);
+  if (body.relator !== undefined) out.relator = optionalString(body.relator);
+  if (body.dataJulgamento !== undefined)
+    out.dataJulgamento = optionalString(body.dataJulgamento);
+  if (body.numeroProcesso !== undefined)
+    out.numeroProcesso = optionalString(body.numeroProcesso);
+  if (body.ementa !== undefined) {
+    const text = body.ementa === null ? "" : String(body.ementa);
+    out.ementa = text.slice(0, KNOWLEDGE_BODY_MAX) || undefined;
   }
   return out;
 }

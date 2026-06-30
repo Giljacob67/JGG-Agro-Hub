@@ -1819,13 +1819,16 @@ export async function dbCreateKnowledgeDocument(doc: KnowledgeDocument): Promise
   await sql`
     INSERT INTO agro.kb_documents (
       id, category_id, title, summary, tags, type, status,
-      body, file_url, file_name, file_size, file_type, updated_at
+      body, file_url, file_name, file_size, file_type,
+      tribunal, relator, data_julgamento, numero_processo, ementa, updated_at
     )
     VALUES (
       ${doc.id}, ${doc.categoryId}, ${doc.title}, ${doc.summary},
       ${toJsonValue(doc.tags ?? [])}, ${doc.type}, ${doc.status},
       ${doc.body ?? null}, ${doc.fileUrl ?? null}, ${doc.fileName ?? null},
-      ${doc.fileSize ?? null}, ${doc.fileType ?? null}, ${doc.updatedAt}
+      ${doc.fileSize ?? null}, ${doc.fileType ?? null},
+      ${doc.tribunal ?? null}, ${doc.relator ?? null}, ${doc.dataJulgamento ?? null},
+      ${doc.numeroProcesso ?? null}, ${doc.ementa ?? null}, ${doc.updatedAt}
     )
   `;
   const created = await dbGetKnowledgeDocument(doc.id);
@@ -1855,6 +1858,13 @@ export async function dbUpdateKnowledgeDocument(
   if (patch.fileName !== undefined) set("file_name", patch.fileName ?? null);
   if (patch.fileSize !== undefined) set("file_size", patch.fileSize ?? null);
   if (patch.fileType !== undefined) set("file_type", patch.fileType ?? null);
+  if (patch.tribunal !== undefined) set("tribunal", patch.tribunal ?? null);
+  if (patch.relator !== undefined) set("relator", patch.relator ?? null);
+  if (patch.dataJulgamento !== undefined)
+    set("data_julgamento", patch.dataJulgamento ?? null);
+  if (patch.numeroProcesso !== undefined)
+    set("numero_processo", patch.numeroProcesso ?? null);
+  if (patch.ementa !== undefined) set("ementa", patch.ementa ?? null);
   set("updated_at", patch.updatedAt ?? new Date().toISOString());
   values.push(id);
   await sql.query(

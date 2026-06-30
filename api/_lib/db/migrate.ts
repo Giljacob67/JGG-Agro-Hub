@@ -238,6 +238,13 @@ async function runKnowledgeMigrations(sql: NeonQueryFunction<false, false>) {
   await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_size INTEGER`;
   await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS file_type TEXT`;
 
+  // Metadados jurídicos (jurisprudência): tribunal, relator, julgamento, processo, ementa.
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS tribunal TEXT`;
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS relator TEXT`;
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS data_julgamento DATE`;
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS numero_processo TEXT`;
+  await sql`ALTER TABLE agro.kb_documents ADD COLUMN IF NOT EXISTS ementa TEXT`;
+
   const countRows = (await sql`SELECT COUNT(*)::int AS n FROM agro.kb_documents`) as Array<{ n: number }>;
   if (countRows[0]?.n > 0) return;
 

@@ -839,6 +839,21 @@ export async function handleLocalApi(
       };
     }
 
+    if (init.method === "POST" && params.get("action") === "reindex-embeddings") {
+      // Mock sem DB: embeddings vivem em cache de memória, nada a persistir.
+      return {
+        status: 200,
+        data: {
+          total: docs.length,
+          pending: 0,
+          seeded: 0,
+          remaining: 0,
+          done: true,
+          skipped: true,
+        },
+      };
+    }
+
     if (init.method === "POST") {
       const body = JSON.parse(String(init.body));
       const doc: KnowledgeDocument = {
@@ -854,6 +869,13 @@ export async function handleLocalApi(
         fileName: body.fileName != null ? String(body.fileName) : undefined,
         fileSize: body.fileSize != null ? Number(body.fileSize) : undefined,
         fileType: body.fileType != null ? String(body.fileType) : undefined,
+        tribunal: body.tribunal != null ? String(body.tribunal) : undefined,
+        relator: body.relator != null ? String(body.relator) : undefined,
+        dataJulgamento:
+          body.dataJulgamento != null ? String(body.dataJulgamento) : undefined,
+        numeroProcesso:
+          body.numeroProcesso != null ? String(body.numeroProcesso) : undefined,
+        ementa: body.ementa != null ? String(body.ementa) : undefined,
         updatedAt: new Date().toISOString(),
       };
       docs.unshift(doc);
@@ -891,6 +913,27 @@ export async function handleLocalApi(
           : {}),
         ...(body.fileType !== undefined
           ? { fileType: body.fileType != null ? String(body.fileType) : undefined }
+          : {}),
+        ...(body.tribunal !== undefined
+          ? { tribunal: body.tribunal != null ? String(body.tribunal) : undefined }
+          : {}),
+        ...(body.relator !== undefined
+          ? { relator: body.relator != null ? String(body.relator) : undefined }
+          : {}),
+        ...(body.dataJulgamento !== undefined
+          ? {
+              dataJulgamento:
+                body.dataJulgamento != null ? String(body.dataJulgamento) : undefined,
+            }
+          : {}),
+        ...(body.numeroProcesso !== undefined
+          ? {
+              numeroProcesso:
+                body.numeroProcesso != null ? String(body.numeroProcesso) : undefined,
+            }
+          : {}),
+        ...(body.ementa !== undefined
+          ? { ementa: body.ementa != null ? String(body.ementa) : undefined }
           : {}),
         updatedAt: new Date().toISOString(),
       };

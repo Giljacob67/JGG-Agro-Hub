@@ -6,7 +6,7 @@
  * Anthropic and Groq don't provide embedding APIs.
  */
 
-import { embed } from "ai";
+import { embed, embedMany } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 
@@ -95,35 +95,33 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 
 /**
  * Generate embeddings for multiple texts in batch.
+ *
+ * Uses the provider's native array endpoint (`embedMany`) so each chunk is a
+ * single HTTP call instead of N concurrent single-value calls. `maxParallelCalls`
+ * is capped to keep provider rate limits comfortable for large reindex jobs.
  */
 export async function generateEmbeddings(
   texts: string[],
 ): Promise<number[][]> {
-  const results: number[][] = [];
-
-  // Process in batches of 20 to avoid rate limits
-  const batchSize = 20;
-  for (let i = 0; i < texts.length; i += batchSize) {
-    const batch = texts.slice(i, i + batchSize);
-    const batchResults = await Promise.all(
-      batch.map(async (text) => {
-        const model = createEmbeddingModel();
-        const { embedding } = await embed({ model, value: text });
-        return embedding;
-      }),
-    );
-    results.push(...batchResults);
-  }
-
-  return results;
+  if (texts.length === 0) return [];
+  const model = createEmbeddingModel();
+  const { embeddings } = await embedMany({
+    model,
+    values: texts,
+    maxParallelCalls: 2,
+  });
+  return embeddings;
 }
 
 /**
  * Check if embedding provider is configured.
+ *
+ * Mirrors the default used by `embeddingProviderId()` (openai) so that setting
+ * only `OPENAI_API_KEY` — without the optional `COPILOT_EMBEDDINGS_PROVIDER` —
+ * still enables embeddings instead of silently disabling vector search.
  */
 export function hasEmbeddingProvider(): boolean {
-  const provider = process.env.COPILOT_EMBEDDINGS_PROVIDER;
-  if (!provider) return false;
+  const provider = embeddingProviderId();
 
   switch (provider) {
     case "openai":
