@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { agroApi } from "@/lib/api/client";
+import type { Property } from "@shared/agro/types";
 
 interface PropertyManagerProps {
   accountId: string;
@@ -72,9 +73,9 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
     },
   });
 
-  const totalArea = properties.reduce((sum: number, p: any) => sum + (p.areaHa || 0), 0);
+  const totalArea = properties.reduce((sum, p) => sum + (p.areaHa || 0), 0);
 
-  function checkAreaMismatch(p: any): boolean {
+  function checkAreaMismatch(p: Property): boolean {
     if (!p.carAreaHa || !p.matriculaAreaHa) return false;
     return Math.abs(p.carAreaHa - p.matriculaAreaHa) > 1;
   }
@@ -218,7 +219,7 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {properties.map((prop: any) => (
+          {properties.map((prop) => (
             <div
               key={prop.id}
               className="p-3 border border-border/50 rounded-lg hover:bg-muted/25 transition-colors"

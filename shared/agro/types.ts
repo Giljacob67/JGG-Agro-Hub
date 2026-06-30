@@ -216,6 +216,7 @@ export interface Document {
   description?: string;
   fileName?: string;
   fileSize?: number;
+  fileUrl?: string;
   mimeType?: string;
   version: number;
   versions: DocumentVersion[];

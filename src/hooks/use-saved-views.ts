@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 
 export interface SavedView<TState> {
   id: string;
@@ -25,10 +25,14 @@ export function useSavedViews<TState>(key: string) {
   const [views, setViews] = useState<SavedView<TState>[]>(() =>
     read<TState>(key),
   );
+  const [loadedKey, setLoadedKey] = useState(key);
 
-  useEffect(() => {
+  // Re-lê do localStorage quando o recurso (key) muda — ajuste de estado
+  // durante o render, conforme recomendado pelo React (sem useEffect).
+  if (key !== loadedKey) {
+    setLoadedKey(key);
     setViews(read<TState>(key));
-  }, [key]);
+  }
 
   const persist = useCallback(
     (next: SavedView<TState>[]) => {

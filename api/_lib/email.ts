@@ -166,6 +166,7 @@ export async function fetchEmails(options?: {
   since?: string;
 }): Promise<EmailMessage[]> {
   // Resend is send-only; for inbox you'd need a separate IMAP provider
+  void options;
   return [];
 }
 

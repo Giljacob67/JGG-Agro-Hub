@@ -24,25 +24,21 @@ interface TooltipPayloadItem {
   payload: TimeseriesPoint;
 }
 
-function makeTrendTooltip(format: (v: number) => string) {
-  return function TrendTooltip({
-    active,
-    payload,
-  }: {
-    active?: boolean;
-    payload?: TooltipPayloadItem[];
-  }) {
-    if (!active || !payload?.length) return null;
-    const d = payload[0].payload;
-    return (
-      <div className="rounded-lg border border-border bg-background px-3 py-2 shadow-lg">
-        <p className="text-xs font-semibold capitalize">{d.label}</p>
-        <p className="text-xs font-medium text-primary tabular-nums">
-          {format(d.value)}
-        </p>
-      </div>
-    );
-  };
+function renderTrendTooltip(
+  props: { active?: boolean; payload?: TooltipPayloadItem[] },
+  format: (v: number) => string,
+) {
+  const { active, payload } = props;
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-border bg-background px-3 py-2 shadow-lg">
+      <p className="text-xs font-semibold capitalize">{d.label}</p>
+      <p className="text-xs font-medium text-primary tabular-nums">
+        {format(d.value)}
+      </p>
+    </div>
+  );
 }
 
 /**
@@ -65,7 +61,6 @@ export function TrendAreaChart({
   }
 
   const gradientId = `trend-${color.replace(/[^a-z0-9]/gi, "")}`;
-  const Tip = makeTrendTooltip(valueFormatter);
 
   return (
     <ResponsiveContainer width="100%" height={height}>
@@ -91,7 +86,15 @@ export function TrendAreaChart({
           width={56}
         />
         <Tooltip
-          content={<Tip />}
+          content={(props) =>
+            renderTrendTooltip(
+              props as unknown as {
+                active?: boolean;
+                payload?: TooltipPayloadItem[];
+              },
+              valueFormatter,
+            )
+          }
           cursor={{ stroke: color, strokeOpacity: 0.3 }}
         />
         <Area

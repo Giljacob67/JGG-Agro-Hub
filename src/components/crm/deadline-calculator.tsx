@@ -24,7 +24,7 @@ const DEADLINE_OPTIONS = Object.entries(PROCEDURAL_DEADLINES)
     description: config.description,
   }));
 
-export function DeadlineCalculator({ matterId, onCalculate }: DeadlineCalculatorProps) {
+export function DeadlineCalculator({ onCalculate }: DeadlineCalculatorProps) {
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<DeadlineType>("contestacao");
   const [customDays, setCustomDays] = useState(10);
@@ -37,7 +37,7 @@ export function DeadlineCalculator({ matterId, onCalculate }: DeadlineCalculator
     onCalculate?.(r);
   };
 
-  const urgencyColor = (days: number) => {
+  const urgencyColor = (days: number): "danger" | "warning" | "success" => {
     if (days <= 3) return "danger";
     if (days <= 7) return "warning";
     return "success";
@@ -112,7 +112,7 @@ export function DeadlineCalculator({ matterId, onCalculate }: DeadlineCalculator
             </div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">Dias restantes</span>
-              <Badge variant={urgencyColor(result.daysRemaining) as any}>
+              <Badge variant={urgencyColor(result.daysRemaining)}>
                 {result.daysRemaining === 0 ? (
                   <><AlertTriangle className="w-3 h-3 mr-1" /> Vencido</>
                 ) : (

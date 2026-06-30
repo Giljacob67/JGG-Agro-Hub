@@ -14,10 +14,8 @@ export default function ProductivityPage() {
   const { data: timeEntries } = useTimeEntries();
 
   const productivity = useMemo(() => {
-    const mattersData = matters as any;
-    const mattersList = mattersData?.items || mattersData || [];
-    const entriesData = timeEntries as any;
-    const entries = entriesData?.items || entriesData || [];
+    const mattersList = matters?.items ?? [];
+    const entries = timeEntries ?? [];
 
     const byLawyer: Record<
       string,
@@ -31,8 +29,8 @@ export default function ProductivityPage() {
       }
     > = {};
 
-    entries.forEach((e: any) => {
-      const lawyer = e.owner || e.lawyer || "Não informado";
+    entries.forEach((e) => {
+      const lawyer = e.owner || "Não informado";
       if (!byLawyer[lawyer]) {
         byLawyer[lawyer] = {
           hours: 0,
@@ -53,11 +51,11 @@ export default function ProductivityPage() {
     });
 
     const mattersByOwner: Record<string, { total: number; active: number }> = {};
-    mattersList.forEach((m: any) => {
+    mattersList.forEach((m) => {
       const owner = m.owner || "Não informado";
       if (!mattersByOwner[owner]) mattersByOwner[owner] = { total: 0, active: 0 };
       mattersByOwner[owner].total++;
-      if (m.status !== "encerrado" && m.status !== "arquivado") {
+      if (m.status !== "concluida") {
         mattersByOwner[owner].active++;
       }
     });

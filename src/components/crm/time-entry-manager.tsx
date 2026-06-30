@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Clock, Plus, Trash2, DollarSign } from "lucide-react";
+import { Clock, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,9 +59,9 @@ export function TimeEntryManager({ matterId }: TimeEntryManagerProps) {
     },
   });
 
-  const totalHours = entries.reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
-  const totalValue = entries.reduce((sum: number, e: any) => sum + (e.totalBrl || 0), 0);
-  const unbilledHours = entries.filter((e: any) => !e.invoiced).reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
+  const totalHours = entries.reduce((sum, e) => sum + (e.hours || 0), 0);
+  const totalValue = entries.reduce((sum, e) => sum + (e.totalBrl || 0), 0);
+  const unbilledHours = entries.filter((e) => !e.invoiced).reduce((sum, e) => sum + (e.hours || 0), 0);
 
   const formatBrl = (v: number) =>
     v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -175,7 +175,7 @@ export function TimeEntryManager({ matterId }: TimeEntryManagerProps) {
         </div>
       ) : (
         <div className="space-y-1">
-          {entries.map((entry: any) => (
+          {entries.map((entry) => (
             <div
               key={entry.id}
               className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/25 transition-colors group"

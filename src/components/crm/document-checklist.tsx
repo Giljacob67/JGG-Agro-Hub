@@ -58,7 +58,7 @@ export function DocumentChecklist({ matterId }: DocumentChecklistProps) {
     },
   });
 
-  const completedCount = items.filter((i: any) => i.status === "aprovado").length;
+  const completedCount = items.filter((i) => i.status === "aprovado").length;
   const totalCount = items.length;
   const progress = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
 
@@ -134,7 +134,7 @@ export function DocumentChecklist({ matterId }: DocumentChecklistProps) {
         </div>
       ) : (
         <div className="space-y-1">
-          {items.map((item: any) => (
+          {items.map((item) => (
             <div
               key={item.id}
               className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/25 transition-colors group"

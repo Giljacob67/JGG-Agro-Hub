@@ -164,7 +164,7 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
     }
   }
 
-  const pendingCount = documents.filter((d: any) => d.status === "pendente").length;
+  const pendingCount = documents.filter((d) => d.status === "pendente").length;
 
   return (
     <div className="space-y-4">
@@ -283,7 +283,7 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
         </div>
       ) : (
         <div className="space-y-2">
-          {documents.map((doc: any) => (
+          {documents.map((doc) => (
             <div
               key={doc.id}
               className="flex items-center justify-between p-3 border border-border/50 rounded-lg hover:bg-muted/25 transition-colors"
