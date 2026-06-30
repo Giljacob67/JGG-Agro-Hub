@@ -41,6 +41,7 @@ export default function CrmTasksPage() {
 
   const debouncedSearch = useDebouncedValue(search);
   const { sort, dir, onSort } = useTableSort();
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     statusFilter,
@@ -50,13 +51,14 @@ export default function CrmTasksPage() {
     dueFilter,
     sort,
     dir,
+    pageSize,
   );
 
   const listParams = useMemo(
     () => ({
       facets: true,
       page,
-      pageSize: DEFAULT_PAGE_SIZE,
+      pageSize,
       search: debouncedSearch.trim() || undefined,
       status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
       priority: priorityFilter !== FILTER_ALL ? priorityFilter : undefined,
@@ -68,6 +70,7 @@ export default function CrmTasksPage() {
     }),
     [
       page,
+      pageSize,
       debouncedSearch,
       statusFilter,
       priorityFilter,
@@ -293,9 +296,10 @@ export default function CrmTasksPage() {
         {!isLoading && !isError && (
           <CrmPagination
             page={data?.page ?? page}
-            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            pageSize={data?.pageSize ?? pageSize}
             total={total}
             onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         )}
       </div>

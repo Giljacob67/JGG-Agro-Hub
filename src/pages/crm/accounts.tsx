@@ -29,6 +29,7 @@ export default function CrmAccountsPage() {
 
   const debouncedSearch = useDebouncedValue(search);
   const { sort, dir, onSort } = useTableSort();
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     typeFilter,
@@ -36,13 +37,14 @@ export default function CrmAccountsPage() {
     ownerFilter,
     sort,
     dir,
+    pageSize,
   );
 
   const listParams = useMemo(
     () => ({
       facets: true,
       page,
-      pageSize: DEFAULT_PAGE_SIZE,
+      pageSize,
       search: debouncedSearch.trim() || undefined,
       type: typeFilter !== FILTER_ALL ? typeFilter : undefined,
       region: regionFilter !== FILTER_ALL ? regionFilter : undefined,
@@ -50,7 +52,7 @@ export default function CrmAccountsPage() {
       sort,
       dir,
     }),
-    [page, debouncedSearch, typeFilter, regionFilter, ownerFilter, sort, dir],
+    [page, pageSize, debouncedSearch, typeFilter, regionFilter, ownerFilter, sort, dir],
   );
 
   const { data, isLoading, isError, error } = useAccounts(listParams);
@@ -169,9 +171,10 @@ export default function CrmAccountsPage() {
         {!isLoading && !isError && (
           <CrmPagination
             page={data?.page ?? page}
-            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            pageSize={data?.pageSize ?? pageSize}
             total={total}
             onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         )}
       </div>
