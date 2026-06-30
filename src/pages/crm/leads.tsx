@@ -7,6 +7,7 @@ import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { BulkActionsBar } from "@/components/crm/bulk-actions-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateLeadForm } from "@/components/crm/create-lead-form";
@@ -15,9 +16,12 @@ import { ImportLeadsDialog } from "@/components/crm/import-leads-dialog";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useBulkApply } from "@/hooks/use-bulk-apply";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useLeads } from "@/hooks/use-crm-queries";
+import { useLeads, useUpdateLead } from "@/hooks/use-crm-queries";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import type { LeadStatus } from "@shared/agro/types";
 import { LEAD_STATUS, formatDate, isWithinDays } from "@/lib/crm-labels";
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { exportToCsv } from "@/lib/export-csv";
@@ -81,6 +85,10 @@ export default function CrmLeadsPage() {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const facets = data?.facets;
+
+  const selection = useRowSelection(items.map((i) => i.id));
+  const updateLead = useUpdateLead();
+  const bulk = useBulkApply();
 
   const isFiltered = hasActiveFilters(
     { statusFilter, regionFilter, sourceFilter, cropFilter, ownerFilter },
@@ -203,12 +211,58 @@ export default function CrmLeadsPage() {
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (
+          <>
+          <BulkActionsBar
+            count={selection.count}
+            isPending={bulk.isPending}
+            onClear={selection.clear}
+            actions={[
+              {
+                id: "status",
+                label: "Alterar status",
+                options: Object.entries(LEAD_STATUS).map(([value, label]) => ({
+                  value,
+                  label,
+                })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) =>
+                      updateLead.mutateAsync({
+                        id,
+                        patch: { status: value as LeadStatus },
+                      }),
+                    selection.clear,
+                  ),
+              },
+              {
+                id: "owner",
+                label: "Atribuir responsável",
+                options: (facets?.owners ?? []).map((o) => ({
+                  value: o,
+                  label: o,
+                })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) => updateLead.mutateAsync({ id, patch: { owner: value } }),
+                    selection.clear,
+                  ),
+              },
+            ]}
+          />
           <EntityTable
             data={items}
             isFiltered={isFiltered}
             sort={sort}
             dir={dir}
             onSort={onSort}
+            selectable
+            selectedIds={selection.selected}
+            onToggleRow={selection.toggle}
+            onToggleAll={selection.toggleAll}
+            allSelected={selection.allSelected}
+            someSelected={selection.someSelected}
             columns={[
               {
                 key: "id",
@@ -266,6 +320,7 @@ export default function CrmLeadsPage() {
               },
             ]}
           />
+          </>
         )}
         {!isLoading && !isError && (
           <CrmPagination

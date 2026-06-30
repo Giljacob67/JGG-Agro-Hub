@@ -23,6 +23,13 @@ interface EntityTableProps<T> {
   dir?: SortDir;
   /** Dispara ao clicar num header ordenável. Alterna asc→desc→limpa. */
   onSort?: (sortKey: string) => void;
+  /** Ativa coluna de checkboxes para seleção em massa. */
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  onToggleRow?: (id: string) => void;
+  onToggleAll?: () => void;
+  allSelected?: boolean;
+  someSelected?: boolean;
 }
 
 export function EntityTable<T extends { id: string }>({
@@ -35,6 +42,12 @@ export function EntityTable<T extends { id: string }>({
   sort,
   dir,
   onSort,
+  selectable = false,
+  selectedIds,
+  onToggleRow,
+  onToggleAll,
+  allSelected = false,
+  someSelected = false,
 }: EntityTableProps<T>) {
   if (data.length === 0) {
     return (
@@ -59,6 +72,16 @@ export function EntityTable<T extends { id: string }>({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/80 bg-muted/30">
+              {selectable && (
+                <th className="w-10 px-4 py-3">
+                  <SelectionCheckbox
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    onChange={() => onToggleAll?.()}
+                    aria-label="Selecionar todos"
+                  />
+                </th>
+              )}
               {columns.map((col) => {
                 const sortable = Boolean(col.sortKey && onSort);
                 const active = sortable && sort === col.sortKey;
@@ -100,24 +123,62 @@ export function EntityTable<T extends { id: string }>({
             </tr>
           </thead>
           <tbody>
-            {data.map((row) => (
+            {data.map((row) => {
+              const isSelected = selectedIds?.has(row.id) ?? false;
+              return (
               <tr
                 key={row.id}
                 className={cn(
                   "border-b border-border/50 last:border-0 hover:bg-muted/25 transition-colors",
+                  isSelected && "bg-primary/5",
                   getRowClassName?.(row),
                 )}
               >
+                {selectable && (
+                  <td className="w-10 px-4 py-3">
+                    <SelectionCheckbox
+                      checked={isSelected}
+                      onChange={() => onToggleRow?.(row.id)}
+                      aria-label={`Selecionar linha ${row.id}`}
+                    />
+                  </td>
+                )}
                 {columns.map((col) => (
                   <td key={col.key} className={cn("px-4 py-3", col.className)}>
                     {col.cell(row)}
                   </td>
                 ))}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
     </div>
+  );
+}
+
+function SelectionCheckbox({
+  checked,
+  indeterminate,
+  onChange,
+  "aria-label": ariaLabel,
+}: {
+  checked: boolean;
+  indeterminate?: boolean;
+  onChange: () => void;
+  "aria-label": string;
+}) {
+  return (
+    <input
+      type="checkbox"
+      checked={checked}
+      ref={(el) => {
+        if (el) el.indeterminate = Boolean(indeterminate) && !checked;
+      }}
+      onChange={onChange}
+      aria-label={ariaLabel}
+      className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+    />
   );
 }

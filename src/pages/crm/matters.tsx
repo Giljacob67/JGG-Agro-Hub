@@ -6,14 +6,17 @@ import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { BulkActionsBar } from "@/components/crm/bulk-actions-bar";
 import { CreateMatterForm } from "@/components/crm/create-matter-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useBulkApply } from "@/hooks/use-bulk-apply";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useMatters } from "@/hooks/use-crm-queries";
+import { useMatters, useUpdateMatter } from "@/hooks/use-crm-queries";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
 import {
   MATTER_STATUS,
@@ -79,6 +82,10 @@ export default function CrmMattersPage() {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const facets = data?.facets;
+
+  const selection = useRowSelection(items.map((i) => i.id));
+  const updateMatter = useUpdateMatter();
+  const bulk = useBulkApply();
 
   const isFiltered = hasActiveFilters(
     { statusFilter, riskFilter, practiceFilter, ownerFilter, deadlineFilter },
@@ -164,12 +171,60 @@ export default function CrmMattersPage() {
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (
+          <>
+          <BulkActionsBar
+            count={selection.count}
+            isPending={bulk.isPending}
+            onClear={selection.clear}
+            actions={[
+              {
+                id: "status",
+                label: "Alterar status",
+                options: (
+                  Object.entries(MATTER_STATUS) as [MatterStatus, string][]
+                ).map(([value, label]) => ({ value, label })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) =>
+                      updateMatter.mutateAsync({
+                        id,
+                        patch: { status: value as MatterStatus },
+                      }),
+                    selection.clear,
+                  ),
+              },
+              {
+                id: "risk",
+                label: "Alterar risco",
+                options: (
+                  Object.entries(RISK_LEVEL) as [RiskLevel, string][]
+                ).map(([value, label]) => ({ value, label })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) =>
+                      updateMatter.mutateAsync({
+                        id,
+                        patch: { risk: value as RiskLevel },
+                      }),
+                    selection.clear,
+                  ),
+              },
+            ]}
+          />
           <EntityTable
             data={items}
             isFiltered={isFiltered}
             sort={sort}
             dir={dir}
             onSort={onSort}
+            selectable
+            selectedIds={selection.selected}
+            onToggleRow={selection.toggle}
+            onToggleAll={selection.toggleAll}
+            allSelected={selection.allSelected}
+            someSelected={selection.someSelected}
             getRowClassName={(r) =>
               isCriticalDeadline(r.deadline, r.risk, r.status)
                 ? "bg-red-50/60 dark:bg-red-950/20"
@@ -228,6 +283,7 @@ export default function CrmMattersPage() {
               { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
             ]}
           />
+          </>
         )}
         {!isLoading && !isError && (
           <CrmPagination

@@ -5,12 +5,15 @@ import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { BulkActionsBar } from "@/components/crm/bulk-actions-bar";
 import { CreateTaskForm } from "@/components/crm/create-task-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useBulkApply } from "@/hooks/use-bulk-apply";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useTasks, useUpdateTaskStatus } from "@/hooks/use-crm-queries";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
@@ -80,6 +83,9 @@ export default function CrmTasksPage() {
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const facets = data?.facets;
+
+  const selection = useRowSelection(items.map((i) => i.id));
+  const bulk = useBulkApply();
 
   const isFiltered = hasActiveFilters(
     { statusFilter, priorityFilter, ownerFilter, typeFilter, dueFilter },
@@ -166,12 +172,43 @@ export default function CrmTasksPage() {
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (
+          <>
+          <BulkActionsBar
+            count={selection.count}
+            isPending={bulk.isPending}
+            onClear={selection.clear}
+            actions={[
+              {
+                id: "status",
+                label: "Alterar status",
+                options: (
+                  Object.entries(TASK_STATUS) as [TaskStatus, string][]
+                ).map(([value, label]) => ({ value, label })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) =>
+                      updateStatus.mutateAsync({
+                        id,
+                        status: value as TaskStatus,
+                      }),
+                    selection.clear,
+                  ),
+              },
+            ]}
+          />
           <EntityTable
             data={items}
             isFiltered={isFiltered}
             sort={sort}
             dir={dir}
             onSort={onSort}
+            selectable
+            selectedIds={selection.selected}
+            onToggleRow={selection.toggle}
+            onToggleAll={selection.toggleAll}
+            allSelected={selection.allSelected}
+            someSelected={selection.someSelected}
             getRowClassName={(r) =>
               isTaskOverdue(r) ? "bg-red-50/60 dark:bg-red-950/20" : undefined
             }
@@ -251,6 +288,7 @@ export default function CrmTasksPage() {
               { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
             ]}
           />
+          </>
         )}
         {!isLoading && !isError && (
           <CrmPagination
