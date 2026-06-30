@@ -11,6 +11,7 @@ import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useMatters } from "@/hooks/use-crm-queries";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
@@ -35,6 +36,7 @@ export default function CrmMattersPage() {
   const [deadlineFilter, setDeadlineFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { sort, dir, onSort } = useTableSort();
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     statusFilter,
@@ -42,6 +44,8 @@ export default function CrmMattersPage() {
     practiceFilter,
     ownerFilter,
     deadlineFilter,
+    sort,
+    dir,
   );
 
   const listParams = useMemo(
@@ -55,6 +59,8 @@ export default function CrmMattersPage() {
       practice: practiceFilter !== FILTER_ALL ? practiceFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
       deadline: deadlineFilter !== FILTER_ALL ? deadlineFilter : undefined,
+      sort,
+      dir,
     }),
     [
       page,
@@ -64,6 +70,8 @@ export default function CrmMattersPage() {
       practiceFilter,
       ownerFilter,
       deadlineFilter,
+      sort,
+      dir,
     ],
   );
 
@@ -159,6 +167,9 @@ export default function CrmMattersPage() {
           <EntityTable
             data={items}
             isFiltered={isFiltered}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
             getRowClassName={(r) =>
               isCriticalDeadline(r.deadline, r.risk, r.status)
                 ? "bg-red-50/60 dark:bg-red-950/20"
@@ -168,6 +179,7 @@ export default function CrmMattersPage() {
               {
                 key: "title",
                 header: "Demanda",
+                sortKey: "title",
                 cell: (r) => (
                   <Link
                     href={ROUTES.crm.matterDetail(r.id)}
@@ -177,11 +189,12 @@ export default function CrmMattersPage() {
                   </Link>
                 ),
               },
-              { key: "account", header: "Conta", cell: (r) => r.accountName },
-              { key: "practice", header: "Área", cell: (r) => r.practice },
+              { key: "account", header: "Conta", sortKey: "accountName", cell: (r) => r.accountName },
+              { key: "practice", header: "Área", sortKey: "practice", cell: (r) => r.practice },
               {
                 key: "status",
                 header: "Status",
+                sortKey: "status",
                 cell: (r) => (
                   <Badge variant="outline">{MATTER_STATUS[r.status]}</Badge>
                 ),
@@ -189,6 +202,7 @@ export default function CrmMattersPage() {
               {
                 key: "risk",
                 header: "Risco",
+                sortKey: "risk",
                 cell: (r) => (
                   <Badge variant={riskBadgeVariant(r.risk)}>
                     {RISK_LEVEL[r.risk]}
@@ -198,6 +212,7 @@ export default function CrmMattersPage() {
               {
                 key: "deadline",
                 header: "Prazo",
+                sortKey: "deadline",
                 cell: (r) => (
                   <span
                     className={
@@ -210,7 +225,7 @@ export default function CrmMattersPage() {
                   </span>
                 ),
               },
-              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+              { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
             ]}
           />
         )}

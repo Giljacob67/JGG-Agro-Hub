@@ -3,6 +3,7 @@ import type {
   LeadListParams,
   MatterListParams,
   OpportunityListParams,
+  SortDir,
   TaskListParams,
 } from "./list-types.js";
 
@@ -17,6 +18,10 @@ function num(params: URLSearchParams, key: string) {
   return Number.isFinite(n) ? n : undefined;
 }
 
+function dir(params: URLSearchParams): SortDir | undefined {
+  return params.get("dir") === "desc" ? "desc" : params.get("dir") === "asc" ? "asc" : undefined;
+}
+
 export function parseLeadParams(search: URLSearchParams): LeadListParams {
   return {
     page: num(search, "page"),
@@ -29,6 +34,8 @@ export function parseLeadParams(search: URLSearchParams): LeadListParams {
     crop: str(search, "crop"),
     owner: str(search, "owner"),
     listId: str(search, "listId"),
+    sort: str(search, "sort"),
+    dir: dir(search),
   };
 }
 
@@ -41,6 +48,8 @@ export function parseAccountParams(search: URLSearchParams): AccountListParams {
     type: str(search, "type"),
     region: str(search, "region"),
     owner: str(search, "owner"),
+    sort: str(search, "sort"),
+    dir: dir(search),
   };
 }
 
@@ -57,6 +66,8 @@ export function parseOpportunityParams(
     owner: str(search, "owner"),
     priority: str(search, "priority"),
     valueRange: str(search, "valueRange"),
+    sort: str(search, "sort"),
+    dir: dir(search),
   };
 }
 
@@ -71,6 +82,8 @@ export function parseMatterParams(search: URLSearchParams): MatterListParams {
     practice: str(search, "practice"),
     owner: str(search, "owner"),
     deadline: str(search, "deadline"),
+    sort: str(search, "sort"),
+    dir: dir(search),
   };
 }
 
@@ -85,5 +98,7 @@ export function parseTaskParams(search: URLSearchParams): TaskListParams {
     owner: str(search, "owner"),
     type: str(search, "type"),
     due: str(search, "due"),
+    sort: str(search, "sort"),
+    dir: dir(search),
   };
 }

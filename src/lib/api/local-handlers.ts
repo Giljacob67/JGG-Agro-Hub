@@ -13,6 +13,14 @@ import {
 } from "@shared/agro/filters";
 import { paginate } from "@shared/agro/list-types";
 import {
+  sortItems,
+  LEAD_SORT,
+  ACCOUNT_SORT,
+  OPPORTUNITY_SORT,
+  MATTER_SORT,
+  TASK_SORT,
+} from "@shared/agro/sort";
+import {
   parseAccountParams,
   parseLeadParams,
   parseMatterParams,
@@ -400,7 +408,7 @@ export async function handleLocalApi(
 
     const query = parseLeadParams(params);
     const all = listLeads();
-    const result = paginate(filterLeads(all, query), query);
+    const result = paginate(sortItems(filterLeads(all, query), query, LEAD_SORT), query);
     if (query.facets) result.facets = buildLeadFacets(all);
     return { status: 200, data: result };
   }
@@ -467,7 +475,7 @@ export async function handleLocalApi(
 
     const query = parseAccountParams(params);
     const all = listAccounts();
-    const result = paginate(filterAccounts(all, query), query);
+    const result = paginate(sortItems(filterAccounts(all, query), query, ACCOUNT_SORT), query);
     if (query.facets) result.facets = buildAccountFacets(all);
     return { status: 200, data: result };
   }
@@ -493,7 +501,7 @@ export async function handleLocalApi(
 
     const query = parseOpportunityParams(params);
     const all = listOpportunities();
-    const result = paginate(filterOpportunities(all, query), query);
+    const result = paginate(sortItems(filterOpportunities(all, query), query, OPPORTUNITY_SORT), query);
     if (query.facets) result.facets = buildOpportunityFacets(all);
     return { status: 200, data: result };
   }
@@ -524,7 +532,7 @@ export async function handleLocalApi(
 
     const query = parseMatterParams(params);
     const all = listMatters();
-    const result = paginate(filterMatters(all, query), query);
+    const result = paginate(sortItems(filterMatters(all, query), query, MATTER_SORT), query);
     if (query.facets) result.facets = buildMatterFacets(all);
     return { status: 200, data: result };
   }
@@ -554,7 +562,7 @@ export async function handleLocalApi(
 
     const query = parseTaskParams(params);
     const all = listTasks();
-    const result = paginate(filterTasks(all, query), query);
+    const result = paginate(sortItems(filterTasks(all, query), query, TASK_SORT), query);
     if (query.facets) result.facets = buildTaskFacets(all);
     return { status: 200, data: result };
   }

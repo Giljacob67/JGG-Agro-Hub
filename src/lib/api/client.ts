@@ -155,6 +155,8 @@ export const agroApi = {
         crop: params.crop,
         owner: params.owner,
         listId: params.listId,
+        sort: params.sort,
+        dir: params.dir,
       })}`,
     ),
 
@@ -171,6 +173,8 @@ export const agroApi = {
         type: params.type,
         region: params.region,
         owner: params.owner,
+        sort: params.sort,
+        dir: params.dir,
       })}`,
     ),
 
@@ -216,6 +220,8 @@ export const agroApi = {
         practice: params.practice,
         owner: params.owner,
         deadline: params.deadline,
+        sort: params.sort,
+        dir: params.dir,
       })}`,
     ),
 
@@ -311,6 +317,8 @@ export const agroApi = {
         owner: params.owner,
         type: params.type,
         due: params.due,
+        sort: params.sort,
+        dir: params.dir,
       })}`,
     ),
 

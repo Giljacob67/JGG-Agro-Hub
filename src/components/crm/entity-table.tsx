@@ -1,11 +1,14 @@
 import { cn } from "@/lib/utils";
-import { Search, Plus } from "lucide-react";
+import { Search, Plus, ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
+import type { SortDir } from "@shared/agro/list-types";
 
 export interface Column<T> {
   key: string;
   header: string;
   cell: (row: T) => React.ReactNode;
   className?: string;
+  /** Quando definido, a coluna fica clicável e ordena por esta chave no backend. */
+  sortKey?: string;
 }
 
 interface EntityTableProps<T> {
@@ -15,6 +18,11 @@ interface EntityTableProps<T> {
   filteredEmptyMessage?: string;
   isFiltered?: boolean;
   getRowClassName?: (row: T) => string | undefined;
+  /** Estado de ordenação atual (sortKey ativo). */
+  sort?: string;
+  dir?: SortDir;
+  /** Dispara ao clicar num header ordenável. Alterna asc→desc→limpa. */
+  onSort?: (sortKey: string) => void;
 }
 
 export function EntityTable<T extends { id: string }>({
@@ -24,6 +32,9 @@ export function EntityTable<T extends { id: string }>({
   filteredEmptyMessage = "Nenhum resultado com os filtros atuais.",
   isFiltered = false,
   getRowClassName,
+  sort,
+  dir,
+  onSort,
 }: EntityTableProps<T>) {
   if (data.length === 0) {
     return (
@@ -48,17 +59,44 @@ export function EntityTable<T extends { id: string }>({
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border/80 bg-muted/30">
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={cn(
-                    "text-left px-4 py-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em] whitespace-nowrap",
-                    col.className,
-                  )}
-                >
-                  {col.header}
-                </th>
-              ))}
+              {columns.map((col) => {
+                const sortable = Boolean(col.sortKey && onSort);
+                const active = sortable && sort === col.sortKey;
+                return (
+                  <th
+                    key={col.key}
+                    className={cn(
+                      "text-left px-4 py-3 text-[10px] font-semibold text-muted-foreground uppercase tracking-[0.12em] whitespace-nowrap",
+                      col.className,
+                    )}
+                  >
+                    {sortable ? (
+                      <button
+                        type="button"
+                        onClick={() => onSort!(col.sortKey!)}
+                        className={cn(
+                          "inline-flex items-center gap-1 hover:text-foreground transition-colors uppercase tracking-[0.12em]",
+                          active && "text-foreground",
+                        )}
+                        aria-label={`Ordenar por ${col.header}`}
+                      >
+                        {col.header}
+                        {active ? (
+                          dir === "desc" ? (
+                            <ArrowDown className="w-3 h-3" />
+                          ) : (
+                            <ArrowUp className="w-3 h-3" />
+                          )
+                        ) : (
+                          <ChevronsUpDown className="w-3 h-3 opacity-40" />
+                        )}
+                      </button>
+                    ) : (
+                      col.header
+                    )}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>

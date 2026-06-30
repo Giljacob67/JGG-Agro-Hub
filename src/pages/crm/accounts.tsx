@@ -11,6 +11,7 @@ import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAccounts } from "@/hooks/use-crm-queries";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
@@ -27,11 +28,14 @@ export default function CrmAccountsPage() {
   const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { sort, dir, onSort } = useTableSort();
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     typeFilter,
     regionFilter,
     ownerFilter,
+    sort,
+    dir,
   );
 
   const listParams = useMemo(
@@ -43,8 +47,10 @@ export default function CrmAccountsPage() {
       type: typeFilter !== FILTER_ALL ? typeFilter : undefined,
       region: regionFilter !== FILTER_ALL ? regionFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
+      sort,
+      dir,
     }),
-    [page, debouncedSearch, typeFilter, regionFilter, ownerFilter],
+    [page, debouncedSearch, typeFilter, regionFilter, ownerFilter, sort, dir],
   );
 
   const { data, isLoading, isError, error } = useAccounts(listParams);
@@ -117,10 +123,14 @@ export default function CrmAccountsPage() {
           <EntityTable
             data={items}
             isFiltered={isFiltered}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
             columns={[
               {
                 key: "name",
                 header: "Conta",
+                sortKey: "name",
                 cell: (r) => (
                   <Link
                     href={ROUTES.crm.accountDetail(r.id)}
@@ -133,23 +143,26 @@ export default function CrmAccountsPage() {
               {
                 key: "type",
                 header: "Tipo",
+                sortKey: "type",
                 cell: (r) => (
                   <Badge variant="secondary">{ACCOUNT_TYPE[r.type]}</Badge>
                 ),
               },
-              { key: "region", header: "Região", cell: (r) => r.region },
+              { key: "region", header: "Região", sortKey: "region", cell: (r) => r.region },
               {
                 key: "area",
                 header: "Área (ha)",
+                sortKey: "areaHa",
                 cell: (r) => (r.areaHa ? r.areaHa.toLocaleString("pt-BR") : "—"),
               },
-              { key: "matters", header: "Demandas", cell: (r) => r.activeMatters },
+              { key: "matters", header: "Demandas", sortKey: "activeMatters", cell: (r) => r.activeMatters },
               {
                 key: "opps",
                 header: "Oportunidades",
+                sortKey: "activeOpportunities",
                 cell: (r) => r.activeOpportunities,
               },
-              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+              { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
             ]}
           />
         )}

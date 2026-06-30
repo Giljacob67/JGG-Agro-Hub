@@ -10,6 +10,7 @@ import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useTasks, useUpdateTaskStatus } from "@/hooks/use-crm-queries";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
@@ -36,6 +37,7 @@ export default function CrmTasksPage() {
   const [dueFilter, setDueFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { sort, dir, onSort } = useTableSort();
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     statusFilter,
@@ -43,6 +45,8 @@ export default function CrmTasksPage() {
     ownerFilter,
     typeFilter,
     dueFilter,
+    sort,
+    dir,
   );
 
   const listParams = useMemo(
@@ -56,6 +60,8 @@ export default function CrmTasksPage() {
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
       type: typeFilter !== FILTER_ALL ? typeFilter : undefined,
       due: dueFilter !== FILTER_ALL ? dueFilter : undefined,
+      sort,
+      dir,
     }),
     [
       page,
@@ -65,6 +71,8 @@ export default function CrmTasksPage() {
       ownerFilter,
       typeFilter,
       dueFilter,
+      sort,
+      dir,
     ],
   );
 
@@ -161,6 +169,9 @@ export default function CrmTasksPage() {
           <EntityTable
             data={items}
             isFiltered={isFiltered}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
             getRowClassName={(r) =>
               isTaskOverdue(r) ? "bg-red-50/60 dark:bg-red-950/20" : undefined
             }
@@ -168,6 +179,7 @@ export default function CrmTasksPage() {
               {
                 key: "title",
                 header: "Tarefa",
+                sortKey: "title",
                 cell: (r) => <span className="font-medium">{r.title}</span>,
               },
               {
@@ -180,11 +192,13 @@ export default function CrmTasksPage() {
               {
                 key: "type",
                 header: "Tipo",
+                sortKey: "type",
                 cell: (r) => <Badge variant="secondary">{r.type}</Badge>,
               },
               {
                 key: "priority",
                 header: "Prioridade",
+                sortKey: "priority",
                 cell: (r) => (
                   <Badge variant={priorityBadgeVariant(r.priority)}>
                     {TASK_PRIORITY[r.priority]}
@@ -194,6 +208,7 @@ export default function CrmTasksPage() {
               {
                 key: "status",
                 header: "Status",
+                sortKey: "status",
                 cell: (r) => (
                   <select
                     value={r.status}
@@ -218,6 +233,7 @@ export default function CrmTasksPage() {
               {
                 key: "due",
                 header: "Prazo",
+                sortKey: "dueDate",
                 cell: (r) => (
                   <span
                     className={
@@ -232,7 +248,7 @@ export default function CrmTasksPage() {
                   </span>
                 ),
               },
-              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+              { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
             ]}
           />
         )}

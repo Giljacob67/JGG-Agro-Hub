@@ -53,6 +53,14 @@ import {
   mapTimeEntry,
 } from "./mappers.js";
 import { toJsonArray, toJsonValue } from "./json-utils.js";
+import {
+  orderByClause,
+  LEAD_DB_SORT,
+  ACCOUNT_DB_SORT,
+  OPPORTUNITY_DB_SORT,
+  MATTER_DB_SORT,
+  TASK_DB_SORT,
+} from "../../../shared/agro/sort.js";
 import { OPPORTUNITY_STAGES, INACTIVE_OPPORTUNITY_STAGES } from "../../../shared/agro/seed.js";
 import type { DemoSeedIds } from "../../../shared/agro/seed.js";
 
@@ -99,8 +107,9 @@ export async function dbListLeads(
   const pageSize = Math.min(params.pageSize ?? 20, 100);
   const offset = (page - 1) * pageSize;
   const { text: pagText, values: pagValues } = appendPagination(pageSize, offset, where.values);
+  const orderBy = orderByClause(params, LEAD_DB_SORT, "created_at DESC");
   const rows = await sql.query(
-    `SELECT * FROM agro.leads ${whereSql} ORDER BY created_at DESC ${pagText}`,
+    `SELECT * FROM agro.leads ${whereSql} ${orderBy} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapLead(r as Record<string, unknown>));
@@ -311,7 +320,7 @@ export async function dbListAccounts(
     `SELECT a.*,
       (SELECT COUNT(*)::int FROM agro.matters m WHERE m.account_id = a.id AND m.status != 'concluida') AS active_matters,
       (SELECT COUNT(*)::int FROM agro.opportunities o WHERE o.account_id = a.id AND o.stage NOT IN ('perdido', 'contrato', 'arquivado')) AS active_opportunities
-    FROM agro.accounts a ${whereSql} ORDER BY a.name ${pagText}`,
+    FROM agro.accounts a ${whereSql} ${orderByClause(params, ACCOUNT_DB_SORT, "a.name")} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapAccount(r as Record<string, unknown>));
@@ -457,7 +466,7 @@ export async function dbListOpportunities(
   const offset = (page - 1) * pageSize;
   const { text: pagText, values: pagValues } = appendPagination(pageSize, offset, where.values);
   const rows = await sql.query(
-    `SELECT * FROM agro.opportunities ${whereSql} ORDER BY expected_close ${pagText}`,
+    `SELECT * FROM agro.opportunities ${whereSql} ${orderByClause(params, OPPORTUNITY_DB_SORT, "expected_close")} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapOpportunity(r as Record<string, unknown>));
@@ -508,7 +517,7 @@ export async function dbListMatters(
   const offset = (page - 1) * pageSize;
   const { text: pagText, values: pagValues } = appendPagination(pageSize, offset, where.values);
   const rows = await sql.query(
-    `SELECT * FROM agro.matters ${whereSql} ORDER BY deadline ${pagText}`,
+    `SELECT * FROM agro.matters ${whereSql} ${orderByClause(params, MATTER_DB_SORT, "deadline")} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapMatter(r as Record<string, unknown>));
@@ -555,7 +564,7 @@ export async function dbListTasks(
   const offset = (page - 1) * pageSize;
   const { text: pagText, values: pagValues } = appendPagination(pageSize, offset, where.values);
   const rows = await sql.query(
-    `SELECT * FROM agro.tasks ${whereSql} ORDER BY due_date ${pagText}`,
+    `SELECT * FROM agro.tasks ${whereSql} ${orderByClause(params, TASK_DB_SORT, "due_date")} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapTask(r as Record<string, unknown>));

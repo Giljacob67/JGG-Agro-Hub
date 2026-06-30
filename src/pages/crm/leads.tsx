@@ -14,6 +14,7 @@ import { LeadListsBar, LIST_ALL, LIST_NONE } from "@/components/crm/lead-lists-b
 import { ImportLeadsDialog } from "@/components/crm/import-leads-dialog";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
+import { useTableSort } from "@/hooks/use-table-sort";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useLeads } from "@/hooks/use-crm-queries";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
@@ -34,6 +35,7 @@ export default function CrmLeadsPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { sort, dir, onSort } = useTableSort();
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     statusFilter,
@@ -42,6 +44,8 @@ export default function CrmLeadsPage() {
     cropFilter,
     ownerFilter,
     listFilter,
+    sort,
+    dir,
   );
 
   const listParams = useMemo(
@@ -56,6 +60,8 @@ export default function CrmLeadsPage() {
       crop: cropFilter !== FILTER_ALL ? cropFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
       listId: listFilter !== LIST_ALL ? listFilter : undefined,
+      sort,
+      dir,
     }),
     [
       page,
@@ -66,6 +72,8 @@ export default function CrmLeadsPage() {
       cropFilter,
       ownerFilter,
       listFilter,
+      sort,
+      dir,
     ],
   );
 
@@ -198,6 +206,9 @@ export default function CrmLeadsPage() {
           <EntityTable
             data={items}
             isFiltered={isFiltered}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
             columns={[
               {
                 key: "id",
@@ -207,6 +218,7 @@ export default function CrmLeadsPage() {
               {
                 key: "name",
                 header: "Nome",
+                sortKey: "name",
                 cell: (r) => (
                   <Link
                     href={ROUTES.crm.leadDetail(r.id)}
@@ -216,19 +228,21 @@ export default function CrmLeadsPage() {
                   </Link>
                 ),
               },
-              { key: "region", header: "Região", cell: (r) => r.region },
-              { key: "crop", header: "Cultura / operação", cell: (r) => r.crop },
+              { key: "region", header: "Região", sortKey: "region", cell: (r) => r.region },
+              { key: "crop", header: "Cultura / operação", sortKey: "crop", cell: (r) => r.crop },
               {
                 key: "status",
                 header: "Status",
+                sortKey: "status",
                 cell: (r) => (
                   <Badge variant="outline">{LEAD_STATUS[r.status]}</Badge>
                 ),
               },
-              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+              { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
               {
                 key: "nextContact",
                 header: "Próximo contato",
+                sortKey: "nextContact",
                 cell: (r) =>
                   r.nextContact ? (
                     <span
@@ -247,6 +261,7 @@ export default function CrmLeadsPage() {
               {
                 key: "created",
                 header: "Criado",
+                sortKey: "createdAt",
                 cell: (r) => formatDate(r.createdAt),
               },
             ]}
