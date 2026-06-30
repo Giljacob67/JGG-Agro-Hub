@@ -155,6 +155,8 @@ export const agroApi = {
         crop: params.crop,
         owner: params.owner,
         listId: params.listId,
+        sort: params.sort,
+        dir: params.dir,
       })}`,
     ),
 
@@ -171,6 +173,8 @@ export const agroApi = {
         type: params.type,
         region: params.region,
         owner: params.owner,
+        sort: params.sort,
+        dir: params.dir,
       })}`,
     ),
 
@@ -216,6 +220,8 @@ export const agroApi = {
         practice: params.practice,
         owner: params.owner,
         deadline: params.deadline,
+        sort: params.sort,
+        dir: params.dir,
       })}`,
     ),
 
@@ -311,6 +317,8 @@ export const agroApi = {
         owner: params.owner,
         type: params.type,
         due: params.due,
+        sort: params.sort,
+        dir: params.dir,
       })}`,
     ),
 
@@ -320,6 +328,9 @@ export const agroApi = {
     ),
 
   stats: () => request<import("@shared/agro/types").CrmStats>("/api/agro/stats"),
+
+  timeseries: () =>
+    request<import("@shared/agro/stats").CrmTimeseries>("/api/agro/timeseries"),
 
   updateLead: (
     id: string,
@@ -532,6 +543,20 @@ export const agroApi = {
       method: "DELETE",
     }),
 
+  /**
+   * Dispara uma passada orçada de (re)geração de embeddings da KB.
+   * Retorna o progresso; chame em loop até `done === true`.
+   */
+  reindexKnowledgeEmbeddings: () =>
+    request<{
+      total: number;
+      pending: number;
+      seeded: number;
+      remaining: number;
+      done: boolean;
+      skipped?: boolean;
+    }>("/api/agro/knowledge?action=reindex-embeddings", { method: "POST" }),
+
   /** Gera URL presignada R2 para upload direto do arquivo (anexo da base). */
   presignKnowledgeUpload: (fileName: string, contentType: string) =>
     directApi<{ uploadUrl: string; fileUrl: string; key: string }>("/api/upload", {
@@ -687,102 +712,102 @@ export const agroApi = {
   // ── Documents ────────────────────────────────────────────────────
 
   listDocuments: (params: { entityType?: string; entityId?: string; matterId?: string }) =>
-    request<any[]>(`/api/agro/documents?${buildQuery(params)}`),
+    request<import("@shared/agro/types").Document[]>(`/api/agro/documents?${buildQuery(params)}`),
 
   createDocument: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/documents", { method: "POST", body: JSON.stringify(input) }),
+    request<import("@shared/agro/types").Document>("/api/agro/documents", { method: "POST", body: JSON.stringify(input) }),
 
   updateDocument: (id: string, patch: Record<string, unknown>) =>
-    request<any>(`/api/agro/documents?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request<import("@shared/agro/types").Document>(`/api/agro/documents?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   deleteDocument: (id: string) =>
-    request<any>(`/api/agro/documents?id=${id}`, { method: "DELETE" }),
+    request<{ ok: true }>(`/api/agro/documents?id=${id}`, { method: "DELETE" }),
 
   // ── Document Checklist ───────────────────────────────────────────
 
   listDocumentChecklist: (matterId: string) =>
-    request<any[]>(`/api/agro/document-checklist?matterId=${matterId}`),
+    request<import("@shared/agro/types").DocumentChecklistItem[]>(`/api/agro/document-checklist?matterId=${matterId}`),
 
   createDocumentChecklistItem: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/document-checklist", { method: "POST", body: JSON.stringify(input) }),
+    request<import("@shared/agro/types").DocumentChecklistItem>("/api/agro/document-checklist", { method: "POST", body: JSON.stringify(input) }),
 
   updateDocumentChecklistItem: (id: string, patch: Record<string, unknown>) =>
-    request<any>(`/api/agro/document-checklist?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request<import("@shared/agro/types").DocumentChecklistItem>(`/api/agro/document-checklist?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   deleteDocumentChecklistItem: (id: string) =>
-    request<any>(`/api/agro/document-checklist?id=${id}`, { method: "DELETE" }),
+    request<{ ok: true }>(`/api/agro/document-checklist?id=${id}`, { method: "DELETE" }),
 
   // ── Time Entries ─────────────────────────────────────────────────
 
   listTimeEntries: (params: { matterId?: string; owner?: string; invoiced?: boolean }) =>
-    request<any[]>(`/api/agro/time-entries?${buildQuery(params)}`),
+    request<import("@shared/agro/types").TimeEntry[]>(`/api/agro/time-entries?${buildQuery(params)}`),
 
   createTimeEntry: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/time-entries", { method: "POST", body: JSON.stringify(input) }),
+    request<import("@shared/agro/types").TimeEntry>("/api/agro/time-entries", { method: "POST", body: JSON.stringify(input) }),
 
   updateTimeEntry: (id: string, patch: Record<string, unknown>) =>
-    request<any>(`/api/agro/time-entries?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request<import("@shared/agro/types").TimeEntry>(`/api/agro/time-entries?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   deleteTimeEntry: (id: string) =>
-    request<any>(`/api/agro/time-entries?id=${id}`, { method: "DELETE" }),
+    request<{ ok: true }>(`/api/agro/time-entries?id=${id}`, { method: "DELETE" }),
 
   // ── Invoices ─────────────────────────────────────────────────────
 
   listInvoices: (params: { accountId?: string; status?: string }) =>
-    request<any[]>(`/api/agro/invoices?${buildQuery(params)}`),
+    request<import("@shared/agro/types").Invoice[]>(`/api/agro/invoices?${buildQuery(params)}`),
 
   createInvoice: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/invoices", { method: "POST", body: JSON.stringify(input) }),
+    request<import("@shared/agro/types").Invoice>("/api/agro/invoices", { method: "POST", body: JSON.stringify(input) }),
 
   updateInvoice: (id: string, patch: Record<string, unknown>) =>
-    request<any>(`/api/agro/invoices?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request<import("@shared/agro/types").Invoice>(`/api/agro/invoices?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   // ── Fee Agreements ───────────────────────────────────────────────
 
   listFeeAgreements: (params: { accountId?: string; matterId?: string }) =>
-    request<any[]>(`/api/agro/fee-agreements?${buildQuery(params)}`),
+    request<import("@shared/agro/types").FeeAgreement[]>(`/api/agro/fee-agreements?${buildQuery(params)}`),
 
   createFeeAgreement: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/fee-agreements", { method: "POST", body: JSON.stringify(input) }),
+    request<import("@shared/agro/types").FeeAgreement>("/api/agro/fee-agreements", { method: "POST", body: JSON.stringify(input) }),
 
   // ── Contacts ─────────────────────────────────────────────────────
 
   listContacts: (params: { accountId?: string }) =>
-    request<any[]>(`/api/agro/contacts?${buildQuery(params)}`),
+    request<import("@shared/agro/types").Contact[]>(`/api/agro/contacts?${buildQuery(params)}`),
 
   createContact: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/contacts", { method: "POST", body: JSON.stringify(input) }),
+    request<import("@shared/agro/types").Contact>("/api/agro/contacts", { method: "POST", body: JSON.stringify(input) }),
 
   updateContact: (id: string, patch: Record<string, unknown>) =>
-    request<any>(`/api/agro/contacts?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request<import("@shared/agro/types").Contact>(`/api/agro/contacts?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   deleteContact: (id: string) =>
-    request<any>(`/api/agro/contacts?id=${id}`, { method: "DELETE" }),
+    request<{ ok: true }>(`/api/agro/contacts?id=${id}`, { method: "DELETE" }),
 
   // ── Properties ───────────────────────────────────────────────────
 
   listProperties: (params: { accountId?: string }) =>
-    request<any[]>(`/api/agro/properties?${buildQuery(params)}`),
+    request<import("@shared/agro/types").Property[]>(`/api/agro/properties?${buildQuery(params)}`),
 
   createProperty: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/properties", { method: "POST", body: JSON.stringify(input) }),
+    request<import("@shared/agro/types").Property>("/api/agro/properties", { method: "POST", body: JSON.stringify(input) }),
 
   updateProperty: (id: string, patch: Record<string, unknown>) =>
-    request<any>(`/api/agro/properties?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request<import("@shared/agro/types").Property>(`/api/agro/properties?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   deleteProperty: (id: string) =>
-    request<any>(`/api/agro/properties?id=${id}`, { method: "DELETE" }),
+    request<{ ok: true }>(`/api/agro/properties?id=${id}`, { method: "DELETE" }),
 
   // ── Opposing Parties ─────────────────────────────────────────────
 
   listOpposingParties: () =>
-    request<any[]>("/api/agro/opposing-parties"),
+    request<import("@shared/agro/types").OpposingParty[]>("/api/agro/opposing-parties"),
 
   createOpposingParty: (input: Record<string, unknown>) =>
-    request<any>("/api/agro/opposing-parties", { method: "POST", body: JSON.stringify(input) }),
+    request<import("@shared/agro/types").OpposingParty>("/api/agro/opposing-parties", { method: "POST", body: JSON.stringify(input) }),
 
   updateOpposingParty: (id: string, patch: Record<string, unknown>) =>
-    request<any>(`/api/agro/opposing-parties?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
+    request<import("@shared/agro/types").OpposingParty>(`/api/agro/opposing-parties?id=${id}`, { method: "PATCH", body: JSON.stringify(patch) }),
 
   // ── Conflict Check ───────────────────────────────────────────────
 

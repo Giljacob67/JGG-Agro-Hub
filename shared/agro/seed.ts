@@ -74,4 +74,11 @@ export const OPPORTUNITY_STAGES = [
   { id: "negociacao" as const, label: "Em negociação" },
   { id: "contrato" as const, label: "Contratado" },
   { id: "perdido" as const, label: "Perdido" },
+  { id: "arquivado" as const, label: "Arquivado" },
 ];
+
+/**
+ * Estágios terminais/negativos — excluídos do pipeline ativo (funil, valor,
+ * colunas do board). Mantidos no enum para rótulo e seleção no detalhe.
+ */
+export const INACTIVE_OPPORTUNITY_STAGES = new Set(["perdido", "arquivado"]);

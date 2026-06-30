@@ -10,17 +10,33 @@ const TYPE_LABELS: Record<KnowledgeDocument["type"], string> = {
   nota_tecnica: "Nota técnica",
   modelo: "Modelo",
   faq: "FAQ",
+  jurisprudencia: "Jurisprudência",
 };
 
 interface KnowledgeDocumentCardProps {
   document: KnowledgeDocument;
+  onOpen?: (document: KnowledgeDocument) => void;
 }
 
-export function KnowledgeDocumentCard({ document }: KnowledgeDocumentCardProps) {
+export function KnowledgeDocumentCard({
+  document,
+  onOpen,
+}: KnowledgeDocumentCardProps) {
   const category = getKnowledgeCategory(document.categoryId);
 
   return (
-    <article className="surface-panel p-5 h-full flex flex-col">
+    <article
+      className="surface-panel p-5 h-full flex flex-col text-left transition-colors hover:border-primary/30 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+      role="button"
+      tabIndex={0}
+      onClick={() => onOpen?.(document)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpen?.(document);
+        }
+      }}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-label-caps">{category?.label ?? document.categoryId}</p>
@@ -38,6 +54,7 @@ export function KnowledgeDocumentCard({ document }: KnowledgeDocumentCardProps) 
           href={document.fileUrl}
           target="_blank"
           rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
           className="mt-3 inline-flex items-center gap-1.5 text-xs text-primary hover:underline w-fit"
           title={document.fileName ?? "Baixar anexo"}
         >

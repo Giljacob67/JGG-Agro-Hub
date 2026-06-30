@@ -41,7 +41,12 @@ async function main() {
   if (hasEmbeddingProvider()) {
     console.log("Sincronizando embeddings KB (pgvector)…");
     try {
-      await ensureKbEmbeddingsSeeded();
+      // CLI sem limite serverless: drena em passadas até cobrir tudo.
+      let pass = await ensureKbEmbeddingsSeeded({ budgetMs: 300_000 });
+      while (!pass.done) {
+        console.log(`  …${pass.seeded} gerados, ${pass.remaining} restantes`);
+        pass = await ensureKbEmbeddingsSeeded({ budgetMs: 300_000 });
+      }
     } catch (err) {
       console.warn("[db:setup] seed de embeddings KB falhou (pode ser preguiçoso no primeiro uso do Copilot):", err);
     }

@@ -20,7 +20,15 @@ import type {
   PaginatedResult,
   TaskListParams,
 } from "../../shared/agro/list-types.js";
-import { paginate, type PaginationParams } from "../../shared/agro/list-types.js";
+import { paginate, type ListParamsBase } from "../../shared/agro/list-types.js";
+import {
+  sortItems,
+  LEAD_SORT,
+  ACCOUNT_SORT,
+  OPPORTUNITY_SORT,
+  MATTER_SORT,
+  TASK_SORT,
+} from "../../shared/agro/sort.js";
 import type {
   Account,
   Activity,
@@ -58,7 +66,11 @@ import * as db from "./db/repository.js";
 import { getSeedUsers, hashPassword, generateUserId } from "./auth-server.js";
 import type { AccountPatch, MatterPatch, TaskPatch } from "./db/repository.js";
 import { assertWritableInProd, WritableGuardError } from "./guard.js";
-import { computeCrmStats } from "../../shared/agro/stats.js";
+import {
+  computeCrmStats,
+  computeCrmTimeseries,
+  type CrmTimeseries,
+} from "../../shared/agro/stats.js";
 import type { CrmStats, KnowledgeDocument } from "../../shared/agro/types.js";
 import { KNOWLEDGE_DOCUMENTS } from "../../shared/agro/knowledge.js";
 
@@ -120,14 +132,16 @@ export type CreateLeadInput = {
   listId?: string | null;
 };
 
-function withFacets<T, P extends PaginationParams & { facets?: boolean }>(
+function withFacets<T, P extends ListParamsBase>(
   all: T[],
   params: P,
   filterFn: (items: T[], params: P) => T[],
   facetFn: (items: T[]) => Record<string, string[]>,
+  sortAccessors?: Record<string, (item: T) => string | number | null | undefined>,
 ): PaginatedResult<T> {
   const filtered = filterFn(all, params);
-  const result = paginate(filtered, params);
+  const sorted = sortAccessors ? sortItems(filtered, params, sortAccessors) : filtered;
+  const result = paginate(sorted, params);
   if (params.facets) result.facets = facetFn(all);
   return result;
 }
@@ -136,7 +150,7 @@ export async function listLeads(
   params: LeadListParams = {},
 ): Promise<PaginatedResult<Lead>> {
   if (isDbEnabled()) return db.dbListLeads(params);
-  return withFacets(memory.listLeads(), params, filterLeads, buildLeadFacets);
+  return withFacets(memory.listLeads(), params, filterLeads, buildLeadFacets, LEAD_SORT);
 }
 
 export async function getLead(id: string): Promise<Lead | undefined | null> {
@@ -289,6 +303,7 @@ export async function listAccounts(
     params,
     filterAccounts,
     buildAccountFacets,
+    ACCOUNT_SORT,
   );
 }
 
@@ -311,6 +326,7 @@ export async function listOpportunities(
     params,
     filterOpportunities,
     buildOpportunityFacets,
+    OPPORTUNITY_SORT,
   );
 }
 
@@ -331,7 +347,7 @@ export async function listMatters(
   params: MatterListParams = {},
 ): Promise<PaginatedResult<Matter>> {
   if (isDbEnabled()) return db.dbListMatters(params);
-  return withFacets(memory.listMatters(), params, filterMatters, buildMatterFacets);
+  return withFacets(memory.listMatters(), params, filterMatters, buildMatterFacets, MATTER_SORT);
 }
 
 export async function getMatter(id: string): Promise<Matter | undefined | null> {
@@ -359,7 +375,7 @@ export async function listTasks(
   params: TaskListParams = {},
 ): Promise<PaginatedResult<Task>> {
   if (isDbEnabled()) return db.dbListTasks(params);
-  return withFacets(memory.listTasks(), params, filterTasks, buildTaskFacets);
+  return withFacets(memory.listTasks(), params, filterTasks, buildTaskFacets, TASK_SORT);
 }
 
 export async function getTask(id: string): Promise<Task | undefined | null> {
@@ -544,6 +560,22 @@ export async function getCrmStats(): Promise<CrmStats> {
   }
   const dataset = await loadCrmDataset();
   return computeCrmStats({
+    leads: dataset.leads,
+    accounts: dataset.accounts,
+    opportunities: dataset.opportunities,
+    matters: dataset.matters,
+    tasks: dataset.tasks,
+  });
+}
+
+/**
+ * Séries temporais do CRM. Computadas em JS a partir de loadCrmDataset()
+ * (DB ou memória) — sem agregação SQL dedicada, mantendo paridade entre os
+ * caminhos sem nova migration.
+ */
+export async function getCrmTimeseries(): Promise<CrmTimeseries> {
+  const dataset = await loadCrmDataset();
+  return computeCrmTimeseries({
     leads: dataset.leads,
     accounts: dataset.accounts,
     opportunities: dataset.opportunities,

@@ -20,12 +20,13 @@ import { RiskCommandPanel } from "@/components/command-center/risk-command-panel
 import { StrategicKpiCard } from "@/components/command-center/strategic-kpi-card";
 import { DashboardSection } from "@/components/crm/dashboard-section";
 import { CrmLoadingState } from "@/components/crm/loading-state";
-import { PracticeBreakdownTable } from "@/components/crm/practice-breakdown";
-import { RegionPortfolioGrid } from "@/components/crm/region-portfolio";
+import { PracticeBarChart } from "@/components/command-center/charts/practice-bar-chart";
+import { RegionDonutChart } from "@/components/command-center/charts/region-donut-chart";
+import { TrendAreaChart } from "@/components/command-center/charts/trend-area-chart";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
-import { useCrmStats } from "@/hooks/use-crm-queries";
+import { useCrmStats, useCrmTimeseries } from "@/hooks/use-crm-queries";
 import { AGRO_PRACTICE_AREAS } from "@/lib/agro-practices";
 import {
   buildExecutiveInsights,
@@ -52,6 +53,7 @@ function contactHref(entityType: "lead" | "oportunidade", id: string) {
 export default function CommandCenterPage() {
   usePageTitle("JGG Agro Command Center");
   const { data: stats, isLoading, dataUpdatedAt } = useCrmStats();
+  const { data: timeseries } = useCrmTimeseries();
 
   if (isLoading || !stats) {
     return (
@@ -187,21 +189,54 @@ export default function CommandCenterPage() {
 
         <div id="cc-portfolio" className="grid lg:grid-cols-2 gap-6">
           <DashboardSection
-            title="Carteira por área de atuação"
+            title="Pipeline por área de atuação"
             count={stats.practiceBreakdown.length}
             href={ROUTES.crm.matters}
           >
-            <PracticeBreakdownTable items={stats.practiceBreakdown} />
+            <Card className="p-4 shadow-none">
+              <PracticeBarChart items={stats.practiceBreakdown} />
+            </Card>
           </DashboardSection>
 
           <DashboardSection
-            title="Carteira por região"
+            title="Pipeline por região"
             count={stats.portfolioByRegion.length}
             href={ROUTES.crm.accounts}
           >
-            <RegionPortfolioGrid items={stats.portfolioByRegion} />
+            <Card className="p-4 shadow-none">
+              <RegionDonutChart items={stats.portfolioByRegion} />
+            </Card>
           </DashboardSection>
         </div>
+
+        {timeseries && (
+          <div id="cc-trends" className="grid lg:grid-cols-2 gap-6">
+            <DashboardSection
+              title="Novos leads por mês"
+              href={ROUTES.crm.leads}
+            >
+              <Card className="p-4 shadow-none">
+                <TrendAreaChart
+                  data={timeseries.leadsByMonth}
+                  valueFormatter={(v) => String(Math.round(v))}
+                />
+              </Card>
+            </DashboardSection>
+
+            <DashboardSection
+              title="Pipeline por fechamento esperado"
+              href={ROUTES.crm.opportunities}
+            >
+              <Card className="p-4 shadow-none">
+                <TrendAreaChart
+                  data={timeseries.pipelineByMonth}
+                  valueFormatter={formatBrl}
+                  color="hsl(199 60% 45%)"
+                />
+              </Card>
+            </DashboardSection>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-2 gap-6">
           <DashboardSection

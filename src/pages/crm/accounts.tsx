@@ -3,21 +3,33 @@ import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
+import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { SavedViewsBar } from "@/components/crm/saved-views-bar";
 import { CreateAccountForm } from "@/components/crm/create-account-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
+import { useTableSort } from "@/hooks/use-table-sort";
+import { useSavedViews } from "@/hooks/use-saved-views";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAccounts } from "@/hooks/use-crm-queries";
-import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import { DEFAULT_PAGE_SIZE, type SortDir } from "@shared/agro/list-types";
 import { ACCOUNT_TYPE } from "@/lib/crm-labels";
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { ROUTES } from "@/lib/routes";
 import type { AccountType } from "@shared/agro/types";
+
+interface AccountsView {
+  search: string;
+  typeFilter: string;
+  regionFilter: string;
+  ownerFilter: string;
+  sort?: string;
+  dir?: SortDir;
+}
 
 export default function CrmAccountsPage() {
   usePageTitle("Contas Agro");
@@ -27,24 +39,31 @@ export default function CrmAccountsPage() {
   const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { sort, dir, onSort, setSort } = useTableSort();
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     typeFilter,
     regionFilter,
     ownerFilter,
+    sort,
+    dir,
+    pageSize,
   );
 
   const listParams = useMemo(
     () => ({
       facets: true,
       page,
-      pageSize: DEFAULT_PAGE_SIZE,
+      pageSize,
       search: debouncedSearch.trim() || undefined,
       type: typeFilter !== FILTER_ALL ? typeFilter : undefined,
       region: regionFilter !== FILTER_ALL ? regionFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
+      sort,
+      dir,
     }),
-    [page, debouncedSearch, typeFilter, regionFilter, ownerFilter],
+    [page, pageSize, debouncedSearch, typeFilter, regionFilter, ownerFilter, sort, dir],
   );
 
   const { data, isLoading, isError, error } = useAccounts(listParams);
@@ -56,6 +75,23 @@ export default function CrmAccountsPage() {
     { typeFilter, regionFilter, ownerFilter },
     search,
   );
+
+  const savedViews = useSavedViews<AccountsView>("accounts");
+  const currentView: AccountsView = {
+    search,
+    typeFilter,
+    regionFilter,
+    ownerFilter,
+    sort,
+    dir,
+  };
+  const applyView = (v: AccountsView) => {
+    setSearch(v.search);
+    setTypeFilter(v.typeFilter);
+    setRegionFilter(v.regionFilter);
+    setOwnerFilter(v.ownerFilter);
+    setSort(v.sort, v.dir);
+  };
 
   return (
     <AppShell>
@@ -72,6 +108,14 @@ export default function CrmAccountsPage() {
             <CreateAccountForm />
           </div>
         </header>
+        <SavedViewsBar
+          views={savedViews.views}
+          currentState={currentView}
+          isEmptyState={!isFiltered && !sort}
+          onApply={applyView}
+          onSave={(name) => savedViews.save(name, currentView)}
+          onRemove={savedViews.remove}
+        />
         <CrmFilters
           search={search}
           onSearchChange={setSearch}
@@ -110,17 +154,21 @@ export default function CrmAccountsPage() {
           />
         </CrmFilters>
         {isLoading ? (
-          <CrmLoadingState />
+          <CrmTableSkeleton cols={6} />
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (
           <EntityTable
             data={items}
             isFiltered={isFiltered}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
             columns={[
               {
                 key: "name",
                 header: "Conta",
+                sortKey: "name",
                 cell: (r) => (
                   <Link
                     href={ROUTES.crm.accountDetail(r.id)}
@@ -133,32 +181,36 @@ export default function CrmAccountsPage() {
               {
                 key: "type",
                 header: "Tipo",
+                sortKey: "type",
                 cell: (r) => (
                   <Badge variant="secondary">{ACCOUNT_TYPE[r.type]}</Badge>
                 ),
               },
-              { key: "region", header: "Região", cell: (r) => r.region },
+              { key: "region", header: "Região", sortKey: "region", cell: (r) => r.region },
               {
                 key: "area",
                 header: "Área (ha)",
+                sortKey: "areaHa",
                 cell: (r) => (r.areaHa ? r.areaHa.toLocaleString("pt-BR") : "—"),
               },
-              { key: "matters", header: "Demandas", cell: (r) => r.activeMatters },
+              { key: "matters", header: "Demandas", sortKey: "activeMatters", cell: (r) => r.activeMatters },
               {
                 key: "opps",
                 header: "Oportunidades",
+                sortKey: "activeOpportunities",
                 cell: (r) => r.activeOpportunities,
               },
-              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+              { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
             ]}
           />
         )}
         {!isLoading && !isError && (
           <CrmPagination
             page={data?.page ?? page}
-            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            pageSize={data?.pageSize ?? pageSize}
             total={total}
             onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         )}
       </div>

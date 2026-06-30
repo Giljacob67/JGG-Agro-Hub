@@ -27,7 +27,7 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
     relationType: "",
   });
 
-  const mattersList = (allMatters as any)?.items || allMatters || [];
+  const mattersList = allMatters?.items ?? [];
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -190,7 +190,7 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
                   className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
                 >
                   <option value="">Selecionar demanda...</option>
-                  {mattersList.map((m: any) => (
+                  {mattersList.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.title || m.id}
                     </option>

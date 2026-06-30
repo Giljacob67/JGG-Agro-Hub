@@ -172,7 +172,7 @@ export function ContactManager({ accountId }: ContactManagerProps) {
         </div>
       ) : (
         <div className="space-y-2">
-          {contacts.map((contact: any) => (
+          {contacts.map((contact) => (
             <div
               key={contact.id}
               className="flex items-center justify-between p-3 border border-border/50 rounded-lg hover:bg-muted/25 transition-colors"

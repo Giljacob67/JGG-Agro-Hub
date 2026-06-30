@@ -30,6 +30,7 @@ import {
   listActivities,
   createActivity,
   getCrmStats,
+  getCrmTimeseries,
   listUsers,
   getUser,
   createUser,
@@ -52,7 +53,7 @@ import {
 } from "../_lib/list-query.js";
 import { json, methodNotAllowed, requireAuth, requireCsrf, guardWrite, applyCors, clientIp } from "../_lib/http.js";
 import { assertValidEnv } from "../_lib/env-validate.js";
-import { checkUserRateLimit, getRateLimitHeaders } from "../_lib/rate-limit.js";
+import { checkUserRateLimit } from "../_lib/rate-limit.js";
 import {
   getBody,
   parseLeadConversion,
@@ -878,6 +879,16 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
     return methodNotAllowed(res);
   }
 
+  if (resource === "timeseries") {
+    if (!requireAuth(req, res, "timeseries")) return;
+
+    if (req.method === "GET") {
+      return json(res, await getCrmTimeseries());
+    }
+
+    return methodNotAllowed(res);
+  }
+
   // ── Copilot ────────────────────────────────────────────────────────
   if (resource === "copilot") {
     const user = requireAuth(req, res, "copilot");
@@ -1346,6 +1357,12 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === "POST") {
+      // Reindexação de embeddings: passada orçada, chamável em loop até `done`.
+      if (req.query.action === "reindex-embeddings") {
+        const { ensureKbEmbeddingsSeeded } = await import("../_lib/llm/rag.js");
+        const progress = await ensureKbEmbeddingsSeeded({ budgetMs: 45_000 });
+        return json(res, progress);
+      }
       const parsed = parseKnowledgeDocCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const doc = await createKnowledgeDocument(parsed.data as never);
@@ -1580,7 +1597,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseDocumentCreate(getBody(req.body), user.name);
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { createDocument } = await import("../_lib/data-service.js");
-      const doc = await createDocument(parsed.data as any);
+      const doc = await createDocument(parsed.data as never);
             await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "document",
@@ -1598,7 +1615,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const { getDocument, updateDocument } = await import("../_lib/data-service.js");
       const before = await getDocument(id);
       if (!before) return json(res, { error: "Documento não encontrado" }, 404);
-      const doc = await updateDocument(id, parsed.data as any);
+      const doc = await updateDocument(id, parsed.data as never);
       if (!doc) return json(res, { error: "Documento não encontrado" }, 404);
             await auditUpdate(
         { userId: user.id, userName: user.name, userRole: user.role },
@@ -1648,7 +1665,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseDocumentChecklistCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { createDocumentChecklistItem } = await import("../_lib/data-service.js");
-      const item = await createDocumentChecklistItem(parsed.data as any);
+      const item = await createDocumentChecklistItem(parsed.data as never);
       return json(res, item, 201);
     }
 
@@ -1658,7 +1675,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseDocumentChecklistPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { updateDocumentChecklistItem } = await import("../_lib/data-service.js");
-      const item = await updateDocumentChecklistItem(id, parsed.data as any);
+      const item = await updateDocumentChecklistItem(id, parsed.data as never);
       if (!item) return json(res, { error: "Item não encontrado" }, 404);
       return json(res, item);
     }
@@ -1695,7 +1712,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseTimeEntryCreate(getBody(req.body), user.name);
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { createTimeEntry } = await import("../_lib/data-service.js");
-      const entry = await createTimeEntry(parsed.data as any);
+      const entry = await createTimeEntry(parsed.data as never);
             await auditCreate(
         { userId: user.id, userName: user.name, userRole: user.role },
         "time-entry",
@@ -1711,7 +1728,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseTimeEntryPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { updateTimeEntry } = await import("../_lib/data-service.js");
-      const entry = await updateTimeEntry(id, parsed.data as any);
+      const entry = await updateTimeEntry(id, parsed.data as never);
       if (!entry) return json(res, { error: "Registro não encontrado" }, 404);
       return json(res, entry);
     }
@@ -1746,7 +1763,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseInvoiceCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { createInvoice } = await import("../_lib/data-service.js");
-      const invoice = await createInvoice(parsed.data as any);
+      const invoice = await createInvoice(parsed.data as never);
       return json(res, invoice, 201);
     }
 
@@ -1756,7 +1773,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseInvoicePatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { updateInvoice } = await import("../_lib/data-service.js");
-      const invoice = await updateInvoice(id, parsed.data as any);
+      const invoice = await updateInvoice(id, parsed.data as never);
       if (!invoice) return json(res, { error: "Fatura não encontrada" }, 404);
       return json(res, invoice);
     }
@@ -1782,7 +1799,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseFeeAgreementCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { createFeeAgreement } = await import("../_lib/data-service.js");
-      const agreement = await createFeeAgreement(parsed.data as any);
+      const agreement = await createFeeAgreement(parsed.data as never);
       return json(res, agreement, 201);
     }
 
@@ -1805,7 +1822,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseContactCreate(getBody(req.body), user.name);
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { createContact } = await import("../_lib/data-service.js");
-      const contact = await createContact(parsed.data as any);
+      const contact = await createContact(parsed.data as never);
       return json(res, contact, 201);
     }
 
@@ -1815,7 +1832,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseContactPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { updateContact } = await import("../_lib/data-service.js");
-      const contact = await updateContact(id, parsed.data as any);
+      const contact = await updateContact(id, parsed.data as never);
       if (!contact) return json(res, { error: "Contato não encontrado" }, 404);
       return json(res, contact);
     }
@@ -1847,7 +1864,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parsePropertyCreate(getBody(req.body), user.name);
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { createProperty } = await import("../_lib/data-service.js");
-      const property = await createProperty(parsed.data as any);
+      const property = await createProperty(parsed.data as never);
       return json(res, property, 201);
     }
 
@@ -1857,7 +1874,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parsePropertyPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { updateProperty } = await import("../_lib/data-service.js");
-      const property = await updateProperty(id, parsed.data as any);
+      const property = await updateProperty(id, parsed.data as never);
       if (!property) return json(res, { error: "Propriedade não encontrada" }, 404);
       return json(res, property);
     }
@@ -1888,7 +1905,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseOpposingPartyCreate(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { createOpposingParty } = await import("../_lib/data-service.js");
-      const party = await createOpposingParty(parsed.data as any);
+      const party = await createOpposingParty(parsed.data as never);
       return json(res, party, 201);
     }
 
@@ -1898,7 +1915,7 @@ async function dispatch(req: VercelRequest, res: VercelResponse) {
       const parsed = parseOpposingPartyPatch(getBody(req.body));
       if (!parsed.ok) return json(res, { error: parsed.error }, 400);
       const { updateOpposingParty } = await import("../_lib/data-service.js");
-      const party = await updateOpposingParty(id, parsed.data as any);
+      const party = await updateOpposingParty(id, parsed.data as never);
       if (!party) return json(res, { error: "Parte contrária não encontrada" }, 404);
       return json(res, party);
     }

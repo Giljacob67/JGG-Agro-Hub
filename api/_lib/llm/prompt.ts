@@ -119,15 +119,25 @@ Nome: ${entity.name}
 Considere esta entidade como contexto principal da sua resposta.`;
 }
 
+/**
+ * Limite de caracteres do corpo por documento injetado no prompt. Mantém o
+ * contexto rico sem estourar a janela do modelo (5 docs × ~2k ≈ 10k chars).
+ */
+const KB_BODY_MAX = 2_000;
+
 function buildKbSection(results: RagResult[]): string {
   const docs = results
-    .map(
-      (r, i) =>
-        `### ${i + 1}. ${r.title} (${r.documentId})
+    .map((r, i) => {
+      const header = `### ${i + 1}. ${r.title} (${r.documentId})
 Categoria: ${r.categoryLabel}
 Relevância: ${(r.score * 100).toFixed(0)}%
-Resumo: ${r.excerpt}`,
-    )
+Resumo: ${r.excerpt}`;
+      const body = r.body?.trim();
+      if (!body) return header;
+      const truncated =
+        body.length > KB_BODY_MAX ? `${body.slice(0, KB_BODY_MAX)}…` : body;
+      return `${header}\nConteúdo:\n${truncated}`;
+    })
     .join("\n\n");
 
   return `\n\n## Base de Conhecimento Relevante

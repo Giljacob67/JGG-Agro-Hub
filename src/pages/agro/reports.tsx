@@ -19,45 +19,43 @@ export default function ReportsPage() {
   const { data: timeEntries } = useTimeEntries();
 
   const stats = useMemo(() => {
-    const mattersData = matters as any;
-    const mattersList = mattersData?.items || mattersData || [];
-    const entriesData = timeEntries as any;
-    const entries = entriesData?.items || entriesData || [];
+    const mattersList = matters?.items ?? [];
+    const entries = timeEntries ?? [];
 
     const totalRevenue = entries
-      .filter((e: any) => e.invoiced)
-      .reduce((sum: number, e: any) => sum + (e.totalBrl || e.hours * e.hourlyRate || 0), 0);
+      .filter((e) => e.invoiced)
+      .reduce((sum, e) => sum + (e.totalBrl || e.hours * e.hourlyRate || 0), 0);
 
     const unbilledRevenue = entries
-      .filter((e: any) => !e.invoiced)
-      .reduce((sum: number, e: any) => sum + (e.totalBrl || e.hours * e.hourlyRate || 0), 0);
+      .filter((e) => !e.invoiced)
+      .reduce((sum, e) => sum + (e.totalBrl || e.hours * e.hourlyRate || 0), 0);
 
-    const totalHours = entries.reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
+    const totalHours = entries.reduce((sum, e) => sum + (e.hours || 0), 0);
     const unbilledHours = entries
-      .filter((e: any) => !e.invoiced)
-      .reduce((sum: number, e: any) => sum + (e.hours || 0), 0);
+      .filter((e) => !e.invoiced)
+      .reduce((sum, e) => sum + (e.hours || 0), 0);
 
     const mattersByStatus: Record<string, number> = {};
-    mattersList.forEach((m: any) => {
+    mattersList.forEach((m) => {
       const status = m.status || "Sem status";
       mattersByStatus[status] = (mattersByStatus[status] || 0) + 1;
     });
 
     const mattersByType: Record<string, number> = {};
-    mattersList.forEach((m: any) => {
-      const type = m.type || "Sem tipo";
+    mattersList.forEach((m) => {
+      const type = m.practice || "Sem tipo";
       mattersByType[type] = (mattersByType[type] || 0) + 1;
     });
 
     const entriesByMatter: Record<string, number> = {};
-    entries.forEach((e: any) => {
+    entries.forEach((e) => {
       const mid = e.matterId || "Sem demanda";
       entriesByMatter[mid] = (entriesByMatter[mid] || 0) + (e.hours || 0);
     });
 
     return {
       totalMatters: mattersList.length,
-      activeMatters: mattersList.filter((m: any) => m.status !== "encerrado" && m.status !== "arquivado").length,
+      activeMatters: mattersList.filter((m) => m.status !== "concluida").length,
       totalRevenue,
       unbilledRevenue,
       totalHours,

@@ -3,17 +3,23 @@ import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
+import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { BulkActionsBar } from "@/components/crm/bulk-actions-bar";
+import { SavedViewsBar } from "@/components/crm/saved-views-bar";
 import { CreateMatterForm } from "@/components/crm/create-matter-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
+import { useTableSort } from "@/hooks/use-table-sort";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useBulkApply } from "@/hooks/use-bulk-apply";
+import { useSavedViews } from "@/hooks/use-saved-views";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useMatters } from "@/hooks/use-crm-queries";
-import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import { useMatters, useUpdateMatter } from "@/hooks/use-crm-queries";
+import { DEFAULT_PAGE_SIZE, type SortDir } from "@shared/agro/list-types";
 import {
   MATTER_STATUS,
   RISK_LEVEL,
@@ -25,6 +31,17 @@ import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { ROUTES } from "@/lib/routes";
 import type { MatterStatus, RiskLevel } from "@shared/agro/types";
 
+interface MattersView {
+  search: string;
+  statusFilter: string;
+  riskFilter: string;
+  practiceFilter: string;
+  ownerFilter: string;
+  deadlineFilter: string;
+  sort?: string;
+  dir?: SortDir;
+}
+
 export default function CrmMattersPage() {
   usePageTitle("Demandas jurídicas");
   const [search, setSearch] = useState("");
@@ -35,6 +52,8 @@ export default function CrmMattersPage() {
   const [deadlineFilter, setDeadlineFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { sort, dir, onSort, setSort } = useTableSort();
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     statusFilter,
@@ -42,28 +61,36 @@ export default function CrmMattersPage() {
     practiceFilter,
     ownerFilter,
     deadlineFilter,
+    sort,
+    dir,
+    pageSize,
   );
 
   const listParams = useMemo(
     () => ({
       facets: true,
       page,
-      pageSize: DEFAULT_PAGE_SIZE,
+      pageSize,
       search: debouncedSearch.trim() || undefined,
       status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
       risk: riskFilter !== FILTER_ALL ? riskFilter : undefined,
       practice: practiceFilter !== FILTER_ALL ? practiceFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
       deadline: deadlineFilter !== FILTER_ALL ? deadlineFilter : undefined,
+      sort,
+      dir,
     }),
     [
       page,
+      pageSize,
       debouncedSearch,
       statusFilter,
       riskFilter,
       practiceFilter,
       ownerFilter,
       deadlineFilter,
+      sort,
+      dir,
     ],
   );
 
@@ -72,10 +99,35 @@ export default function CrmMattersPage() {
   const total = data?.total ?? 0;
   const facets = data?.facets;
 
+  const selection = useRowSelection(items.map((i) => i.id));
+  const updateMatter = useUpdateMatter();
+  const bulk = useBulkApply();
+
   const isFiltered = hasActiveFilters(
     { statusFilter, riskFilter, practiceFilter, ownerFilter, deadlineFilter },
     search,
   );
+
+  const savedViews = useSavedViews<MattersView>("matters");
+  const currentView: MattersView = {
+    search,
+    statusFilter,
+    riskFilter,
+    practiceFilter,
+    ownerFilter,
+    deadlineFilter,
+    sort,
+    dir,
+  };
+  const applyView = (v: MattersView) => {
+    setSearch(v.search);
+    setStatusFilter(v.statusFilter);
+    setRiskFilter(v.riskFilter);
+    setPracticeFilter(v.practiceFilter);
+    setOwnerFilter(v.ownerFilter);
+    setDeadlineFilter(v.deadlineFilter);
+    setSort(v.sort, v.dir);
+  };
 
   return (
     <AppShell>
@@ -92,6 +144,14 @@ export default function CrmMattersPage() {
             <CreateMatterForm />
           </div>
         </header>
+        <SavedViewsBar
+          views={savedViews.views}
+          currentState={currentView}
+          isEmptyState={!isFiltered && !sort}
+          onApply={applyView}
+          onSave={(name) => savedViews.save(name, currentView)}
+          onRemove={savedViews.remove}
+        />
         <CrmFilters
           search={search}
           onSearchChange={setSearch}
@@ -152,13 +212,64 @@ export default function CrmMattersPage() {
           />
         </CrmFilters>
         {isLoading ? (
-          <CrmLoadingState />
+          <CrmTableSkeleton cols={6} />
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (
+          <>
+          <BulkActionsBar
+            count={selection.count}
+            isPending={bulk.isPending}
+            onClear={selection.clear}
+            actions={[
+              {
+                id: "status",
+                label: "Alterar status",
+                options: (
+                  Object.entries(MATTER_STATUS) as [MatterStatus, string][]
+                ).map(([value, label]) => ({ value, label })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) =>
+                      updateMatter.mutateAsync({
+                        id,
+                        patch: { status: value as MatterStatus },
+                      }),
+                    selection.clear,
+                  ),
+              },
+              {
+                id: "risk",
+                label: "Alterar risco",
+                options: (
+                  Object.entries(RISK_LEVEL) as [RiskLevel, string][]
+                ).map(([value, label]) => ({ value, label })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) =>
+                      updateMatter.mutateAsync({
+                        id,
+                        patch: { risk: value as RiskLevel },
+                      }),
+                    selection.clear,
+                  ),
+              },
+            ]}
+          />
           <EntityTable
             data={items}
             isFiltered={isFiltered}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
+            selectable
+            selectedIds={selection.selected}
+            onToggleRow={selection.toggle}
+            onToggleAll={selection.toggleAll}
+            allSelected={selection.allSelected}
+            someSelected={selection.someSelected}
             getRowClassName={(r) =>
               isCriticalDeadline(r.deadline, r.risk, r.status)
                 ? "bg-red-50/60 dark:bg-red-950/20"
@@ -168,6 +279,7 @@ export default function CrmMattersPage() {
               {
                 key: "title",
                 header: "Demanda",
+                sortKey: "title",
                 cell: (r) => (
                   <Link
                     href={ROUTES.crm.matterDetail(r.id)}
@@ -177,11 +289,12 @@ export default function CrmMattersPage() {
                   </Link>
                 ),
               },
-              { key: "account", header: "Conta", cell: (r) => r.accountName },
-              { key: "practice", header: "Área", cell: (r) => r.practice },
+              { key: "account", header: "Conta", sortKey: "accountName", cell: (r) => r.accountName },
+              { key: "practice", header: "Área", sortKey: "practice", cell: (r) => r.practice },
               {
                 key: "status",
                 header: "Status",
+                sortKey: "status",
                 cell: (r) => (
                   <Badge variant="outline">{MATTER_STATUS[r.status]}</Badge>
                 ),
@@ -189,6 +302,7 @@ export default function CrmMattersPage() {
               {
                 key: "risk",
                 header: "Risco",
+                sortKey: "risk",
                 cell: (r) => (
                   <Badge variant={riskBadgeVariant(r.risk)}>
                     {RISK_LEVEL[r.risk]}
@@ -198,6 +312,7 @@ export default function CrmMattersPage() {
               {
                 key: "deadline",
                 header: "Prazo",
+                sortKey: "deadline",
                 cell: (r) => (
                   <span
                     className={
@@ -210,16 +325,18 @@ export default function CrmMattersPage() {
                   </span>
                 ),
               },
-              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+              { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
             ]}
           />
+          </>
         )}
         {!isLoading && !isError && (
           <CrmPagination
             page={data?.page ?? page}
-            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            pageSize={data?.pageSize ?? pageSize}
             total={total}
             onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         )}
       </div>

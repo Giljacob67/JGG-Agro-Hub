@@ -6,6 +6,7 @@ import {
   Paperclip,
   Pencil,
   Plus,
+  RefreshCw,
   Trash2,
   X,
 } from "lucide-react";
@@ -32,6 +33,7 @@ const TYPE_OPTIONS: Array<{ value: KnowledgeDocType; label: string }> = [
   { value: "nota_tecnica", label: "Nota técnica" },
   { value: "modelo", label: "Modelo" },
   { value: "faq", label: "FAQ" },
+  { value: "jurisprudencia", label: "Jurisprudência" },
 ];
 
 const STATUS_OPTIONS: Array<{ value: KnowledgeDocStatus; label: string }> = [
@@ -89,6 +91,11 @@ function emptyForm(categories: KnowledgeCategory[]): FormState {
     fileName: undefined,
     fileSize: undefined,
     fileType: undefined,
+    tribunal: undefined,
+    relator: undefined,
+    dataJulgamento: undefined,
+    numeroProcesso: undefined,
+    ementa: undefined,
   };
 }
 
@@ -103,7 +110,40 @@ export function KnowledgeManager({ categories, documents }: Props) {
   const [pendingDelete, setPendingDelete] = useState<KnowledgeDocument | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadMsg, setUploadMsg] = useState<string | null>(null);
+  const [reindexing, setReindexing] = useState(false);
+  const [reindexMsg, setReindexMsg] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleReindex() {
+    setReindexing(true);
+    setReindexMsg("Reindexando…");
+    try {
+      let seededTotal = 0;
+      // Passadas orçadas no servidor; repete até cobrir todos os documentos.
+      for (let pass = 0; pass < 50; pass++) {
+        const p = await agroApi.reindexKnowledgeEmbeddings();
+        if (p.skipped) {
+          setReindexMsg("Sem provedor de embeddings configurado — nada a reindexar.");
+          return;
+        }
+        seededTotal += p.seeded;
+        if (p.done) {
+          setReindexMsg(
+            seededTotal > 0
+              ? `Reindexação concluída: ${seededTotal} documento(s) atualizado(s).`
+              : "Base já está totalmente indexada.",
+          );
+          return;
+        }
+        setReindexMsg(`Reindexando… ${seededTotal} pronto(s), ${p.remaining} restante(s).`);
+      }
+      setReindexMsg("Reindexação parcial — execute novamente para concluir.");
+    } catch (e) {
+      setReindexMsg(`Falha na reindexação: ${(e as Error).message}`);
+    } finally {
+      setReindexing(false);
+    }
+  }
 
   const mutation = editingId ? update : create;
   const error = (mutation.error as Error | null)?.message ?? null;
@@ -130,6 +170,11 @@ export function KnowledgeManager({ categories, documents }: Props) {
       fileName: doc.fileName,
       fileSize: doc.fileSize,
       fileType: doc.fileType,
+      tribunal: doc.tribunal,
+      relator: doc.relator,
+      dataJulgamento: doc.dataJulgamento,
+      numeroProcesso: doc.numeroProcesso,
+      ementa: doc.ementa,
     });
     setUploadMsg(null);
     setShowForm(true);
@@ -228,6 +273,11 @@ export function KnowledgeManager({ categories, documents }: Props) {
       fileName: form.fileName,
       fileSize: form.fileSize,
       fileType: form.fileType,
+      tribunal: form.tribunal?.trim() || undefined,
+      relator: form.relator?.trim() || undefined,
+      dataJulgamento: form.dataJulgamento?.trim() || undefined,
+      numeroProcesso: form.numeroProcesso?.trim() || undefined,
+      ementa: form.ementa?.trim() || undefined,
     };
     if (!input.title || !input.summary || !input.categoryId) return;
 
@@ -256,12 +306,32 @@ export function KnowledgeManager({ categories, documents }: Props) {
           </p>
         </div>
         {!showForm && (
-          <Button size="sm" onClick={openCreate} className="shrink-0">
-            <Plus className="w-4 h-4 mr-1.5" />
-            Novo documento
-          </Button>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleReindex}
+              disabled={reindexing}
+              title="Regerar os embeddings da busca semântica"
+            >
+              {reindexing ? (
+                <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-1.5" />
+              )}
+              Reindexar
+            </Button>
+            <Button size="sm" onClick={openCreate}>
+              <Plus className="w-4 h-4 mr-1.5" />
+              Novo documento
+            </Button>
+          </div>
         )}
       </div>
+
+      {reindexMsg && (
+        <p className="text-[11px] text-muted-foreground">{reindexMsg}</p>
+      )}
 
       {showForm && (
         <div className="surface-inset p-4 space-y-3">
@@ -353,6 +423,64 @@ export function KnowledgeManager({ categories, documents }: Props) {
               placeholder="ex.: cpr, garantias, registro"
             />
           </div>
+
+          {form.type === "jurisprudencia" && (
+            <div className="surface-inset p-3 space-y-3 border border-border/60 rounded-md">
+              <p className="text-label-caps">Metadados da jurisprudência</p>
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Tribunal</label>
+                  <Input
+                    value={form.tribunal ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, tribunal: e.target.value }))}
+                    placeholder="ex.: STJ, TJ-MT"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Relator(a)</label>
+                  <Input
+                    value={form.relator ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, relator: e.target.value }))}
+                    placeholder="ex.: Min. Fulano de Tal"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Nº do processo
+                  </label>
+                  <Input
+                    value={form.numeroProcesso ?? ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, numeroProcesso: e.target.value }))
+                    }
+                    placeholder="ex.: 0000000-00.0000.0.00.0000"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">
+                    Data do julgamento
+                  </label>
+                  <Input
+                    type="date"
+                    value={form.dataJulgamento ?? ""}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, dataJulgamento: e.target.value }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Ementa</label>
+                <textarea
+                  value={form.ementa ?? ""}
+                  onChange={(e) => setForm((f) => ({ ...f, ementa: e.target.value }))}
+                  placeholder="Ementa completa da decisão (indexada pela busca semântica)."
+                  rows={5}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-y"
+                />
+              </div>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="text-xs font-medium text-muted-foreground">

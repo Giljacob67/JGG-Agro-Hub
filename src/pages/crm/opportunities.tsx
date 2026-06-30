@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
+import { CrmCardGridSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { CreateOpportunityForm } from "@/components/crm/create-opportunity-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
@@ -13,8 +13,8 @@ import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
-import { useOpportunities } from "@/hooks/use-crm-queries";
-import { OPPORTUNITY_STAGES } from "@shared/agro/seed";
+import { useOpportunities, useUpdateOpportunity } from "@/hooks/use-crm-queries";
+import { OPPORTUNITY_STAGES, INACTIVE_OPPORTUNITY_STAGES } from "@shared/agro/seed";
 import {
   formatBrl,
   formatDate,
@@ -78,11 +78,48 @@ export default function CrmOpportunitiesPage() {
     search,
   );
 
+  // Estágios ativos no board (exclui terminais: perdido/arquivado).
   const stages = OPPORTUNITY_STAGES.filter(
-    (s) => s.id !== "perdido",
+    (s) => !INACTIVE_OPPORTUNITY_STAGES.has(s.id),
   );
+
+  // ── Drag-and-drop: arrastar card entre colunas muda o estágio ──────
+  const updateOpp = useUpdateOpportunity();
+  // Override otimista local: card aparece na coluna nova antes do refetch.
+  const [pendingMoves, setPendingMoves] = useState<Record<string, OpportunityStage>>({});
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+
+  const effectiveStage = (o: { id: string; stage: OpportunityStage }) =>
+    pendingMoves[o.id] ?? o.stage;
+
+  const handleDrop = (stageId: OpportunityStage) => (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverStage(null);
+    const id = e.dataTransfer.getData("text/plain");
+    const opp = items.find((o) => o.id === id);
+    if (!opp || effectiveStage(opp) === stageId) return;
+    setPendingMoves((p) => ({ ...p, [id]: stageId }));
+    updateOpp.mutate(
+      { id, patch: { stage: stageId } },
+      {
+        onError: () =>
+          setPendingMoves((p) => {
+            const next = { ...p };
+            delete next[id];
+            return next;
+          }),
+        onSettled: () =>
+          setPendingMoves((p) => {
+            const next = { ...p };
+            delete next[id];
+            return next;
+          }),
+      },
+    );
+  };
+
   const totalValue = items
-    .filter((o) => o.stage !== "perdido")
+    .filter((o) => !INACTIVE_OPPORTUNITY_STAGES.has(effectiveStage(o)))
     .reduce((s, o) => s + o.valueBrl, 0);
 
   return (
@@ -98,6 +135,9 @@ export default function CrmOpportunitiesPage() {
             <p className="text-xs text-muted-foreground mt-2 tabular-nums">
               {items.length} de {total} oportunidades · Valor filtrado:{" "}
               {formatBrl(totalValue)}
+            </p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Arraste um card entre as colunas para mudar a fase.
             </p>
           </div>
           <div className="flex gap-2">
@@ -163,7 +203,7 @@ export default function CrmOpportunitiesPage() {
         </CrmFilters>
 
         {isLoading ? (
-          <CrmLoadingState />
+          <CrmCardGridSkeleton cards={8} columns={4} />
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : items.length === 0 ? (
@@ -176,10 +216,28 @@ export default function CrmOpportunitiesPage() {
           <div className="overflow-x-auto pb-2">
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 min-w-[960px]">
               {stages.map((stage) => {
-                const stageItems = items.filter((o) => o.stage === stage.id);
+                const stageItems = items.filter(
+                  (o) => effectiveStage(o) === stage.id,
+                );
                 const stageValue = stageItems.reduce((s, o) => s + o.valueBrl, 0);
+                const isDropTarget = dragOverStage === stage.id;
                 return (
-                  <div key={stage.id} className="min-w-[220px]">
+                  <div
+                    key={stage.id}
+                    className="min-w-[220px]"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = "move";
+                      if (dragOverStage !== stage.id) setDragOverStage(stage.id);
+                    }}
+                    onDragLeave={(e) => {
+                      // Só limpa quando o ponteiro sai do container, não dos filhos.
+                      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                        setDragOverStage((s) => (s === stage.id ? null : s));
+                      }
+                    }}
+                    onDrop={handleDrop(stage.id)}
+                  >
                     <div className="flex items-center justify-between mb-3 px-1">
                       <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {stage.label}
@@ -191,9 +249,21 @@ export default function CrmOpportunitiesPage() {
                         <Badge variant="muted">{stageItems.length}</Badge>
                       </div>
                     </div>
-                    <div className="space-y-3 min-h-[120px]">
+                    <div
+                      className={`space-y-3 min-h-[120px] rounded-xl transition-colors ${
+                        isDropTarget ? "bg-primary/5 ring-2 ring-primary/40 ring-inset" : ""
+                      }`}
+                    >
                       {stageItems.map((o) => (
-                        <Card key={o.id} className="p-4">
+                        <Card
+                          key={o.id}
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData("text/plain", o.id);
+                            e.dataTransfer.effectAllowed = "move";
+                          }}
+                          className="p-4 cursor-grab active:cursor-grabbing"
+                        >
                           <div className="flex items-start justify-between gap-2">
                             <Link
                               href={ROUTES.crm.opportunityDetail(o.id)}
@@ -228,7 +298,7 @@ export default function CrmOpportunitiesPage() {
                       ))}
                       {stageItems.length === 0 && (
                         <p className="text-xs text-muted-foreground text-center py-8 border border-dashed rounded-xl">
-                          Sem oportunidades nesta fase
+                          {isDropTarget ? "Soltar aqui" : "Sem oportunidades nesta fase"}
                         </p>
                       )}
                     </div>

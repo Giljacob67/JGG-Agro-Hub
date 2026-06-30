@@ -2,17 +2,23 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
+import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { BulkActionsBar } from "@/components/crm/bulk-actions-bar";
+import { SavedViewsBar } from "@/components/crm/saved-views-bar";
 import { CreateTaskForm } from "@/components/crm/create-task-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
+import { useTableSort } from "@/hooks/use-table-sort";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useBulkApply } from "@/hooks/use-bulk-apply";
+import { useSavedViews } from "@/hooks/use-saved-views";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useTasks, useUpdateTaskStatus } from "@/hooks/use-crm-queries";
-import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import { DEFAULT_PAGE_SIZE, type SortDir } from "@shared/agro/list-types";
 import { toast } from "sonner";
 import {
   TASK_STATUS,
@@ -25,6 +31,17 @@ import {
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import type { TaskPriority, TaskStatus } from "@shared/agro/types";
 
+interface TasksView {
+  search: string;
+  statusFilter: string;
+  priorityFilter: string;
+  ownerFilter: string;
+  typeFilter: string;
+  dueFilter: string;
+  sort?: string;
+  dir?: SortDir;
+}
+
 export default function CrmTasksPage() {
   usePageTitle("Tarefas");
   const updateStatus = useUpdateTaskStatus();
@@ -36,6 +53,8 @@ export default function CrmTasksPage() {
   const [dueFilter, setDueFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { sort, dir, onSort, setSort } = useTableSort();
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     statusFilter,
@@ -43,28 +62,36 @@ export default function CrmTasksPage() {
     ownerFilter,
     typeFilter,
     dueFilter,
+    sort,
+    dir,
+    pageSize,
   );
 
   const listParams = useMemo(
     () => ({
       facets: true,
       page,
-      pageSize: DEFAULT_PAGE_SIZE,
+      pageSize,
       search: debouncedSearch.trim() || undefined,
       status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
       priority: priorityFilter !== FILTER_ALL ? priorityFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
       type: typeFilter !== FILTER_ALL ? typeFilter : undefined,
       due: dueFilter !== FILTER_ALL ? dueFilter : undefined,
+      sort,
+      dir,
     }),
     [
       page,
+      pageSize,
       debouncedSearch,
       statusFilter,
       priorityFilter,
       ownerFilter,
       typeFilter,
       dueFilter,
+      sort,
+      dir,
     ],
   );
 
@@ -73,10 +100,34 @@ export default function CrmTasksPage() {
   const total = data?.total ?? 0;
   const facets = data?.facets;
 
+  const selection = useRowSelection(items.map((i) => i.id));
+  const bulk = useBulkApply();
+
   const isFiltered = hasActiveFilters(
     { statusFilter, priorityFilter, ownerFilter, typeFilter, dueFilter },
     search,
   );
+
+  const savedViews = useSavedViews<TasksView>("tasks");
+  const currentView: TasksView = {
+    search,
+    statusFilter,
+    priorityFilter,
+    ownerFilter,
+    typeFilter,
+    dueFilter,
+    sort,
+    dir,
+  };
+  const applyView = (v: TasksView) => {
+    setSearch(v.search);
+    setStatusFilter(v.statusFilter);
+    setPriorityFilter(v.priorityFilter);
+    setOwnerFilter(v.ownerFilter);
+    setTypeFilter(v.typeFilter);
+    setDueFilter(v.dueFilter);
+    setSort(v.sort, v.dir);
+  };
 
   return (
     <AppShell>
@@ -93,6 +144,14 @@ export default function CrmTasksPage() {
             <CreateTaskForm />
           </div>
         </header>
+        <SavedViewsBar
+          views={savedViews.views}
+          currentState={currentView}
+          isEmptyState={!isFiltered && !sort}
+          onApply={applyView}
+          onSave={(name) => savedViews.save(name, currentView)}
+          onRemove={savedViews.remove}
+        />
         <CrmFilters
           search={search}
           onSearchChange={setSearch}
@@ -154,13 +213,47 @@ export default function CrmTasksPage() {
           />
         </CrmFilters>
         {isLoading ? (
-          <CrmLoadingState />
+          <CrmTableSkeleton cols={7} />
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (
+          <>
+          <BulkActionsBar
+            count={selection.count}
+            isPending={bulk.isPending}
+            onClear={selection.clear}
+            actions={[
+              {
+                id: "status",
+                label: "Alterar status",
+                options: (
+                  Object.entries(TASK_STATUS) as [TaskStatus, string][]
+                ).map(([value, label]) => ({ value, label })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) =>
+                      updateStatus.mutateAsync({
+                        id,
+                        status: value as TaskStatus,
+                      }),
+                    selection.clear,
+                  ),
+              },
+            ]}
+          />
           <EntityTable
             data={items}
             isFiltered={isFiltered}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
+            selectable
+            selectedIds={selection.selected}
+            onToggleRow={selection.toggle}
+            onToggleAll={selection.toggleAll}
+            allSelected={selection.allSelected}
+            someSelected={selection.someSelected}
             getRowClassName={(r) =>
               isTaskOverdue(r) ? "bg-red-50/60 dark:bg-red-950/20" : undefined
             }
@@ -168,6 +261,7 @@ export default function CrmTasksPage() {
               {
                 key: "title",
                 header: "Tarefa",
+                sortKey: "title",
                 cell: (r) => <span className="font-medium">{r.title}</span>,
               },
               {
@@ -180,11 +274,13 @@ export default function CrmTasksPage() {
               {
                 key: "type",
                 header: "Tipo",
+                sortKey: "type",
                 cell: (r) => <Badge variant="secondary">{r.type}</Badge>,
               },
               {
                 key: "priority",
                 header: "Prioridade",
+                sortKey: "priority",
                 cell: (r) => (
                   <Badge variant={priorityBadgeVariant(r.priority)}>
                     {TASK_PRIORITY[r.priority]}
@@ -194,6 +290,7 @@ export default function CrmTasksPage() {
               {
                 key: "status",
                 header: "Status",
+                sortKey: "status",
                 cell: (r) => (
                   <select
                     value={r.status}
@@ -218,6 +315,7 @@ export default function CrmTasksPage() {
               {
                 key: "due",
                 header: "Prazo",
+                sortKey: "dueDate",
                 cell: (r) => (
                   <span
                     className={
@@ -232,16 +330,18 @@ export default function CrmTasksPage() {
                   </span>
                 ),
               },
-              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+              { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
             ]}
           />
+          </>
         )}
         {!isLoading && !isError && (
           <CrmPagination
             page={data?.page ?? page}
-            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            pageSize={data?.pageSize ?? pageSize}
             total={total}
             onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         )}
       </div>

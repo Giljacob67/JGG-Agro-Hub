@@ -15,8 +15,12 @@ export interface PaginatedResult<T> {
   facets?: Record<string, string[]>;
 }
 
+export type SortDir = "asc" | "desc";
+
 export interface ListParamsBase extends PaginationParams {
   facets?: boolean;
+  sort?: string;
+  dir?: SortDir;
 }
 
 export interface LeadListParams extends ListParamsBase {

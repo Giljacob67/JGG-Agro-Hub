@@ -13,6 +13,14 @@ import {
 } from "@shared/agro/filters";
 import { paginate } from "@shared/agro/list-types";
 import {
+  sortItems,
+  LEAD_SORT,
+  ACCOUNT_SORT,
+  OPPORTUNITY_SORT,
+  MATTER_SORT,
+  TASK_SORT,
+} from "@shared/agro/sort";
+import {
   parseAccountParams,
   parseLeadParams,
   parseMatterParams,
@@ -21,7 +29,7 @@ import {
 } from "@shared/agro/list-params";
 import { resolveCopilotQuery } from "@shared/agro/copilot";
 import { KNOWLEDGE_CATEGORIES, KNOWLEDGE_DOCUMENTS } from "@shared/agro/knowledge";
-import { computeCrmStats } from "@shared/agro/stats";
+import { computeCrmStats, computeCrmTimeseries } from "@shared/agro/stats";
 import type {
   AiAssistRequest,
   AiAssistResponse,
@@ -400,7 +408,7 @@ export async function handleLocalApi(
 
     const query = parseLeadParams(params);
     const all = listLeads();
-    const result = paginate(filterLeads(all, query), query);
+    const result = paginate(sortItems(filterLeads(all, query), query, LEAD_SORT), query);
     if (query.facets) result.facets = buildLeadFacets(all);
     return { status: 200, data: result };
   }
@@ -467,7 +475,7 @@ export async function handleLocalApi(
 
     const query = parseAccountParams(params);
     const all = listAccounts();
-    const result = paginate(filterAccounts(all, query), query);
+    const result = paginate(sortItems(filterAccounts(all, query), query, ACCOUNT_SORT), query);
     if (query.facets) result.facets = buildAccountFacets(all);
     return { status: 200, data: result };
   }
@@ -493,7 +501,7 @@ export async function handleLocalApi(
 
     const query = parseOpportunityParams(params);
     const all = listOpportunities();
-    const result = paginate(filterOpportunities(all, query), query);
+    const result = paginate(sortItems(filterOpportunities(all, query), query, OPPORTUNITY_SORT), query);
     if (query.facets) result.facets = buildOpportunityFacets(all);
     return { status: 200, data: result };
   }
@@ -524,7 +532,7 @@ export async function handleLocalApi(
 
     const query = parseMatterParams(params);
     const all = listMatters();
-    const result = paginate(filterMatters(all, query), query);
+    const result = paginate(sortItems(filterMatters(all, query), query, MATTER_SORT), query);
     if (query.facets) result.facets = buildMatterFacets(all);
     return { status: 200, data: result };
   }
@@ -554,7 +562,7 @@ export async function handleLocalApi(
 
     const query = parseTaskParams(params);
     const all = listTasks();
-    const result = paginate(filterTasks(all, query), query);
+    const result = paginate(sortItems(filterTasks(all, query), query, TASK_SORT), query);
     if (query.facets) result.facets = buildTaskFacets(all);
     return { status: 200, data: result };
   }
@@ -631,6 +639,10 @@ export async function handleLocalApi(
 
   if (pathname === "/api/agro/stats") {
     return { status: 200, data: computeCrmStats() };
+  }
+
+  if (pathname === "/api/agro/timeseries") {
+    return { status: 200, data: computeCrmTimeseries() };
   }
 
   if (pathname === "/api/agro/copilot" && init?.method === "POST") {
@@ -827,6 +839,21 @@ export async function handleLocalApi(
       };
     }
 
+    if (init.method === "POST" && params.get("action") === "reindex-embeddings") {
+      // Mock sem DB: embeddings vivem em cache de memória, nada a persistir.
+      return {
+        status: 200,
+        data: {
+          total: docs.length,
+          pending: 0,
+          seeded: 0,
+          remaining: 0,
+          done: true,
+          skipped: true,
+        },
+      };
+    }
+
     if (init.method === "POST") {
       const body = JSON.parse(String(init.body));
       const doc: KnowledgeDocument = {
@@ -842,6 +869,13 @@ export async function handleLocalApi(
         fileName: body.fileName != null ? String(body.fileName) : undefined,
         fileSize: body.fileSize != null ? Number(body.fileSize) : undefined,
         fileType: body.fileType != null ? String(body.fileType) : undefined,
+        tribunal: body.tribunal != null ? String(body.tribunal) : undefined,
+        relator: body.relator != null ? String(body.relator) : undefined,
+        dataJulgamento:
+          body.dataJulgamento != null ? String(body.dataJulgamento) : undefined,
+        numeroProcesso:
+          body.numeroProcesso != null ? String(body.numeroProcesso) : undefined,
+        ementa: body.ementa != null ? String(body.ementa) : undefined,
         updatedAt: new Date().toISOString(),
       };
       docs.unshift(doc);
@@ -879,6 +913,27 @@ export async function handleLocalApi(
           : {}),
         ...(body.fileType !== undefined
           ? { fileType: body.fileType != null ? String(body.fileType) : undefined }
+          : {}),
+        ...(body.tribunal !== undefined
+          ? { tribunal: body.tribunal != null ? String(body.tribunal) : undefined }
+          : {}),
+        ...(body.relator !== undefined
+          ? { relator: body.relator != null ? String(body.relator) : undefined }
+          : {}),
+        ...(body.dataJulgamento !== undefined
+          ? {
+              dataJulgamento:
+                body.dataJulgamento != null ? String(body.dataJulgamento) : undefined,
+            }
+          : {}),
+        ...(body.numeroProcesso !== undefined
+          ? {
+              numeroProcesso:
+                body.numeroProcesso != null ? String(body.numeroProcesso) : undefined,
+            }
+          : {}),
+        ...(body.ementa !== undefined
+          ? { ementa: body.ementa != null ? String(body.ementa) : undefined }
           : {}),
         updatedAt: new Date().toISOString(),
       };

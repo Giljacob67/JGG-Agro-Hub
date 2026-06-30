@@ -53,7 +53,15 @@ import {
   mapTimeEntry,
 } from "./mappers.js";
 import { toJsonArray, toJsonValue } from "./json-utils.js";
-import { OPPORTUNITY_STAGES } from "../../../shared/agro/seed.js";
+import {
+  orderByClause,
+  LEAD_DB_SORT,
+  ACCOUNT_DB_SORT,
+  OPPORTUNITY_DB_SORT,
+  MATTER_DB_SORT,
+  TASK_DB_SORT,
+} from "../../../shared/agro/sort.js";
+import { OPPORTUNITY_STAGES, INACTIVE_OPPORTUNITY_STAGES } from "../../../shared/agro/seed.js";
 import type { DemoSeedIds } from "../../../shared/agro/seed.js";
 
 function uuidPrefix(prefix: string) {
@@ -99,8 +107,9 @@ export async function dbListLeads(
   const pageSize = Math.min(params.pageSize ?? 20, 100);
   const offset = (page - 1) * pageSize;
   const { text: pagText, values: pagValues } = appendPagination(pageSize, offset, where.values);
+  const orderBy = orderByClause(params, LEAD_DB_SORT, "created_at DESC");
   const rows = await sql.query(
-    `SELECT * FROM agro.leads ${whereSql} ORDER BY created_at DESC ${pagText}`,
+    `SELECT * FROM agro.leads ${whereSql} ${orderBy} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapLead(r as Record<string, unknown>));
@@ -311,7 +320,7 @@ export async function dbListAccounts(
     `SELECT a.*,
       (SELECT COUNT(*)::int FROM agro.matters m WHERE m.account_id = a.id AND m.status != 'concluida') AS active_matters,
       (SELECT COUNT(*)::int FROM agro.opportunities o WHERE o.account_id = a.id AND o.stage NOT IN ('perdido', 'contrato', 'arquivado')) AS active_opportunities
-    FROM agro.accounts a ${whereSql} ORDER BY a.name ${pagText}`,
+    FROM agro.accounts a ${whereSql} ${orderByClause(params, ACCOUNT_DB_SORT, "a.name")} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapAccount(r as Record<string, unknown>));
@@ -457,7 +466,7 @@ export async function dbListOpportunities(
   const offset = (page - 1) * pageSize;
   const { text: pagText, values: pagValues } = appendPagination(pageSize, offset, where.values);
   const rows = await sql.query(
-    `SELECT * FROM agro.opportunities ${whereSql} ORDER BY expected_close ${pagText}`,
+    `SELECT * FROM agro.opportunities ${whereSql} ${orderByClause(params, OPPORTUNITY_DB_SORT, "expected_close")} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapOpportunity(r as Record<string, unknown>));
@@ -508,7 +517,7 @@ export async function dbListMatters(
   const offset = (page - 1) * pageSize;
   const { text: pagText, values: pagValues } = appendPagination(pageSize, offset, where.values);
   const rows = await sql.query(
-    `SELECT * FROM agro.matters ${whereSql} ORDER BY deadline ${pagText}`,
+    `SELECT * FROM agro.matters ${whereSql} ${orderByClause(params, MATTER_DB_SORT, "deadline")} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapMatter(r as Record<string, unknown>));
@@ -555,7 +564,7 @@ export async function dbListTasks(
   const offset = (page - 1) * pageSize;
   const { text: pagText, values: pagValues } = appendPagination(pageSize, offset, where.values);
   const rows = await sql.query(
-    `SELECT * FROM agro.tasks ${whereSql} ORDER BY due_date ${pagText}`,
+    `SELECT * FROM agro.tasks ${whereSql} ${orderByClause(params, TASK_DB_SORT, "due_date")} ${pagText}`,
     pagValues,
   );
   const items = rows.map((r) => mapTask(r as Record<string, unknown>));
@@ -1151,7 +1160,7 @@ export async function dbGetCrmStats(): Promise<CrmStats> {
   const stageMap = new Map<string, { count: number; value: number }>();
   for (const r of stageRows) stageMap.set(String(r.stage), { count: Number(r.c), value: Number(r.v) });
   const pipelineByStage = OPPORTUNITY_STAGES
-    .filter((s) => s.id !== "perdido")
+    .filter((s) => !INACTIVE_OPPORTUNITY_STAGES.has(s.id))
     .map((s) => {
       const e = stageMap.get(s.id);
       return { id: s.id, label: s.label, count: e?.count ?? 0, value: e?.value ?? 0 };
@@ -1810,13 +1819,16 @@ export async function dbCreateKnowledgeDocument(doc: KnowledgeDocument): Promise
   await sql`
     INSERT INTO agro.kb_documents (
       id, category_id, title, summary, tags, type, status,
-      body, file_url, file_name, file_size, file_type, updated_at
+      body, file_url, file_name, file_size, file_type,
+      tribunal, relator, data_julgamento, numero_processo, ementa, updated_at
     )
     VALUES (
       ${doc.id}, ${doc.categoryId}, ${doc.title}, ${doc.summary},
       ${toJsonValue(doc.tags ?? [])}, ${doc.type}, ${doc.status},
       ${doc.body ?? null}, ${doc.fileUrl ?? null}, ${doc.fileName ?? null},
-      ${doc.fileSize ?? null}, ${doc.fileType ?? null}, ${doc.updatedAt}
+      ${doc.fileSize ?? null}, ${doc.fileType ?? null},
+      ${doc.tribunal ?? null}, ${doc.relator ?? null}, ${doc.dataJulgamento ?? null},
+      ${doc.numeroProcesso ?? null}, ${doc.ementa ?? null}, ${doc.updatedAt}
     )
   `;
   const created = await dbGetKnowledgeDocument(doc.id);
@@ -1846,6 +1858,13 @@ export async function dbUpdateKnowledgeDocument(
   if (patch.fileName !== undefined) set("file_name", patch.fileName ?? null);
   if (patch.fileSize !== undefined) set("file_size", patch.fileSize ?? null);
   if (patch.fileType !== undefined) set("file_type", patch.fileType ?? null);
+  if (patch.tribunal !== undefined) set("tribunal", patch.tribunal ?? null);
+  if (patch.relator !== undefined) set("relator", patch.relator ?? null);
+  if (patch.dataJulgamento !== undefined)
+    set("data_julgamento", patch.dataJulgamento ?? null);
+  if (patch.numeroProcesso !== undefined)
+    set("numero_processo", patch.numeroProcesso ?? null);
+  if (patch.ementa !== undefined) set("ementa", patch.ementa ?? null);
   set("updated_at", patch.updatedAt ?? new Date().toISOString());
   values.push(id);
   await sql.query(

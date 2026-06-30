@@ -4,9 +4,11 @@ import { Download, Upload } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
+import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { BulkActionsBar } from "@/components/crm/bulk-actions-bar";
+import { SavedViewsBar } from "@/components/crm/saved-views-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateLeadForm } from "@/components/crm/create-lead-form";
@@ -14,13 +16,30 @@ import { LeadListsBar, LIST_ALL, LIST_NONE } from "@/components/crm/lead-lists-b
 import { ImportLeadsDialog } from "@/components/crm/import-leads-dialog";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
+import { useTableSort } from "@/hooks/use-table-sort";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useBulkApply } from "@/hooks/use-bulk-apply";
+import { useSavedViews } from "@/hooks/use-saved-views";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { useLeads } from "@/hooks/use-crm-queries";
-import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import { useLeads, useUpdateLead } from "@/hooks/use-crm-queries";
+import { DEFAULT_PAGE_SIZE, type SortDir } from "@shared/agro/list-types";
+import type { LeadStatus } from "@shared/agro/types";
 import { LEAD_STATUS, formatDate, isWithinDays } from "@/lib/crm-labels";
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { exportToCsv } from "@/lib/export-csv";
 import { ROUTES } from "@/lib/routes";
+
+interface LeadsView {
+  search: string;
+  statusFilter: string;
+  regionFilter: string;
+  sourceFilter: string;
+  cropFilter: string;
+  ownerFilter: string;
+  listFilter: string;
+  sort?: string;
+  dir?: SortDir;
+}
 
 export default function CrmLeadsPage() {
   usePageTitle("Leads Agro");
@@ -34,6 +53,8 @@ export default function CrmLeadsPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search);
+  const { sort, dir, onSort, setSort } = useTableSort();
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
     statusFilter,
@@ -42,13 +63,16 @@ export default function CrmLeadsPage() {
     cropFilter,
     ownerFilter,
     listFilter,
+    sort,
+    dir,
+    pageSize,
   );
 
   const listParams = useMemo(
     () => ({
       facets: true,
       page,
-      pageSize: DEFAULT_PAGE_SIZE,
+      pageSize,
       search: debouncedSearch.trim() || undefined,
       status: statusFilter !== FILTER_ALL ? statusFilter : undefined,
       region: regionFilter !== FILTER_ALL ? regionFilter : undefined,
@@ -56,9 +80,12 @@ export default function CrmLeadsPage() {
       crop: cropFilter !== FILTER_ALL ? cropFilter : undefined,
       owner: ownerFilter !== FILTER_ALL ? ownerFilter : undefined,
       listId: listFilter !== LIST_ALL ? listFilter : undefined,
+      sort,
+      dir,
     }),
     [
       page,
+      pageSize,
       debouncedSearch,
       statusFilter,
       regionFilter,
@@ -66,6 +93,8 @@ export default function CrmLeadsPage() {
       cropFilter,
       ownerFilter,
       listFilter,
+      sort,
+      dir,
     ],
   );
 
@@ -74,10 +103,37 @@ export default function CrmLeadsPage() {
   const total = data?.total ?? 0;
   const facets = data?.facets;
 
+  const selection = useRowSelection(items.map((i) => i.id));
+  const updateLead = useUpdateLead();
+  const bulk = useBulkApply();
+
   const isFiltered = hasActiveFilters(
     { statusFilter, regionFilter, sourceFilter, cropFilter, ownerFilter },
     search,
   );
+
+  const savedViews = useSavedViews<LeadsView>("leads");
+  const currentView: LeadsView = {
+    search,
+    statusFilter,
+    regionFilter,
+    sourceFilter,
+    cropFilter,
+    ownerFilter,
+    listFilter,
+    sort,
+    dir,
+  };
+  const applyView = (v: LeadsView) => {
+    setSearch(v.search);
+    setStatusFilter(v.statusFilter);
+    setRegionFilter(v.regionFilter);
+    setSourceFilter(v.sourceFilter);
+    setCropFilter(v.cropFilter);
+    setOwnerFilter(v.ownerFilter);
+    setListFilter(v.listFilter);
+    setSort(v.sort, v.dir);
+  };
 
   return (
     <AppShell>
@@ -127,6 +183,14 @@ export default function CrmLeadsPage() {
           }
         />
         <LeadListsBar value={listFilter} onChange={setListFilter} />
+        <SavedViewsBar
+          views={savedViews.views}
+          currentState={currentView}
+          isEmptyState={!isFiltered && !sort}
+          onApply={applyView}
+          onSave={(name) => savedViews.save(name, currentView)}
+          onRemove={savedViews.remove}
+        />
         <CreateLeadForm
           listId={
             listFilter !== LIST_ALL && listFilter !== LIST_NONE
@@ -191,13 +255,62 @@ export default function CrmLeadsPage() {
           />
         </CrmFilters>
         {isLoading ? (
-          <CrmLoadingState />
+          <CrmTableSkeleton cols={6} />
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (
+          <>
+          <BulkActionsBar
+            count={selection.count}
+            isPending={bulk.isPending}
+            onClear={selection.clear}
+            actions={[
+              {
+                id: "status",
+                label: "Alterar status",
+                options: Object.entries(LEAD_STATUS).map(([value, label]) => ({
+                  value,
+                  label,
+                })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) =>
+                      updateLead.mutateAsync({
+                        id,
+                        patch: { status: value as LeadStatus },
+                      }),
+                    selection.clear,
+                  ),
+              },
+              {
+                id: "owner",
+                label: "Atribuir responsável",
+                options: (facets?.owners ?? []).map((o) => ({
+                  value: o,
+                  label: o,
+                })),
+                onApply: (value) =>
+                  bulk.apply(
+                    selection.selectedIds,
+                    (id) => updateLead.mutateAsync({ id, patch: { owner: value } }),
+                    selection.clear,
+                  ),
+              },
+            ]}
+          />
           <EntityTable
             data={items}
             isFiltered={isFiltered}
+            sort={sort}
+            dir={dir}
+            onSort={onSort}
+            selectable
+            selectedIds={selection.selected}
+            onToggleRow={selection.toggle}
+            onToggleAll={selection.toggleAll}
+            allSelected={selection.allSelected}
+            someSelected={selection.someSelected}
             columns={[
               {
                 key: "id",
@@ -207,6 +320,7 @@ export default function CrmLeadsPage() {
               {
                 key: "name",
                 header: "Nome",
+                sortKey: "name",
                 cell: (r) => (
                   <Link
                     href={ROUTES.crm.leadDetail(r.id)}
@@ -216,19 +330,21 @@ export default function CrmLeadsPage() {
                   </Link>
                 ),
               },
-              { key: "region", header: "Região", cell: (r) => r.region },
-              { key: "crop", header: "Cultura / operação", cell: (r) => r.crop },
+              { key: "region", header: "Região", sortKey: "region", cell: (r) => r.region },
+              { key: "crop", header: "Cultura / operação", sortKey: "crop", cell: (r) => r.crop },
               {
                 key: "status",
                 header: "Status",
+                sortKey: "status",
                 cell: (r) => (
                   <Badge variant="outline">{LEAD_STATUS[r.status]}</Badge>
                 ),
               },
-              { key: "owner", header: "Responsável", cell: (r) => r.owner },
+              { key: "owner", header: "Responsável", sortKey: "owner", cell: (r) => r.owner },
               {
                 key: "nextContact",
                 header: "Próximo contato",
+                sortKey: "nextContact",
                 cell: (r) =>
                   r.nextContact ? (
                     <span
@@ -247,17 +363,20 @@ export default function CrmLeadsPage() {
               {
                 key: "created",
                 header: "Criado",
+                sortKey: "createdAt",
                 cell: (r) => formatDate(r.createdAt),
               },
             ]}
           />
+          </>
         )}
         {!isLoading && !isError && (
           <CrmPagination
             page={data?.page ?? page}
-            pageSize={data?.pageSize ?? DEFAULT_PAGE_SIZE}
+            pageSize={data?.pageSize ?? pageSize}
             total={total}
             onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         )}
       </div>

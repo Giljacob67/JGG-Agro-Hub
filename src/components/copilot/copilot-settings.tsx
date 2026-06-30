@@ -29,6 +29,7 @@ export function CopilotSettings({ canEdit }: Props) {
 
   useEffect(() => {
     if (data?.current) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProvider(data.current.provider);
       setModel(data.current.model);
       setTemperature(data.current.temperature ?? 0.3);

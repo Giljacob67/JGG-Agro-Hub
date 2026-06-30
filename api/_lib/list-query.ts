@@ -5,6 +5,7 @@ import {
   type LeadListParams,
   type MatterListParams,
   type OpportunityListParams,
+  type SortDir,
   type TaskListParams,
 } from "../../shared/agro/list-types.js";
 
@@ -32,6 +33,11 @@ function bool(value: string | string[] | undefined): boolean | undefined {
   return v === "1" || v === "true";
 }
 
+function dir(value: string | string[] | undefined): SortDir | undefined {
+  const v = str(value);
+  return v === "desc" ? "desc" : v === "asc" ? "asc" : undefined;
+}
+
 export function parseLeadListQuery(req: VercelRequest): LeadListParams {
   return {
     page: num(req.query.page),
@@ -44,6 +50,8 @@ export function parseLeadListQuery(req: VercelRequest): LeadListParams {
     crop: str(req.query.crop),
     owner: str(req.query.owner),
     listId: str(req.query.listId),
+    sort: str(req.query.sort),
+    dir: dir(req.query.dir),
   };
 }
 
@@ -56,6 +64,8 @@ export function parseAccountListQuery(req: VercelRequest): AccountListParams {
     type: str(req.query.type),
     region: str(req.query.region),
     owner: str(req.query.owner),
+    sort: str(req.query.sort),
+    dir: dir(req.query.dir),
   };
 }
 
@@ -72,6 +82,8 @@ export function parseOpportunityListQuery(
     owner: str(req.query.owner),
     priority: str(req.query.priority),
     valueRange: str(req.query.valueRange),
+    sort: str(req.query.sort),
+    dir: dir(req.query.dir),
   };
 }
 
@@ -86,6 +98,8 @@ export function parseMatterListQuery(req: VercelRequest): MatterListParams {
     practice: str(req.query.practice),
     owner: str(req.query.owner),
     deadline: str(req.query.deadline),
+    sort: str(req.query.sort),
+    dir: dir(req.query.dir),
   };
 }
 
@@ -100,5 +114,7 @@ export function parseTaskListQuery(req: VercelRequest): TaskListParams {
     owner: str(req.query.owner),
     type: str(req.query.type),
     due: str(req.query.due),
+    sort: str(req.query.sort),
+    dir: dir(req.query.dir),
   };
 }
