@@ -7,6 +7,7 @@ import { ContactManager } from "@/components/crm/contact-manager";
 import { PropertyManager } from "@/components/crm/property-manager";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { CrmDetailSkeleton } from "@/components/crm/loading-state";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useAccountTimeline } from "@/hooks/use-crm-queries";
 import { ACCOUNT_TYPE, RELATIONSHIP_STATUS, formatDate } from "@/lib/crm-labels";
@@ -22,7 +23,9 @@ export default function CrmAccountDetailPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <p className="text-sm text-muted-foreground p-6">Carregando conta…</p>
+        <div className="max-w-5xl mx-auto p-6">
+          <CrmDetailSkeleton />
+        </div>
       </AppShell>
     );
   }

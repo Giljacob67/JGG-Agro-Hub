@@ -5,6 +5,7 @@ import { DetailBackLink } from "@/components/crm/detail-back-link";
 import { AiAssistPanel } from "@/components/crm/ai-assist-panel";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { CrmDetailSkeleton } from "@/components/crm/loading-state";
 import { usePageTitle } from "@/hooks/use-page-title";
 import {
   useOpportunity,
@@ -33,7 +34,9 @@ export default function CrmOpportunityDetailPage() {
   if (isLoading) {
     return (
       <AppShell>
-        <p className="text-sm text-muted-foreground p-6">Carregando…</p>
+        <div className="max-w-5xl mx-auto p-6">
+          <CrmDetailSkeleton />
+        </div>
       </AppShell>
     );
   }

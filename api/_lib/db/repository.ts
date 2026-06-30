@@ -53,7 +53,7 @@ import {
   mapTimeEntry,
 } from "./mappers.js";
 import { toJsonArray, toJsonValue } from "./json-utils.js";
-import { OPPORTUNITY_STAGES } from "../../../shared/agro/seed.js";
+import { OPPORTUNITY_STAGES, INACTIVE_OPPORTUNITY_STAGES } from "../../../shared/agro/seed.js";
 import type { DemoSeedIds } from "../../../shared/agro/seed.js";
 
 function uuidPrefix(prefix: string) {
@@ -1151,7 +1151,7 @@ export async function dbGetCrmStats(): Promise<CrmStats> {
   const stageMap = new Map<string, { count: number; value: number }>();
   for (const r of stageRows) stageMap.set(String(r.stage), { count: Number(r.c), value: Number(r.v) });
   const pipelineByStage = OPPORTUNITY_STAGES
-    .filter((s) => s.id !== "perdido")
+    .filter((s) => !INACTIVE_OPPORTUNITY_STAGES.has(s.id))
     .map((s) => {
       const e = stageMap.get(s.id);
       return { id: s.id, label: s.label, count: e?.count ?? 0, value: e?.value ?? 0 };

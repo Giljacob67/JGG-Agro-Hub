@@ -4,7 +4,7 @@ import { Download, Upload } from "lucide-react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
+import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { Badge } from "@/components/ui/badge";
@@ -191,7 +191,7 @@ export default function CrmLeadsPage() {
           />
         </CrmFilters>
         {isLoading ? (
-          <CrmLoadingState />
+          <CrmTableSkeleton cols={6} />
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (

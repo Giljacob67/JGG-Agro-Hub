@@ -2,14 +2,15 @@ import { Link } from "wouter";
 import type { CrmStats } from "@shared/agro/types";
 import { formatBrl } from "@/lib/crm-labels";
 import { ROUTES } from "@/lib/routes";
-import { cn } from "@/lib/utils";
+import { PipelineFunnelChart } from "./charts/pipeline-funnel-chart";
 
 interface PipelineHealthBoardProps {
   stages: CrmStats["pipelineByStage"];
 }
 
 export function PipelineHealthBoard({ stages }: PipelineHealthBoardProps) {
-  const maxCount = Math.max(...stages.map((s) => s.count), 1);
+  const totalValue = stages.reduce((sum, s) => sum + s.value, 0);
+  const totalCount = stages.reduce((sum, s) => sum + s.count, 0);
 
   return (
     <div className="surface-panel overflow-hidden">
@@ -26,32 +27,23 @@ export function PipelineHealthBoard({ stages }: PipelineHealthBoardProps) {
         </Link>
       </div>
 
-      <div className="p-5 grid sm:grid-cols-2 xl:grid-cols-4 gap-4">
-        {stages.map((stage) => {
-          const intensity = stage.count / maxCount;
-          return (
-            <div key={stage.id} className="surface-inset p-4">
-              <div className="flex items-start justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground leading-snug">
-                  {stage.label}
-                </p>
-                <span className="text-sm font-semibold tabular-nums">{stage.count}</span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2 tabular-nums">
-                {formatBrl(stage.value)}
-              </p>
-              <div className="mt-3 h-1 rounded-full bg-muted overflow-hidden">
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-all",
-                    intensity > 0.6 ? "bg-primary" : "bg-primary/45",
-                  )}
-                  style={{ width: `${Math.max(intensity * 100, stage.count > 0 ? 8 : 0)}%` }}
-                />
-              </div>
-            </div>
-          );
-        })}
+      <div className="px-5 pt-4 pb-1 flex flex-wrap gap-x-6 gap-y-1">
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Valor em pipeline
+          </p>
+          <p className="text-lg font-bold tabular-nums">{formatBrl(totalValue)}</p>
+        </div>
+        <div>
+          <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            Oportunidades
+          </p>
+          <p className="text-lg font-bold tabular-nums">{totalCount}</p>
+        </div>
+      </div>
+
+      <div className="p-5 pt-2">
+        <PipelineFunnelChart stages={stages} />
       </div>
     </div>
   );

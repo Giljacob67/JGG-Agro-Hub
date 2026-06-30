@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/app-shell";
 import { CrmFilters } from "@/components/crm/crm-filters";
 import { FilterSelect } from "@/components/crm/filter-select";
-import { CrmLoadingState, CrmErrorState } from "@/components/crm/loading-state";
+import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { CreateTaskForm } from "@/components/crm/create-task-form";
@@ -154,7 +154,7 @@ export default function CrmTasksPage() {
           />
         </CrmFilters>
         {isLoading ? (
-          <CrmLoadingState />
+          <CrmTableSkeleton cols={7} />
         ) : isError ? (
           <CrmErrorState error={error} />
         ) : (

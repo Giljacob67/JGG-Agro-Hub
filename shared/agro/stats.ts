@@ -1,5 +1,5 @@
 import { isOverdue, isWithinDays } from "./date-utils.js";
-import { OPPORTUNITY_STAGES } from "./seed.js";
+import { OPPORTUNITY_STAGES, INACTIVE_OPPORTUNITY_STAGES } from "./seed.js";
 import {
   listAccounts,
   listLeads,
@@ -77,7 +77,7 @@ function getUpcomingTasks(tasks: Task[], days = 7) {
 
 function getPipelineByStage(opportunities: Opportunity[]) {
   return OPPORTUNITY_STAGES.filter(
-    (s) => s.id !== "perdido",
+    (s) => !INACTIVE_OPPORTUNITY_STAGES.has(s.id),
   ).map((stage) => {
     const items = opportunities.filter((o) => o.stage === stage.id);
     return {
