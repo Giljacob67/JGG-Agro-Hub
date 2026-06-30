@@ -6,19 +6,30 @@ import { FilterSelect } from "@/components/crm/filter-select";
 import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state";
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
+import { SavedViewsBar } from "@/components/crm/saved-views-bar";
 import { CreateAccountForm } from "@/components/crm/create-account-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useTableSort } from "@/hooks/use-table-sort";
+import { useSavedViews } from "@/hooks/use-saved-views";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useAccounts } from "@/hooks/use-crm-queries";
-import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import { DEFAULT_PAGE_SIZE, type SortDir } from "@shared/agro/list-types";
 import { ACCOUNT_TYPE } from "@/lib/crm-labels";
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { ROUTES } from "@/lib/routes";
 import type { AccountType } from "@shared/agro/types";
+
+interface AccountsView {
+  search: string;
+  typeFilter: string;
+  regionFilter: string;
+  ownerFilter: string;
+  sort?: string;
+  dir?: SortDir;
+}
 
 export default function CrmAccountsPage() {
   usePageTitle("Contas Agro");
@@ -28,7 +39,7 @@ export default function CrmAccountsPage() {
   const [ownerFilter, setOwnerFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
-  const { sort, dir, onSort } = useTableSort();
+  const { sort, dir, onSort, setSort } = useTableSort();
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
@@ -65,6 +76,23 @@ export default function CrmAccountsPage() {
     search,
   );
 
+  const savedViews = useSavedViews<AccountsView>("accounts");
+  const currentView: AccountsView = {
+    search,
+    typeFilter,
+    regionFilter,
+    ownerFilter,
+    sort,
+    dir,
+  };
+  const applyView = (v: AccountsView) => {
+    setSearch(v.search);
+    setTypeFilter(v.typeFilter);
+    setRegionFilter(v.regionFilter);
+    setOwnerFilter(v.ownerFilter);
+    setSort(v.sort, v.dir);
+  };
+
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
@@ -80,6 +108,14 @@ export default function CrmAccountsPage() {
             <CreateAccountForm />
           </div>
         </header>
+        <SavedViewsBar
+          views={savedViews.views}
+          currentState={currentView}
+          isEmptyState={!isFiltered && !sort}
+          onApply={applyView}
+          onSave={(name) => savedViews.save(name, currentView)}
+          onRemove={savedViews.remove}
+        />
         <CrmFilters
           search={search}
           onSearchChange={setSearch}

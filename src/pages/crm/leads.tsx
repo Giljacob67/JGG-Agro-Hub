@@ -8,6 +8,7 @@ import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state"
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { BulkActionsBar } from "@/components/crm/bulk-actions-bar";
+import { SavedViewsBar } from "@/components/crm/saved-views-bar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CreateLeadForm } from "@/components/crm/create-lead-form";
@@ -18,14 +19,27 @@ import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useBulkApply } from "@/hooks/use-bulk-apply";
+import { useSavedViews } from "@/hooks/use-saved-views";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useLeads, useUpdateLead } from "@/hooks/use-crm-queries";
-import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import { DEFAULT_PAGE_SIZE, type SortDir } from "@shared/agro/list-types";
 import type { LeadStatus } from "@shared/agro/types";
 import { LEAD_STATUS, formatDate, isWithinDays } from "@/lib/crm-labels";
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import { exportToCsv } from "@/lib/export-csv";
 import { ROUTES } from "@/lib/routes";
+
+interface LeadsView {
+  search: string;
+  statusFilter: string;
+  regionFilter: string;
+  sourceFilter: string;
+  cropFilter: string;
+  ownerFilter: string;
+  listFilter: string;
+  sort?: string;
+  dir?: SortDir;
+}
 
 export default function CrmLeadsPage() {
   usePageTitle("Leads Agro");
@@ -39,7 +53,7 @@ export default function CrmLeadsPage() {
   const [importOpen, setImportOpen] = useState(false);
 
   const debouncedSearch = useDebouncedValue(search);
-  const { sort, dir, onSort } = useTableSort();
+  const { sort, dir, onSort, setSort } = useTableSort();
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
@@ -98,6 +112,29 @@ export default function CrmLeadsPage() {
     search,
   );
 
+  const savedViews = useSavedViews<LeadsView>("leads");
+  const currentView: LeadsView = {
+    search,
+    statusFilter,
+    regionFilter,
+    sourceFilter,
+    cropFilter,
+    ownerFilter,
+    listFilter,
+    sort,
+    dir,
+  };
+  const applyView = (v: LeadsView) => {
+    setSearch(v.search);
+    setStatusFilter(v.statusFilter);
+    setRegionFilter(v.regionFilter);
+    setSourceFilter(v.sourceFilter);
+    setCropFilter(v.cropFilter);
+    setOwnerFilter(v.ownerFilter);
+    setListFilter(v.listFilter);
+    setSort(v.sort, v.dir);
+  };
+
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
@@ -146,6 +183,14 @@ export default function CrmLeadsPage() {
           }
         />
         <LeadListsBar value={listFilter} onChange={setListFilter} />
+        <SavedViewsBar
+          views={savedViews.views}
+          currentState={currentView}
+          isEmptyState={!isFiltered && !sort}
+          onApply={applyView}
+          onSave={(name) => savedViews.save(name, currentView)}
+          onRemove={savedViews.remove}
+        />
         <CreateLeadForm
           listId={
             listFilter !== LIST_ALL && listFilter !== LIST_NONE

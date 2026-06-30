@@ -21,5 +21,10 @@ export function useTableSort() {
     });
   }, []);
 
-  return { sort: state.sort, dir: state.dir, onSort };
+  /** Define o estado de ordenação diretamente (ex: ao aplicar uma visão salva). */
+  const setSort = useCallback((sort?: string, dir?: SortDir) => {
+    setState(sort ? { sort, dir: dir ?? "asc" } : {});
+  }, []);
+
+  return { sort: state.sort, dir: state.dir, onSort, setSort };
 }

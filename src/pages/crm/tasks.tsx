@@ -6,6 +6,7 @@ import { CrmTableSkeleton, CrmErrorState } from "@/components/crm/loading-state"
 import { CrmPagination } from "@/components/crm/crm-pagination";
 import { EntityTable } from "@/components/crm/entity-table";
 import { BulkActionsBar } from "@/components/crm/bulk-actions-bar";
+import { SavedViewsBar } from "@/components/crm/saved-views-bar";
 import { CreateTaskForm } from "@/components/crm/create-task-form";
 import { ExportCsvButton } from "@/components/crm/export-csv-button";
 import { Badge } from "@/components/ui/badge";
@@ -14,9 +15,10 @@ import { useCrmListPage } from "@/hooks/use-crm-list-page";
 import { useTableSort } from "@/hooks/use-table-sort";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useBulkApply } from "@/hooks/use-bulk-apply";
+import { useSavedViews } from "@/hooks/use-saved-views";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useTasks, useUpdateTaskStatus } from "@/hooks/use-crm-queries";
-import { DEFAULT_PAGE_SIZE } from "@shared/agro/list-types";
+import { DEFAULT_PAGE_SIZE, type SortDir } from "@shared/agro/list-types";
 import { toast } from "sonner";
 import {
   TASK_STATUS,
@@ -29,6 +31,17 @@ import {
 import { FILTER_ALL, hasActiveFilters } from "@/lib/crm-filter-helpers";
 import type { TaskPriority, TaskStatus } from "@shared/agro/types";
 
+interface TasksView {
+  search: string;
+  statusFilter: string;
+  priorityFilter: string;
+  ownerFilter: string;
+  typeFilter: string;
+  dueFilter: string;
+  sort?: string;
+  dir?: SortDir;
+}
+
 export default function CrmTasksPage() {
   usePageTitle("Tarefas");
   const updateStatus = useUpdateTaskStatus();
@@ -40,7 +53,7 @@ export default function CrmTasksPage() {
   const [dueFilter, setDueFilter] = useState(FILTER_ALL);
 
   const debouncedSearch = useDebouncedValue(search);
-  const { sort, dir, onSort } = useTableSort();
+  const { sort, dir, onSort, setSort } = useTableSort();
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const { page, setPage } = useCrmListPage(
     debouncedSearch,
@@ -95,6 +108,27 @@ export default function CrmTasksPage() {
     search,
   );
 
+  const savedViews = useSavedViews<TasksView>("tasks");
+  const currentView: TasksView = {
+    search,
+    statusFilter,
+    priorityFilter,
+    ownerFilter,
+    typeFilter,
+    dueFilter,
+    sort,
+    dir,
+  };
+  const applyView = (v: TasksView) => {
+    setSearch(v.search);
+    setStatusFilter(v.statusFilter);
+    setPriorityFilter(v.priorityFilter);
+    setOwnerFilter(v.ownerFilter);
+    setTypeFilter(v.typeFilter);
+    setDueFilter(v.dueFilter);
+    setSort(v.sort, v.dir);
+  };
+
   return (
     <AppShell>
       <div className="max-w-6xl mx-auto">
@@ -110,6 +144,14 @@ export default function CrmTasksPage() {
             <CreateTaskForm />
           </div>
         </header>
+        <SavedViewsBar
+          views={savedViews.views}
+          currentState={currentView}
+          isEmptyState={!isFiltered && !sort}
+          onApply={applyView}
+          onSave={(name) => savedViews.save(name, currentView)}
+          onRemove={savedViews.remove}
+        />
         <CrmFilters
           search={search}
           onSearchChange={setSearch}
