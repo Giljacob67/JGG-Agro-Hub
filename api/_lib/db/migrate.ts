@@ -697,4 +697,32 @@ async function runPgvectorMigrations(sql: NeonQueryFunction<false, false>) {
     )
   `;
   await sql`CREATE INDEX IF NOT EXISTS idx_kb_embeddings_vector ON agro.kb_embeddings USING hnsw (embedding vector_cosine_ops)`;
+
+  // E-6.1 — chunking: um doc pode gerar N linhas de embedding (uma por chunk)
+  // em vez de uma só truncada em EMBED_BODY_MAX. `chunk_version` força um
+  // re-seed único de todos os docs já embeddados antes desta migração (o
+  // check de staleness em model_id sozinho não detectaria a necessidade de
+  // rechunkar documentos que já estavam com o model_id correto).
+  await sql`ALTER TABLE agro.kb_embeddings ADD COLUMN IF NOT EXISTS chunk_index INTEGER NOT NULL DEFAULT 0`;
+  await sql`ALTER TABLE agro.kb_embeddings ADD COLUMN IF NOT EXISTS chunk_version INTEGER NOT NULL DEFAULT 0`;
+  await sql`
+    DO $$
+    DECLARE
+      pk_cols INTEGER;
+    BEGIN
+      SELECT COUNT(*) INTO pk_cols
+      FROM information_schema.key_column_usage kcu
+      JOIN information_schema.table_constraints tc
+        ON tc.constraint_name = kcu.constraint_name
+       AND tc.table_schema = kcu.table_schema
+      WHERE tc.table_schema = 'agro'
+        AND tc.table_name = 'kb_embeddings'
+        AND tc.constraint_type = 'PRIMARY KEY';
+
+      IF pk_cols < 2 THEN
+        ALTER TABLE agro.kb_embeddings DROP CONSTRAINT kb_embeddings_pkey;
+        ALTER TABLE agro.kb_embeddings ADD PRIMARY KEY (doc_id, chunk_index);
+      END IF;
+    END $$;
+  `;
 }

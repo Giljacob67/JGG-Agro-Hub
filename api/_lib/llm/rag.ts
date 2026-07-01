@@ -24,6 +24,7 @@ import {
 import { isDbEnabled } from "../db/client.js";
 import {
   dbUpsertKbEmbedding,
+  dbDeleteKbEmbedding,
   dbListKbEmbeddingDocIds,
   dbSearchKbEmbeddings,
   dbListKnowledgeDocuments,
@@ -42,15 +43,16 @@ async function getKbDocs(): Promise<KnowledgeDocument[]> {
 let embeddingCache: EmbeddingEntry[] | null = null;
 
 /**
- * Limite de caracteres do corpo concatenado no texto de embedding.
- * Mantém abaixo do limite de tokens do modelo (text-embedding-3-small ≈ 8191).
- * ~24k chars ≈ 6k tokens, margem segura.
+ * Limite de caracteres do corpo concatenado no texto de embedding do modo
+ * memória (dev sem DB — cache module-level, não é o caminho de produção).
+ * ~24k chars ≈ 6k tokens, margem segura abaixo do limite do modelo (≈8191).
  */
 const EMBED_BODY_MAX = 24_000;
 
-function kbDocText(doc: KnowledgeDocument): string {
+/** Cabeçalho de metadados (título/tags/categoria/dados jurídicos) — repetido
+ * em todo chunk para que cada um seja autodescritivo na busca semântica. */
+function kbDocHeader(doc: KnowledgeDocument): string {
   let base = `${doc.title}: ${doc.summary}. Tags: ${doc.tags.join(", ")}. Categoria: ${doc.categoryId}`;
-  // Metadados jurídicos enriquecem o vetor (busca por tribunal/relator/processo).
   const juridical = [
     doc.tribunal && `Tribunal: ${doc.tribunal}`,
     doc.relator && `Relator: ${doc.relator}`,
@@ -60,11 +62,50 @@ function kbDocText(doc: KnowledgeDocument): string {
     .filter(Boolean)
     .join(". ");
   if (juridical) base += `. ${juridical}`;
+  return base;
+}
+
+/** Texto único truncado — usado só pelo modo memória (dev, sem DB). */
+function kbDocText(doc: KnowledgeDocument): string {
+  const base = kbDocHeader(doc);
   const longText = doc.body?.trim() || doc.ementa?.trim();
   if (longText) {
     return `${base}\n\n${longText.slice(0, EMBED_BODY_MAX)}`;
   }
   return base;
+}
+
+// ── Chunking (modo DB / produção) ────────────────────────────────────
+
+/** Tamanho alvo de cada chunk do corpo (chars). ~6k chars ≈ 1.5k tokens. */
+const CHUNK_SIZE = 6_000;
+/** Sobreposição entre chunks consecutivos — evita cortar contexto na fronteira. */
+const CHUNK_OVERLAP = 400;
+/** Teto de chunks por doc — cobre ~84k chars; além disso, truncamento (caso raro). */
+const MAX_CHUNKS_PER_DOC = 15;
+/**
+ * Versão da estratégia de chunking. Bump força reseed em massa mesmo quando
+ * model_id não mudou (o check de staleness por model_id sozinho não pegaria
+ * docs já embeddados que precisam ser rechunkados).
+ */
+export const CURRENT_CHUNK_VERSION = 1;
+
+/** Divide o doc em chunks embeddáveis. Docs curtos (guias/checklists) geram 1 só. */
+function chunkKbDocText(doc: KnowledgeDocument): string[] {
+  const header = kbDocHeader(doc);
+  const longText = doc.body?.trim() || doc.ementa?.trim();
+  if (!longText) return [header];
+  if (longText.length <= CHUNK_SIZE) return [`${header}\n\n${longText}`];
+
+  const chunks: string[] = [];
+  let start = 0;
+  while (start < longText.length && chunks.length < MAX_CHUNKS_PER_DOC) {
+    const end = Math.min(start + CHUNK_SIZE, longText.length);
+    chunks.push(`${header}\n\n${longText.slice(start, end)}`);
+    if (end >= longText.length) break;
+    start = end - CHUNK_OVERLAP;
+  }
+  return chunks;
 }
 
 async function ensureMemoryEmbeddings(): Promise<EmbeddingEntry[]> {
@@ -115,8 +156,8 @@ export interface KbSeedProgress {
 interface SeedOptions {
   /** Orçamento de tempo desta passada (ms). Para antes de estourar o limite serverless. */
   budgetMs?: number;
-  /** Tamanho do lote enviado ao endpoint de embeddings por chamada. */
-  batchSize?: number;
+  /** Quantos docs processar em paralelo por rodada (cada um gera 1..N chunks). */
+  docConcurrency?: number;
 }
 
 /**
@@ -135,7 +176,7 @@ export async function ensureKbEmbeddingsSeeded(
     return { total: 0, pending: 0, seeded: 0, remaining: 0, done: true, skipped: true };
   }
   const budgetMs = opts.budgetMs ?? 45_000;
-  const batchSize = opts.batchSize ?? 50;
+  const docConcurrency = opts.docConcurrency ?? 4;
   const startedAt = Date.now();
 
   const currentModel = getEmbeddingModelId();
@@ -143,8 +184,11 @@ export async function ensureKbEmbeddingsSeeded(
     getKbDocs(),
     dbListKbEmbeddingDocIds(),
   ]);
-  const existing = new Map(existingRows.map((r) => [r.docId, r.modelId]));
-  const toSeed = docs.filter((doc) => existing.get(doc.id) !== currentModel);
+  const existing = new Map(existingRows.map((r) => [r.docId, r]));
+  const toSeed = docs.filter((doc) => {
+    const row = existing.get(doc.id);
+    return !row || row.modelId !== currentModel || row.chunkVersion !== CURRENT_CHUNK_VERSION;
+  });
   const total = docs.length;
   const pending = toSeed.length;
 
@@ -152,28 +196,37 @@ export async function ensureKbEmbeddingsSeeded(
     return { total, pending: 0, seeded: 0, remaining: 0, done: true };
   }
   console.log(
-    `[RAG] (re)gerando até ${pending} embeddings KB (model=${currentModel}, budget=${budgetMs}ms)…`,
+    `[RAG] (re)gerando até ${pending} embeddings KB (model=${currentModel}, chunkVersion=${CURRENT_CHUNK_VERSION}, budget=${budgetMs}ms)…`,
   );
 
   let seeded = 0;
-  for (let i = 0; i < toSeed.length; i += batchSize) {
+  for (let i = 0; i < toSeed.length; i += docConcurrency) {
     if (Date.now() - startedAt > budgetMs) break;
-    const batch = toSeed.slice(i, i + batchSize);
-    const texts = batch.map(kbDocText);
-    const vectors = await generateEmbeddings(texts);
+    const group = toSeed.slice(i, i + docConcurrency);
     await Promise.all(
-      batch.map((doc, j) =>
-        dbUpsertKbEmbedding({
-          docId: doc.id,
-          modelId: currentModel,
-          embedding: vectors[j],
-          text: texts[j],
-          title: doc.title,
-          categoryId: doc.categoryId,
-        }),
-      ),
+      group.map(async (doc) => {
+        const texts = chunkKbDocText(doc);
+        const vectors = await generateEmbeddings(texts);
+        // Limpa chunks antigos antes de reinserir — evita sobrar chunk_index
+        // órfão quando o doc encolheu (menos chunks que na versão anterior).
+        await dbDeleteKbEmbedding(doc.id);
+        await Promise.all(
+          texts.map((text, chunkIndex) =>
+            dbUpsertKbEmbedding({
+              docId: doc.id,
+              chunkIndex,
+              chunkVersion: CURRENT_CHUNK_VERSION,
+              modelId: currentModel,
+              embedding: vectors[chunkIndex],
+              text,
+              title: doc.title,
+              categoryId: doc.categoryId,
+            }),
+          ),
+        );
+      }),
     );
-    seeded += batch.length;
+    seeded += group.length;
   }
 
   const remaining = pending - seeded;

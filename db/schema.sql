@@ -236,14 +236,20 @@ CREATE INDEX idx_tasks_active ON agro.tasks(deleted_at) WHERE deleted_at IS NULL
 -- E-6 — pgvector: embeddings persistentes do Copilot RAG (1536 = text-embedding-3-small)
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- Uma linha por chunk (não por documento): docs longos (julgados) geram
+-- várias linhas com chunk_index crescente. chunk_version força reseed em
+-- massa quando a estratégia de chunking muda (independente do model_id).
 CREATE TABLE agro.kb_embeddings (
-  doc_id TEXT PRIMARY KEY,
+  doc_id TEXT NOT NULL,
+  chunk_index INTEGER NOT NULL DEFAULT 0,
+  chunk_version INTEGER NOT NULL DEFAULT 0,
   model_id TEXT NOT NULL,
   embedding vector(1536) NOT NULL,
   text TEXT NOT NULL,
   title TEXT,
   category_id TEXT,
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (doc_id, chunk_index)
 );
 
 CREATE INDEX idx_kb_embeddings_vector

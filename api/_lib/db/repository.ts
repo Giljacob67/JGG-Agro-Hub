@@ -1721,6 +1721,10 @@ export function vectorLiteral(vec: number[]): string {
 
 export interface KbEmbeddingRow {
   docId: string;
+  /** Índice do chunk dentro do doc (0-based). Docs curtos têm só o chunk 0. */
+  chunkIndex: number;
+  /** Versão da estratégia de chunking — força reseed em massa quando muda. */
+  chunkVersion: number;
   modelId: string;
   embedding: number[];
   text: string;
@@ -1742,9 +1746,10 @@ export async function dbUpsertKbEmbedding(row: KbEmbeddingRow): Promise<void> {
   const sql = getSql();
   const lit = vectorLiteral(row.embedding);
   await sql`
-    INSERT INTO agro.kb_embeddings (doc_id, model_id, embedding, text, title, category_id, updated_at)
-    VALUES (${row.docId}, ${row.modelId}, ${lit}::vector, ${row.text}, ${row.title}, ${row.categoryId}, now())
-    ON CONFLICT (doc_id) DO UPDATE SET
+    INSERT INTO agro.kb_embeddings (doc_id, chunk_index, chunk_version, model_id, embedding, text, title, category_id, updated_at)
+    VALUES (${row.docId}, ${row.chunkIndex}, ${row.chunkVersion}, ${row.modelId}, ${lit}::vector, ${row.text}, ${row.title}, ${row.categoryId}, now())
+    ON CONFLICT (doc_id, chunk_index) DO UPDATE SET
+      chunk_version = EXCLUDED.chunk_version,
       model_id = EXCLUDED.model_id,
       embedding = EXCLUDED.embedding,
       text = EXCLUDED.text,
@@ -1754,10 +1759,22 @@ export async function dbUpsertKbEmbedding(row: KbEmbeddingRow): Promise<void> {
   `;
 }
 
-export async function dbListKbEmbeddingDocIds(): Promise<Array<{ docId: string; modelId: string }>> {
+export async function dbListKbEmbeddingDocIds(): Promise<
+  Array<{ docId: string; modelId: string; chunkVersion: number }>
+> {
   const sql = getSql();
-  const rows = await sql`SELECT doc_id, model_id FROM agro.kb_embeddings`;
-  return rows.map((r) => ({ docId: String(r.doc_id), modelId: String(r.model_id) }));
+  // Chunks de um mesmo doc são sempre escritos juntos (mesma passada), então
+  // model_id/chunk_version são consistentes por doc_id — DISTINCT ON basta.
+  const rows = await sql`
+    SELECT DISTINCT ON (doc_id) doc_id, model_id, chunk_version
+    FROM agro.kb_embeddings
+    ORDER BY doc_id, chunk_index
+  `;
+  return rows.map((r) => ({
+    docId: String(r.doc_id),
+    modelId: String(r.model_id),
+    chunkVersion: Number(r.chunk_version),
+  }));
 }
 
 export interface KbSearchHit {
@@ -1775,18 +1792,34 @@ export async function dbSearchKbEmbeddings(
   assertEmbeddingDim(queryVector);
   const sql = getSql();
   const lit = vectorLiteral(queryVector);
+  // Busca é por chunk (não por doc). Sobre-busca chunks pelo índice HNSW
+  // (ORDER BY embedding <=> query mantém o ANN utilizável — sem GROUP BY
+  // doc_id na query, que forçaria varredura completa) e depois deduplica
+  // por doc_id em memória, mantendo o melhor chunk de cada documento.
+  const candidateLimit = Math.max(topK * 6, 30);
   const rows = await sql`
     SELECT doc_id, title, category_id, 1 - (embedding <=> ${lit}::vector) AS score
     FROM agro.kb_embeddings
     ORDER BY embedding <=> ${lit}::vector
-    LIMIT ${topK}
+    LIMIT ${candidateLimit}
   `;
-  return rows.map((r) => ({
-    docId: String(r.doc_id),
-    title: (r.title as string | null) ?? null,
-    categoryId: (r.category_id as string | null) ?? null,
-    score: Number(r.score),
-  }));
+  const bestByDoc = new Map<string, KbSearchHit>();
+  for (const r of rows) {
+    const docId = String(r.doc_id);
+    const score = Number(r.score);
+    const existing = bestByDoc.get(docId);
+    if (!existing || score > existing.score) {
+      bestByDoc.set(docId, {
+        docId,
+        title: (r.title as string | null) ?? null,
+        categoryId: (r.category_id as string | null) ?? null,
+        score,
+      });
+    }
+  }
+  return Array.from(bestByDoc.values())
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
 }
 
 /** Remove a linha de embedding de um doc (ex.: após edição/remoção do doc). */
