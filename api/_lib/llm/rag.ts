@@ -88,7 +88,7 @@ const MAX_CHUNKS_PER_DOC = 15;
  * model_id não mudou (o check de staleness por model_id sozinho não pegaria
  * docs já embeddados que precisam ser rechunkados).
  */
-export const CURRENT_CHUNK_VERSION = 1;
+export const CURRENT_CHUNK_VERSION = 2;
 
 /** Divide o doc em chunks embeddáveis. Docs curtos (guias/checklists) geram 1 só. */
 function chunkKbDocText(doc: KnowledgeDocument): string[] {
