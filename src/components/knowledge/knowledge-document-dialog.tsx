@@ -1,9 +1,10 @@
-import { useEffect } from "react";
+import { useId } from "react";
 import { Paperclip, X } from "lucide-react";
 import type { KnowledgeDocument } from "@shared/agro/types";
 import { getKnowledgeCategory } from "@shared/agro/knowledge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
 import { KnowledgeStatusBadge } from "./knowledge-status-badge";
 import { formatDate } from "@/lib/crm-labels";
 
@@ -25,29 +26,27 @@ export function KnowledgeDocumentDialog({
   document,
   onClose,
 }: KnowledgeDocumentDialogProps) {
-  useEffect(() => {
-    if (!document) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [document, onClose]);
+  const titleId = useId();
 
   if (!document) return null;
 
   const category = getKnowledgeCategory(document.categoryId);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto py-10">
-      <div className="fixed inset-0 bg-black/50" onClick={onClose} />
-      <Card className="relative z-10 max-w-3xl w-full mx-4 shadow-xl max-h-[85vh] flex flex-col">
+    <Dialog
+      open
+      onClose={onClose}
+      labelledBy={titleId}
+      containerClassName="items-start overflow-y-auto py-10"
+      panelClassName="max-w-3xl w-full mx-4 max-h-[85vh] flex flex-col"
+    >
+      <Card className="shadow-xl max-h-[85vh] flex flex-col">
         <div className="flex items-start justify-between gap-3 p-5 border-b border-border/60">
           <div className="min-w-0">
             <p className="text-label-caps text-primary/80">
               {category?.label ?? document.categoryId}
             </p>
-            <h2 className="text-lg font-semibold leading-snug mt-1.5">
+            <h2 id={titleId} className="text-lg font-semibold leading-snug mt-1.5">
               {document.title}
             </h2>
             <div className="flex flex-wrap items-center gap-2 mt-3">
@@ -158,6 +157,6 @@ export function KnowledgeDocumentDialog({
           )}
         </div>
       </Card>
-    </div>
+    </Dialog>
   );
 }

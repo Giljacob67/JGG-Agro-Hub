@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useId } from "react";
 import { FileText, Upload, Plus, Trash2, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -53,6 +53,11 @@ function formatFileSize(bytes: number): string {
 export function DocumentManager({ entityType, entityId, matterId }: DocumentManagerProps) {
   const qc = useQueryClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const nameId = useId();
+  const fileId = useId();
+  const categoryId = useId();
+  const dueDateId = useId();
+  const descriptionId = useId();
   const [showForm, setShowForm] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -193,8 +198,9 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
         <Card className="p-4">
           <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-3">
             <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">Nome do documento</label>
+              <label htmlFor={nameId} className="text-xs text-muted-foreground">Nome do documento</label>
               <Input
+                id={nameId}
                 required
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -204,9 +210,10 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
             </div>
 
             <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">Arquivo</label>
+              <label htmlFor={fileId} className="text-xs text-muted-foreground">Arquivo</label>
               <div className="mt-1 flex items-center gap-2">
                 <input
+                  id={fileId}
                   ref={fileInputRef}
                   type="file"
                   onChange={handleFileSelect}
@@ -234,8 +241,9 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground">Categoria</label>
+              <label htmlFor={categoryId} className="text-xs text-muted-foreground">Categoria</label>
               <select
+                id={categoryId}
                 value={form.category}
                 onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                 className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
@@ -246,8 +254,9 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Prazo</label>
+              <label htmlFor={dueDateId} className="text-xs text-muted-foreground">Prazo</label>
               <Input
+                id={dueDateId}
                 type="date"
                 value={form.dueDate}
                 onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
@@ -255,8 +264,9 @@ export function DocumentManager({ entityType, entityId, matterId }: DocumentMana
               />
             </div>
             <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">Descrição</label>
+              <label htmlFor={descriptionId} className="text-xs text-muted-foreground">Descrição</label>
               <Input
+                id={descriptionId}
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 className="mt-1"

@@ -13,6 +13,8 @@ export const buttonVariants = cva(
           "border bg-secondary text-secondary-foreground border-secondary-border",
         ghost: "border border-transparent",
         link: "text-primary underline-offset-4 hover:underline",
+        destructive:
+          "border border-red-300 text-red-600 hover:bg-red-50 active:bg-red-100 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950",
       },
       size: {
         default: "min-h-9 px-4 py-2",

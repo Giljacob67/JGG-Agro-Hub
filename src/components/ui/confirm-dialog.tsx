@@ -1,3 +1,5 @@
+import { useId } from "react";
+import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
@@ -23,14 +25,13 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  if (!open) return null;
+  const titleId = useId();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={onCancel} />
-      <Card className="relative z-10 max-w-md w-full mx-4 shadow-lg">
+    <Dialog open={open} onClose={onCancel} labelledBy={titleId} panelClassName="max-w-md w-full mx-4">
+      <Card className="shadow-lg">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle id={titleId} className="flex items-center gap-2 text-base">
             <AlertTriangle className="size-5 text-amber-500" />
             {title}
           </CardTitle>
@@ -42,16 +43,15 @@ export function ConfirmDialog({
               {cancelLabel}
             </Button>
             <Button
-              variant={variant === "danger" ? "outline" : "default"}
+              variant={variant === "danger" ? "destructive" : "default"}
               size="sm"
               onClick={onConfirm}
-              className={variant === "danger" ? "border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950" : ""}
             >
               {confirmLabel}
             </Button>
           </div>
         </CardContent>
       </Card>
-    </div>
+    </Dialog>
   );
 }

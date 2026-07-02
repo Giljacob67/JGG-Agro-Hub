@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { CheckSquare, Plus, Trash2, Square, CheckSquare as CheckSquareFilled } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ const CATEGORY_OPTIONS = [
 
 export function DocumentChecklist({ matterId }: DocumentChecklistProps) {
   const qc = useQueryClient();
+  const labelId = useId();
+  const categoryId = useId();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ label: "", category: "outro", required: true });
 
@@ -98,8 +100,9 @@ export function DocumentChecklist({ matterId }: DocumentChecklistProps) {
           className="flex gap-2 items-end"
         >
           <div className="flex-1">
-            <label className="text-xs text-muted-foreground">Documento necessário</label>
+            <label htmlFor={labelId} className="text-xs text-muted-foreground">Documento necessário</label>
             <Input
+              id={labelId}
               required
               value={form.label}
               onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
@@ -108,8 +111,9 @@ export function DocumentChecklist({ matterId }: DocumentChecklistProps) {
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Categoria</label>
+            <label htmlFor={categoryId} className="text-xs text-muted-foreground">Categoria</label>
             <select
+              id={categoryId}
               value={form.category}
               onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
               className="mt-1 h-9 rounded-md border border-border bg-background px-3 text-sm"

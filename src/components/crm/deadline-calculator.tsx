@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Calculator, Clock, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,9 @@ const DEADLINE_OPTIONS = Object.entries(PROCEDURAL_DEADLINES)
   }));
 
 export function DeadlineCalculator({ onCalculate }: DeadlineCalculatorProps) {
+  const startDateId = useId();
+  const typeId = useId();
+  const customDaysId = useId();
   const [startDate, setStartDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [type, setType] = useState<DeadlineType>("contestacao");
   const [customDays, setCustomDays] = useState(10);
@@ -52,8 +55,9 @@ export function DeadlineCalculator({ onCalculate }: DeadlineCalculatorProps) {
 
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Data base</label>
+          <label htmlFor={startDateId} className="text-xs text-muted-foreground mb-1 block">Data base</label>
           <input
+            id={startDateId}
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
@@ -62,8 +66,9 @@ export function DeadlineCalculator({ onCalculate }: DeadlineCalculatorProps) {
         </div>
 
         <div>
-          <label className="text-xs text-muted-foreground mb-1 block">Tipo de prazo</label>
+          <label htmlFor={typeId} className="text-xs text-muted-foreground mb-1 block">Tipo de prazo</label>
           <select
+            id={typeId}
             value={type}
             onChange={(e) => setType(e.target.value as DeadlineType)}
             className="w-full border border-border rounded px-2 py-1.5 text-sm bg-background"
@@ -79,8 +84,9 @@ export function DeadlineCalculator({ onCalculate }: DeadlineCalculatorProps) {
 
         {type === "custom" && (
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Dias úteis</label>
+            <label htmlFor={customDaysId} className="text-xs text-muted-foreground mb-1 block">Dias úteis</label>
             <input
+              id={customDaysId}
               type="number"
               min={1}
               max={365}

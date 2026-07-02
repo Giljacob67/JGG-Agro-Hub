@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,11 @@ import { useCreateTask } from "@/hooks/use-crm-queries";
 export function CreateTaskForm({ onCreated }: { onCreated?: () => void }) {
   const { user } = useAuth();
   const createTask = useCreateTask();
+  const titleId = useId();
+  const descriptionId = useId();
+  const priorityId = useId();
+  const dueDateId = useId();
+  const assigneeId = useId();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -51,8 +56,9 @@ export function CreateTaskForm({ onCreated }: { onCreated?: () => void }) {
       <h2 className="text-sm font-semibold mb-4">Cadastrar tarefa</h2>
       <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
-          <label className="text-xs text-muted-foreground">Título</label>
+          <label htmlFor={titleId} className="text-xs text-muted-foreground">Título</label>
           <Input
+            id={titleId}
             required
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -61,16 +67,18 @@ export function CreateTaskForm({ onCreated }: { onCreated?: () => void }) {
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs text-muted-foreground">Descrição</label>
+          <label htmlFor={descriptionId} className="text-xs text-muted-foreground">Descrição</label>
           <Input
+            id={descriptionId}
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             className="mt-1"
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Prioridade</label>
+          <label htmlFor={priorityId} className="text-xs text-muted-foreground">Prioridade</label>
           <select
+            id={priorityId}
             value={form.priority}
             onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value }))}
             className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
@@ -82,8 +90,9 @@ export function CreateTaskForm({ onCreated }: { onCreated?: () => void }) {
           </select>
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Prazo</label>
+          <label htmlFor={dueDateId} className="text-xs text-muted-foreground">Prazo</label>
           <Input
+            id={dueDateId}
             type="date"
             value={form.dueDate}
             onChange={(e) => setForm((f) => ({ ...f, dueDate: e.target.value }))}
@@ -91,8 +100,9 @@ export function CreateTaskForm({ onCreated }: { onCreated?: () => void }) {
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Responsável</label>
+          <label htmlFor={assigneeId} className="text-xs text-muted-foreground">Responsável</label>
           <Input
+            id={assigneeId}
             value={form.assignee}
             onChange={(e) => setForm((f) => ({ ...f, assignee: e.target.value }))}
             placeholder={user?.name || "Equipe Agro"}

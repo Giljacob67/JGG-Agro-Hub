@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Clock, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -20,6 +20,11 @@ const TYPE_LABELS: Record<string, string> = {
 
 export function TimeEntryManager({ matterId }: TimeEntryManagerProps) {
   const qc = useQueryClient();
+  const descriptionId = useId();
+  const hoursId = useId();
+  const hourlyRateId = useId();
+  const typeId = useId();
+  const dateId = useId();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     description: "",
@@ -100,8 +105,9 @@ export function TimeEntryManager({ matterId }: TimeEntryManagerProps) {
             className="grid sm:grid-cols-2 gap-3"
           >
             <div className="sm:col-span-2">
-              <label className="text-xs text-muted-foreground">Descrição do serviço</label>
+              <label htmlFor={descriptionId} className="text-xs text-muted-foreground">Descrição do serviço</label>
               <Input
+                id={descriptionId}
                 required
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
@@ -110,8 +116,9 @@ export function TimeEntryManager({ matterId }: TimeEntryManagerProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Horas</label>
+              <label htmlFor={hoursId} className="text-xs text-muted-foreground">Horas</label>
               <Input
+                id={hoursId}
                 type="number"
                 step="0.5"
                 required
@@ -122,8 +129,9 @@ export function TimeEntryManager({ matterId }: TimeEntryManagerProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Valor hora (R$)</label>
+              <label htmlFor={hourlyRateId} className="text-xs text-muted-foreground">Valor hora (R$)</label>
               <Input
+                id={hourlyRateId}
                 type="number"
                 step="0.01"
                 required
@@ -134,8 +142,9 @@ export function TimeEntryManager({ matterId }: TimeEntryManagerProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Tipo</label>
+              <label htmlFor={typeId} className="text-xs text-muted-foreground">Tipo</label>
               <select
+                id={typeId}
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
                 className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
@@ -146,8 +155,9 @@ export function TimeEntryManager({ matterId }: TimeEntryManagerProps) {
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Data</label>
+              <label htmlFor={dateId} className="text-xs text-muted-foreground">Data</label>
               <Input
+                id={dateId}
                 type="date"
                 value={form.date}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}

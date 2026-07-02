@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,12 @@ import { useCreateAccount } from "@/hooks/use-crm-queries";
 export function CreateAccountForm({ onCreated }: { onCreated?: () => void }) {
   const { user } = useAuth();
   const createAccount = useCreateAccount();
+  const nameId = useId();
+  const typeId = useId();
+  const regionId = useId();
+  const cropId = useId();
+  const ownerId = useId();
+  const notesId = useId();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -53,8 +59,9 @@ export function CreateAccountForm({ onCreated }: { onCreated?: () => void }) {
       <h2 className="text-sm font-semibold mb-4">Cadastrar conta</h2>
       <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="text-xs text-muted-foreground">Nome / razão social</label>
+          <label htmlFor={nameId} className="text-xs text-muted-foreground">Nome / razão social</label>
           <Input
+            id={nameId}
             required
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -62,8 +69,9 @@ export function CreateAccountForm({ onCreated }: { onCreated?: () => void }) {
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Tipo</label>
+          <label htmlFor={typeId} className="text-xs text-muted-foreground">Tipo</label>
           <select
+            id={typeId}
             value={form.type}
             onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
             className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
@@ -76,8 +84,9 @@ export function CreateAccountForm({ onCreated }: { onCreated?: () => void }) {
           </select>
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Região</label>
+          <label htmlFor={regionId} className="text-xs text-muted-foreground">Região</label>
           <Input
+            id={regionId}
             required
             value={form.region}
             onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
@@ -86,8 +95,9 @@ export function CreateAccountForm({ onCreated }: { onCreated?: () => void }) {
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Cultura / operação</label>
+          <label htmlFor={cropId} className="text-xs text-muted-foreground">Cultura / operação</label>
           <Input
+            id={cropId}
             value={form.crop}
             onChange={(e) => setForm((f) => ({ ...f, crop: e.target.value }))}
             placeholder="Soja / milho"
@@ -95,8 +105,9 @@ export function CreateAccountForm({ onCreated }: { onCreated?: () => void }) {
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Responsável</label>
+          <label htmlFor={ownerId} className="text-xs text-muted-foreground">Responsável</label>
           <Input
+            id={ownerId}
             value={form.owner}
             onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))}
             placeholder={user?.name || "Equipe Agro"}
@@ -104,8 +115,9 @@ export function CreateAccountForm({ onCreated }: { onCreated?: () => void }) {
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs text-muted-foreground">Notas</label>
+          <label htmlFor={notesId} className="text-xs text-muted-foreground">Notas</label>
           <Input
+            id={notesId}
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             className="mt-1"

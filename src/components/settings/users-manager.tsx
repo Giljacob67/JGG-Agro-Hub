@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Loader2, UserPlus, KeyRound, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog } from "@/components/ui/dialog";
 import {
   useUsers,
   useCreateUser,
@@ -43,6 +44,7 @@ export function UsersManager() {
 
   const [pwTarget, setPwTarget] = useState<ManagedUser | null>(null);
   const [pwValue, setPwValue] = useState("");
+  const pwTitleId = useId();
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -254,17 +256,20 @@ export function UsersManager() {
 
       {/* Definir senha */}
       {pwTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          role="dialog"
-          aria-label="Definir senha"
+        <Dialog
+          open
+          onClose={() => setPwTarget(null)}
+          labelledBy={pwTitleId}
+          panelClassName="w-full max-w-sm mx-4"
         >
           <form
             onSubmit={submitPassword}
-            className="surface-panel w-full max-w-sm p-5 space-y-4 bg-background"
+            className="surface-panel p-5 space-y-4 bg-background"
           >
             <div>
-              <h3 className="text-sm font-semibold">Definir senha</h3>
+              <h3 id={pwTitleId} className="text-sm font-semibold">
+                Definir senha
+              </h3>
               <p className="text-xs text-muted-foreground mt-0.5">
                 {pwTarget.name} · {pwTarget.email}
               </p>
@@ -294,7 +299,7 @@ export function UsersManager() {
               </Button>
             </div>
           </form>
-        </div>
+        </Dialog>
       )}
     </div>
   );

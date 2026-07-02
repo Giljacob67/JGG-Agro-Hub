@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { useLeadLists, useImportLeads } from "@/hooks/use-crm-queries";
 import { LIST_NONE } from "@/components/crm/lead-lists-bar";
 import { IMPORT_LEAD_FIELDS } from "@shared/agro/lead-import";
@@ -50,8 +51,7 @@ export function ImportLeadsDialog({
   );
   const canImport =
     mapping.name >= 0 && mapping.region >= 0 && validRows.length > 0;
-
-  if (!open) return null;
+  const titleId = useId();
 
   function reset() {
     setSheet(null);
@@ -103,11 +103,15 @@ export function ImportLeadsDialog({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="fixed inset-0 bg-black/50" onClick={handleClose} />
-      <Card className="relative z-10 max-w-2xl w-full mx-4 max-h-[90vh] overflow-auto shadow-lg">
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      labelledBy={titleId}
+      panelClassName="max-w-2xl w-full mx-4 max-h-[90vh] overflow-auto"
+    >
+      <Card className="shadow-lg">
         <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle id={titleId} className="flex items-center gap-2 text-base">
             <FileSpreadsheet className="size-5 text-primary" />
             Importar leads (CSV / XLSX)
           </CardTitle>
@@ -247,7 +251,7 @@ export function ImportLeadsDialog({
           )}
         </CardContent>
       </Card>
-    </div>
+    </Dialog>
   );
 }
 

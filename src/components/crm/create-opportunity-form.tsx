@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,13 @@ import { useCreateOpportunity } from "@/hooks/use-crm-queries";
 export function CreateOpportunityForm({ onCreated }: { onCreated?: () => void }) {
   const { user } = useAuth();
   const createOpp = useCreateOpportunity();
+  const titleId = useId();
+  const clientNameId = useId();
+  const regionId = useId();
+  const cropId = useId();
+  const valueBrlId = useId();
+  const ownerId = useId();
+  const notesId = useId();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -55,8 +62,9 @@ export function CreateOpportunityForm({ onCreated }: { onCreated?: () => void })
       <h2 className="text-sm font-semibold mb-4">Cadastrar oportunidade</h2>
       <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="text-xs text-muted-foreground">Título</label>
+          <label htmlFor={titleId} className="text-xs text-muted-foreground">Título</label>
           <Input
+            id={titleId}
             required
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -65,8 +73,9 @@ export function CreateOpportunityForm({ onCreated }: { onCreated?: () => void })
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Cliente</label>
+          <label htmlFor={clientNameId} className="text-xs text-muted-foreground">Cliente</label>
           <Input
+            id={clientNameId}
             required
             value={form.clientName}
             onChange={(e) => setForm((f) => ({ ...f, clientName: e.target.value }))}
@@ -74,8 +83,9 @@ export function CreateOpportunityForm({ onCreated }: { onCreated?: () => void })
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Região</label>
+          <label htmlFor={regionId} className="text-xs text-muted-foreground">Região</label>
           <Input
+            id={regionId}
             value={form.region}
             onChange={(e) => setForm((f) => ({ ...f, region: e.target.value }))}
             placeholder="MT — Sorriso"
@@ -83,8 +93,9 @@ export function CreateOpportunityForm({ onCreated }: { onCreated?: () => void })
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Cultura</label>
+          <label htmlFor={cropId} className="text-xs text-muted-foreground">Cultura</label>
           <Input
+            id={cropId}
             value={form.crop}
             onChange={(e) => setForm((f) => ({ ...f, crop: e.target.value }))}
             placeholder="Soja / milho"
@@ -92,8 +103,9 @@ export function CreateOpportunityForm({ onCreated }: { onCreated?: () => void })
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Valor (R$)</label>
+          <label htmlFor={valueBrlId} className="text-xs text-muted-foreground">Valor (R$)</label>
           <Input
+            id={valueBrlId}
             type="number"
             value={form.valueBrl}
             onChange={(e) => setForm((f) => ({ ...f, valueBrl: e.target.value }))}
@@ -101,8 +113,9 @@ export function CreateOpportunityForm({ onCreated }: { onCreated?: () => void })
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Responsável</label>
+          <label htmlFor={ownerId} className="text-xs text-muted-foreground">Responsável</label>
           <Input
+            id={ownerId}
             value={form.owner}
             onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))}
             placeholder={user?.name || "Equipe Agro"}
@@ -110,8 +123,9 @@ export function CreateOpportunityForm({ onCreated }: { onCreated?: () => void })
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs text-muted-foreground">Notas</label>
+          <label htmlFor={notesId} className="text-xs text-muted-foreground">Notas</label>
           <Input
+            id={notesId}
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             className="mt-1"

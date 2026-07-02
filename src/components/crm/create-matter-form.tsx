@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Plus, Link2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,18 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
   const { user } = useAuth();
   const createMatter = useCreateMatter();
   const { data: allMatters } = useAllMatters();
+  const titleId = useId();
+  const clientNameId = useId();
+  const cnjNumberId = useId();
+  const courtId = useId();
+  const opposingPartyId = useId();
+  const phaseId = useId();
+  const riskId = useId();
+  const valueBrlId = useId();
+  const ownerId = useId();
+  const notesId = useId();
+  const relationTypeId = useId();
+  const parentMatterIdId = useId();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({
     title: "",
@@ -69,8 +81,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
       <h2 className="text-sm font-semibold mb-4">Cadastrar demanda jurídica</h2>
       <form onSubmit={handleSubmit} className="grid sm:grid-cols-2 gap-4">
         <div>
-          <label className="text-xs text-muted-foreground">Título</label>
+          <label htmlFor={titleId} className="text-xs text-muted-foreground">Título</label>
           <Input
+            id={titleId}
             required
             value={form.title}
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
@@ -79,8 +92,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Cliente</label>
+          <label htmlFor={clientNameId} className="text-xs text-muted-foreground">Cliente</label>
           <Input
+            id={clientNameId}
             required
             value={form.clientName}
             onChange={(e) => setForm((f) => ({ ...f, clientName: e.target.value }))}
@@ -88,8 +102,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Nº CNJ</label>
+          <label htmlFor={cnjNumberId} className="text-xs text-muted-foreground">Nº CNJ</label>
           <Input
+            id={cnjNumberId}
             value={form.cnjNumber}
             onChange={(e) => setForm((f) => ({ ...f, cnjNumber: e.target.value }))}
             placeholder="0000000-00.0000.0.00.0000"
@@ -97,24 +112,27 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Vara / Fórum</label>
+          <label htmlFor={courtId} className="text-xs text-muted-foreground">Vara / Fórum</label>
           <Input
+            id={courtId}
             value={form.court}
             onChange={(e) => setForm((f) => ({ ...f, court: e.target.value }))}
             className="mt-1"
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Parte contrária</label>
+          <label htmlFor={opposingPartyId} className="text-xs text-muted-foreground">Parte contrária</label>
           <Input
+            id={opposingPartyId}
             value={form.opposingParty}
             onChange={(e) => setForm((f) => ({ ...f, opposingParty: e.target.value }))}
             className="mt-1"
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Fase</label>
+          <label htmlFor={phaseId} className="text-xs text-muted-foreground">Fase</label>
           <Input
+            id={phaseId}
             value={form.phase}
             onChange={(e) => setForm((f) => ({ ...f, phase: e.target.value }))}
             placeholder="Execução / Conhecimento"
@@ -122,8 +140,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Risco</label>
+          <label htmlFor={riskId} className="text-xs text-muted-foreground">Risco</label>
           <select
+            id={riskId}
             value={form.risk}
             onChange={(e) => setForm((f) => ({ ...f, risk: e.target.value }))}
             className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
@@ -134,8 +153,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
           </select>
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Valor da causa (R$)</label>
+          <label htmlFor={valueBrlId} className="text-xs text-muted-foreground">Valor da causa (R$)</label>
           <Input
+            id={valueBrlId}
             type="number"
             value={form.valueBrl}
             onChange={(e) => setForm((f) => ({ ...f, valueBrl: e.target.value }))}
@@ -143,8 +163,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">Responsável</label>
+          <label htmlFor={ownerId} className="text-xs text-muted-foreground">Responsável</label>
           <Input
+            id={ownerId}
             value={form.owner}
             onChange={(e) => setForm((f) => ({ ...f, owner: e.target.value }))}
             placeholder={user?.name || "Equipe Agro"}
@@ -152,8 +173,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
           />
         </div>
         <div className="sm:col-span-2">
-          <label className="text-xs text-muted-foreground">Notas</label>
+          <label htmlFor={notesId} className="text-xs text-muted-foreground">Notas</label>
           <Input
+            id={notesId}
             value={form.notes}
             onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
             className="mt-1"
@@ -167,8 +189,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs text-muted-foreground">Tipo de vínculo</label>
+              <label htmlFor={relationTypeId} className="text-xs text-muted-foreground">Tipo de vínculo</label>
               <select
+                id={relationTypeId}
                 value={form.relationType}
                 onChange={(e) => setForm((f) => ({ ...f, relationType: e.target.value }))}
                 className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
@@ -183,8 +206,9 @@ export function CreateMatterForm({ opportunityId, onCreated }: { opportunityId?:
             </div>
             {form.relationType && (
               <div>
-                <label className="text-xs text-muted-foreground">Demanda de origem</label>
+                <label htmlFor={parentMatterIdId} className="text-xs text-muted-foreground">Demanda de origem</label>
                 <select
+                  id={parentMatterIdId}
                   value={form.parentMatterId}
                   onChange={(e) => setForm((f) => ({ ...f, parentMatterId: e.target.value }))}
                   className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"

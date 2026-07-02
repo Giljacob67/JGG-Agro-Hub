@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { MapPin, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,16 @@ const TYPE_LABELS: Record<string, string> = {
 
 export function PropertyManager({ accountId }: PropertyManagerProps) {
   const qc = useQueryClient();
+  const nameId = useId();
+  const typeId = useId();
+  const carNumberId = useId();
+  const matriculaId = useId();
+  const areaHaId = useId();
+  const carAreaHaId = useId();
+  const matriculaAreaHaId = useId();
+  const municipalityId = useId();
+  const stateId = useId();
+  const mainCropId = useId();
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     name: "",
@@ -107,8 +117,9 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
             className="grid sm:grid-cols-2 gap-3"
           >
             <div>
-              <label className="text-xs text-muted-foreground">Nome da propriedade</label>
+              <label htmlFor={nameId} className="text-xs text-muted-foreground">Nome da propriedade</label>
               <Input
+                id={nameId}
                 required
                 value={form.name}
                 onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
@@ -117,8 +128,9 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Tipo</label>
+              <label htmlFor={typeId} className="text-xs text-muted-foreground">Tipo</label>
               <select
+                id={typeId}
                 value={form.type}
                 onChange={(e) => setForm((f) => ({ ...f, type: e.target.value }))}
                 className="mt-1 h-9 w-full rounded-md border border-border bg-background px-3 text-sm"
@@ -129,24 +141,27 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Nº CAR</label>
+              <label htmlFor={carNumberId} className="text-xs text-muted-foreground">Nº CAR</label>
               <Input
+                id={carNumberId}
                 value={form.carNumber}
                 onChange={(e) => setForm((f) => ({ ...f, carNumber: e.target.value }))}
                 className="mt-1"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Matrícula</label>
+              <label htmlFor={matriculaId} className="text-xs text-muted-foreground">Matrícula</label>
               <Input
+                id={matriculaId}
                 value={form.matricula}
                 onChange={(e) => setForm((f) => ({ ...f, matricula: e.target.value }))}
                 className="mt-1"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Área total (ha)</label>
+              <label htmlFor={areaHaId} className="text-xs text-muted-foreground">Área total (ha)</label>
               <Input
+                id={areaHaId}
                 type="number"
                 required
                 value={form.areaHa}
@@ -155,8 +170,9 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Área CAR (ha)</label>
+              <label htmlFor={carAreaHaId} className="text-xs text-muted-foreground">Área CAR (ha)</label>
               <Input
+                id={carAreaHaId}
                 type="number"
                 value={form.carAreaHa}
                 onChange={(e) => setForm((f) => ({ ...f, carAreaHa: e.target.value }))}
@@ -164,8 +180,9 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Área Matrícula (ha)</label>
+              <label htmlFor={matriculaAreaHaId} className="text-xs text-muted-foreground">Área Matrícula (ha)</label>
               <Input
+                id={matriculaAreaHaId}
                 type="number"
                 value={form.matriculaAreaHa}
                 onChange={(e) => setForm((f) => ({ ...f, matriculaAreaHa: e.target.value }))}
@@ -173,16 +190,18 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Município</label>
+              <label htmlFor={municipalityId} className="text-xs text-muted-foreground">Município</label>
               <Input
+                id={municipalityId}
                 value={form.municipality}
                 onChange={(e) => setForm((f) => ({ ...f, municipality: e.target.value }))}
                 className="mt-1"
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">UF</label>
+              <label htmlFor={stateId} className="text-xs text-muted-foreground">UF</label>
               <Input
+                id={stateId}
                 value={form.state}
                 onChange={(e) => setForm((f) => ({ ...f, state: e.target.value }))}
                 placeholder="GO"
@@ -190,8 +209,9 @@ export function PropertyManager({ accountId }: PropertyManagerProps) {
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground">Cultura principal</label>
+              <label htmlFor={mainCropId} className="text-xs text-muted-foreground">Cultura principal</label>
               <Input
+                id={mainCropId}
                 value={form.mainCrop}
                 onChange={(e) => setForm((f) => ({ ...f, mainCrop: e.target.value }))}
                 placeholder="Soja"

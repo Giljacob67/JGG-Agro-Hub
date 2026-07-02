@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Loader2, ShieldCheck, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,9 @@ interface Props {
 export function CopilotSettings({ canEdit }: Props) {
   const { data, isLoading, isError } = useCopilotConfig();
   const update = useUpdateCopilotConfig();
+  const providerId = useId();
+  const modelId = useId();
+  const temperatureId = useId();
 
   const [provider, setProvider] = useState<LlmProviderId | "">("");
   const [model, setModel] = useState("");
@@ -142,10 +145,11 @@ export function CopilotSettings({ canEdit }: Props) {
       {canEdit && data.dbEnabled && (
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label htmlFor={providerId} className="text-xs font-medium text-muted-foreground">
               Provedor
             </label>
             <select
+              id={providerId}
               value={provider}
               onChange={(e) => {
                 const next = e.target.value as LlmProviderId;
@@ -164,10 +168,11 @@ export function CopilotSettings({ canEdit }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">
+            <label htmlFor={modelId} className="text-xs font-medium text-muted-foreground">
               Modelo
             </label>
             <Input
+              id={modelId}
               value={model}
               onChange={(e) => setModel(e.target.value)}
               placeholder="ex.: claude-sonnet-4-6"
@@ -181,11 +186,12 @@ export function CopilotSettings({ canEdit }: Props) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground flex justify-between">
+            <label htmlFor={temperatureId} className="text-xs font-medium text-muted-foreground flex justify-between">
               <span>Temperatura</span>
               <span className="tabular-nums">{temperature.toFixed(2)}</span>
             </label>
             <input
+              id={temperatureId}
               type="range"
               min={0}
               max={1}
