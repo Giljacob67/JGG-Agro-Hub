@@ -23,12 +23,7 @@ export function KnowledgeDocumentList({ documents, categories, onEdit, onDelete 
           <Button variant="ghost" size="sm" onClick={() => onEdit(doc)}>
             <Pencil className="w-3.5 h-3.5" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onDelete(doc)}
-            className="text-red-600 hover:text-red-700"
-          >
+          <Button variant="destructive" size="sm" onClick={() => onDelete(doc)}>
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
         </div>
