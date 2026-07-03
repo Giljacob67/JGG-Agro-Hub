@@ -203,30 +203,51 @@ export async function ensureKbEmbeddingsSeeded(
   for (let i = 0; i < toSeed.length; i += docConcurrency) {
     if (Date.now() - startedAt > budgetMs) break;
     const group = toSeed.slice(i, i + docConcurrency);
-    await Promise.all(
+    const results = await Promise.all(
       group.map(async (doc) => {
-        const texts = chunkKbDocText(doc);
-        const vectors = await generateEmbeddings(texts);
-        // Limpa chunks antigos antes de reinserir — evita sobrar chunk_index
-        // órfão quando o doc encolheu (menos chunks que na versão anterior).
-        await dbDeleteKbEmbedding(doc.id);
-        await Promise.all(
-          texts.map((text, chunkIndex) =>
-            dbUpsertKbEmbedding({
-              docId: doc.id,
-              chunkIndex,
-              chunkVersion: CURRENT_CHUNK_VERSION,
-              modelId: currentModel,
-              embedding: vectors[chunkIndex],
-              text,
-              title: doc.title,
-              categoryId: doc.categoryId,
-            }),
-          ),
+        // Blindado contra soluços de rede pontuais do Neon (fetch
+        // failed/ECONNRESET): até 3 tentativas com backoff antes de
+        // desistir desse doc — sem derrubar o Promise.all inteiro (os
+        // demais docs do grupo seguem, mesmo padrão do backfill-kb-julgados).
+        let lastErr: unknown;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const texts = chunkKbDocText(doc);
+            const vectors = await generateEmbeddings(texts);
+            // Limpa chunks antigos antes de reinserir — evita sobrar
+            // chunk_index órfão quando o doc encolheu (menos chunks que na
+            // versão anterior).
+            await dbDeleteKbEmbedding(doc.id);
+            await Promise.all(
+              texts.map((text, chunkIndex) =>
+                dbUpsertKbEmbedding({
+                  docId: doc.id,
+                  chunkIndex,
+                  chunkVersion: CURRENT_CHUNK_VERSION,
+                  modelId: currentModel,
+                  embedding: vectors[chunkIndex],
+                  text,
+                  title: doc.title,
+                  categoryId: doc.categoryId,
+                }),
+              ),
+            );
+            return true;
+          } catch (err) {
+            lastErr = err;
+            if (attempt < 3) {
+              await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+            }
+          }
+        }
+        console.error(
+          `[RAG] falha ao (re)gerar embedding do doc ${doc.id} após 3 tentativas:`,
+          lastErr,
         );
+        return false;
       }),
     );
-    seeded += group.length;
+    seeded += results.filter(Boolean).length;
   }
 
   const remaining = pending - seeded;
