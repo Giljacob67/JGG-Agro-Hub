@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "sonner";
@@ -13,22 +14,28 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 30_000,
       retry: 1,
+      // Ferramenta interna de uso contínuo — refetch a cada troca de aba do
+      // navegador gera requests redundantes sem ganho perceptível (dado já
+      // fresco por staleTime). Refetch on mount/reconnect seguem ativos.
+      refetchOnWindowFocus: false,
     },
   },
 });
 
 createRoot(document.getElementById("root")!).render(
-  <ErrorBoundary>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <App />
-          {/* Renderizado fora das rotas para sobreviver à troca de aba/rota —
-              o painel do Copilot e a conversa não remontam ao navegar. */}
-          <CopilotChatWidget />
-          <Toaster position="top-right" richColors closeButton />
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
-  </ErrorBoundary>,
+  <StrictMode>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <App />
+            {/* Renderizado fora das rotas para sobreviver à troca de aba/rota —
+                o painel do Copilot e a conversa não remontam ao navegar. */}
+            <CopilotChatWidget />
+            <Toaster position="top-right" richColors closeButton />
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
+  </StrictMode>,
 );
