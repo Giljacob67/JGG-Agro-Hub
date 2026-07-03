@@ -214,7 +214,7 @@ export default function CrmOpportunitiesPage() {
           </p>
         ) : (
           <div className="overflow-x-auto pb-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 min-w-[960px]">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 md:min-w-[480px] xl:min-w-[700px] 2xl:min-w-[960px]">
               {stages.map((stage) => {
                 const stageItems = items.filter(
                   (o) => effectiveStage(o) === stage.id,
