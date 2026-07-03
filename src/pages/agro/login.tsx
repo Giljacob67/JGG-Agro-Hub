@@ -28,7 +28,7 @@ export default function AgroLoginPage() {
   // que redireciona via window.location). Reconfirmar a sessão aqui, a cada
   // mount da tela de login, reautenticava logo após o logout — a sessão
   // "ressuscitava" e a tela de login nunca aparecia. Por isso NÃO chamamos
-  // me()/acceptToken aqui: se há sessão válida, `user` já vem do contexto.
+  // me() aqui: se há sessão válida, `user` já vem do contexto.
   if (user) return <Redirect to={from} />;
 
   async function handleSubmit(e: React.FormEvent) {

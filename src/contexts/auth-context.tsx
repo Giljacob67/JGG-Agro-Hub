@@ -60,11 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       loading,
       login,
-      acceptToken: async () => {
-        // SSO já configura cookie HttpOnly no callback; só confirmamos sessão.
-        const me = await agroApi.me();
-        setUser(me);
-      },
       logout,
       canAccess: (resource: string) =>
         user ? roleCanAccess(user.role, resource) : false,

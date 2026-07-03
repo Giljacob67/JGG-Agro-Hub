@@ -5,8 +5,6 @@ export interface AuthContextValue {
   user: AgroUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  /** @deprecated token é gerenciado pelo backend via cookie HttpOnly. */
-  acceptToken: (token: string) => Promise<void>;
   logout: () => Promise<void>;
   canAccess: (resource: string) => boolean;
 }
